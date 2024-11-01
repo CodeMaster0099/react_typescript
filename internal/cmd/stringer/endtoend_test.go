@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -22,8 +23,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"golang.org/x/tools/internal/testenv"
 )
 
 // This file contains a test that compiles and runs each program in testdata
@@ -51,7 +50,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestEndToEnd(t *testing.T) {
-	testenv.NeedsTool(t, "go")
+	// testenv.NeedsTool(t, "go")
 
 	stringer := stringerPath(t)
 	// Read the testdata directory.
@@ -80,7 +79,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			if name == "cgo.go" {
-				testenv.NeedsTool(t, "cgo")
+				// testenv.NeedsTool(t, "cgo")
 			}
 			stringerCompileAndRun(t, t.TempDir(), stringer, typeName(name), name)
 		})
@@ -158,7 +157,7 @@ func TestTags(t *testing.T) {
 // TestConstValueChange verifies that if a constant value changes and
 // the stringer code is not regenerated, we'll get a compiler error.
 func TestConstValueChange(t *testing.T) {
-	testenv.NeedsTool(t, "go")
+	// testenv.NeedsTool(t, "go")
 
 	stringer := stringerPath(t)
 	dir := t.TempDir()
@@ -242,7 +241,7 @@ const (
 // Test stringer on types defined in different kinds of tests.
 // The generated code should not interfere between itself.
 func TestTestFiles(t *testing.T) {
-	testenv.NeedsTool(t, "go")
+	// testenv.NeedsTool(t, "go")
 	stringer := stringerPath(t)
 
 	dir := t.TempDir()
@@ -301,7 +300,7 @@ func TestTestFiles(t *testing.T) {
 
 // The -output flag cannot be used in combiation with matching types across multiple packages.
 func TestCollidingOutput(t *testing.T) {
-	testenv.NeedsTool(t, "go")
+	// testenv.NeedsTool(t, "go")
 	stringer := stringerPath(t)
 
 	dir := t.TempDir()
@@ -327,7 +326,7 @@ var exe struct {
 }
 
 func stringerPath(t *testing.T) string {
-	testenv.NeedsExec(t)
+	// testenv.NeedsExec(t)
 
 	exe.once.Do(func() {
 		exe.path, exe.err = os.Executable()
@@ -387,7 +386,7 @@ func run(t testing.TB, name string, arg ...string) error {
 // it does not succeed.
 func runInDir(t testing.TB, dir, name string, arg ...string) error {
 	t.Helper()
-	cmd := testenv.Command(t, name, arg...)
+	cmd := exec.Command(name, arg...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GO111MODULE=auto")
 	out, err := cmd.CombinedOutput()

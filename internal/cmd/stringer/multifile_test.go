@@ -15,8 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"golang.org/x/tools/internal/diffp"
-	"golang.org/x/tools/internal/testenv"
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/tools/txtar"
 )
 
@@ -57,7 +56,7 @@ func (i Foo) String() string {
 }
 
 func TestMultifileStringer(t *testing.T) {
-	testenv.NeedsTool(t, "go")
+	// testenv.NeedsTool(t, "go")
 	stringer := stringerPath(t)
 
 	tests := []struct {
@@ -421,7 +420,7 @@ const (
 				got = trimHeader(bytes.TrimSpace(got))
 				want = trimHeader(bytes.TrimSpace(want))
 				if !bytes.Equal(want, got) {
-					t.Errorf("file %s does not have the expected content:\n%s", f, diffp.Diff("want", want, "got", got))
+					t.Errorf("file %s does not have the expected content:\n%s", f, cmp.Diff(want, "got"))
 				}
 			}
 
