@@ -461,7 +461,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			pkgs := loadPackages([]string{absFile}, nil, test.trimPrefix, test.lineComment, t.Logf)
+			pkgs := loadPackages([]string{absFile}, nil, test.lineComment, t.Logf)
 			if len(pkgs) != 1 {
 				t.Fatalf("got %d parsed packages but expected 1", len(pkgs))
 			}
@@ -475,7 +475,7 @@ func TestGolden(t *testing.T) {
 				pkg:  pkgs[0],
 				logf: t.Logf,
 			}
-			g.generate(tokens[1], findValues(tokens[1], pkgs[0]))
+			g.generate(tokens[1], findValues(tokens[1], test.trimPrefix, pkgs[0]))
 			got := string(g.format())
 			if got != test.output {
 				t.Errorf("%s: got(%d)\n====\n%q====\nexpected(%d)\n====\n%q", test.name, len(got), got, len(test.output), test.output)

@@ -96,7 +96,7 @@ import (
 var (
 	typeNames   = flag.String("type", "", "comma-separated list of type names; must be set")
 	output      = flag.String("output", "", "output file name; default srcdir/<type>_string.go")
-	trimprefix  = flag.String("trimprefix", "", "trim the `prefix` from the generated constant names")
+	trimprefix  = flag.String("trimprefix", "", "comma-separated list of prefixes to trim from the generated constant names; if only one given, will apply to all types")
 	linecomment = flag.Bool("linecomment", false, "use line comment text as printed text when present")
 	buildTags   = flag.String("tags", "", "comma-separated list of build tags to apply")
 )
@@ -112,6 +112,11 @@ func Usage() {
 	flag.PrintDefaults()
 }
 
+type typeAndTrimPrefix struct {
+	name       string
+	trimPrefix string
+}
+
 func main() {
 	log.SetFlags(0)
 	log.SetPrefix("stringer: ")
@@ -121,10 +126,38 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	types := strings.Split(*typeNames, ",")
 	var tags []string
 	if len(*buildTags) > 0 {
 		tags = strings.Split(*buildTags, ",")
+	}
+
+	rawTypes := strings.Split(*typeNames, ",")
+	var rawTrimPrefixes []string
+	if len(*trimprefix) > 0 {
+		rawTrimPrefixes = strings.Split(*trimprefix, ",")
+		if len(rawTrimPrefixes) == 1 {
+			// Backwards compat: if only one prefix is provided, use that prefix for all types.
+			first := rawTrimPrefixes[0]
+			rawTrimPrefixes = make([]string, len(rawTypes))
+			for i := range rawTrimPrefixes {
+				rawTrimPrefixes[i] = first
+			}
+		}
+		for len(rawTrimPrefixes) < len(rawTypes) {
+			rawTrimPrefixes = append(rawTrimPrefixes, "")
+		}
+	}
+	types := make([]typeAndTrimPrefix, len(rawTypes))
+	for i, name := range rawTypes {
+		var trimPrefix string
+		if len(rawTrimPrefixes) > 0 {
+			trimPrefix = rawTrimPrefixes[i]
+		}
+
+		types[i] = typeAndTrimPrefix{
+			name:       name,
+			trimPrefix: trimPrefix,
+		}
 	}
 
 	// We accept either one directory or a list of files. Which do we have?
@@ -157,7 +190,7 @@ func main() {
 	// from which they were generated.
 	//
 	// Types will be excluded when generated, to avoid repetitions.
-	pkgs := loadPackages(args, tags, *trimprefix, *linecomment, nil /* logf */)
+	pkgs := loadPackages(args, tags, *linecomment, nil /* logf */)
 	sort.Slice(pkgs, func(i, j int) bool {
 		// Put x_test packages last.
 		iTest := strings.HasSuffix(pkgs[i].name, "_test")
@@ -181,14 +214,17 @@ func main() {
 		g.Printf("import \"strconv\"\n") // Used by all methods.
 
 		// Run generate for types that can be found. Keep the rest for the remainingTypes iteration.
-		var foundTypes, remainingTypes []string
-		for _, typeName := range types {
-			values := findValues(typeName, pkg)
+		var foundTypes []string
+		var remainingTypes []typeAndTrimPrefix
+		for _, typ := range types {
+			typeName := typ.name
+			trimPreifx := typ.trimPrefix
+			values := findValues(typeName, trimPreifx, pkg)
 			if len(values) > 0 {
-				g.generate(typeName, values)
-				foundTypes = append(foundTypes, typeName)
+				g.generate(typ.name, values)
+				foundTypes = append(foundTypes, typ.name)
 			} else {
-				remainingTypes = append(remainingTypes, typeName)
+				remainingTypes = append(remainingTypes, typ)
 			}
 		}
 		if len(foundTypes) == 0 {
@@ -219,7 +255,11 @@ func main() {
 	}
 
 	if len(types) > 0 {
-		log.Fatalf("no values defined for types: %s", strings.Join(types, ","))
+		typeNames := make([]string, len(types))
+		for i, typ := range types {
+			typeNames[i] = typ.name
+		}
+		log.Fatalf("no values defined for types: %s", strings.Join(typeNames, ","))
 	}
 }
 
@@ -281,7 +321,7 @@ type Package struct {
 // logf is a test logging hook. It can be nil when not testing.
 func loadPackages(
 	patterns, tags []string,
-	trimPrefix string, lineComment bool,
+	lineComment bool,
 	logf func(format string, args ...interface{}),
 ) []*Package {
 	cfg := &packages.Config{
@@ -312,7 +352,6 @@ func loadPackages(
 				file: file,
 				pkg:  p,
 
-				trimPrefix:  trimPrefix,
 				lineComment: lineComment,
 			}
 		}
@@ -332,11 +371,12 @@ func loadPackages(
 	return out
 }
 
-func findValues(typeName string, pkg *Package) []Value {
+func findValues(typeName string, trimPrefix string, pkg *Package) []Value {
 	values := make([]Value, 0, 100)
 	for _, file := range pkg.files {
 		// Set the state for this run of the walker.
 		file.typeName = typeName
+		file.trimPrefix = trimPrefix
 		file.values = nil
 		if file.file != nil {
 			ast.Inspect(file.file, file.genDecl)
