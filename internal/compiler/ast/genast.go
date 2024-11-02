@@ -9,187 +9,189 @@ import (
 func main() {
 	var d declarer
 
-	firstToken := d.newWithoutNode("Unknown")
-	d.newWithoutNode("EndOfFile")
-	d.newWithoutNode("ConflictMarkerTrivia")
-	d.newWithoutNode("NonTextFileMarkerTrivia")
+	firstToken := d.declareKindOnly("Unknown")
+	d.declareKindOnly("EndOfFile")
+	d.declareKindOnly("ConflictMarkerTrivia")
+	d.declareKindOnly("NonTextFileMarkerTrivia")
 
-	firstLiteralToken := d.newNode("NumericLiteral", &nodeOptions{})
-	d.newNode("BigIntLiteral", &nodeOptions{})
-	d.newNode("StringLiteral", &nodeOptions{})
-	d.newNode("JsxText", &nodeOptions{})
-	d.newWithoutNode("JsxTextAllWhiteSpaces")
-	d.newNode("RegularExpressionLiteral", &nodeOptions{})
-	lastLiteralToken := d.newNode("NoSubstitutionTemplateLiteral", &nodeOptions{})
+	firstLiteralToken := d.declare("NumericLiteral", &declOptions{})
+	d.declare("BigIntLiteral", &declOptions{})
+	d.declare("StringLiteral", &declOptions{})
+	d.declare("JsxText", &declOptions{})
+	d.declareKindOnly("JsxTextAllWhiteSpaces")
+	d.declare("RegularExpressionLiteral", &declOptions{})
+	lastLiteralToken := d.declare("NoSubstitutionTemplateLiteral", &declOptions{})
 
 	// Pseudo-literals
 	firstTemplateToken := lastLiteralToken
-	d.newNode("TemplateHead", &nodeOptions{})
-	d.newNode("TemplateMiddle", &nodeOptions{})
-	lastTemplateToken := d.newNode("TemplateTail", &nodeOptions{})
+	d.declare("TemplateHead", &declOptions{})
+	d.declare("TemplateMiddle", &declOptions{})
+	lastTemplateToken := d.declare("TemplateTail", &declOptions{})
 
-	firstPunctuation := d.newWithoutNode("OpenBraceToken")
-	d.newWithoutNode("CloseBraceToken")
-	d.newWithoutNode("OpenParenToken")
-	d.newWithoutNode("CloseParenToken")
-	d.newWithoutNode("OpenBracketToken")
-	d.newWithoutNode("CloseBracketToken")
-	d.newWithoutNode("DotToken")
-	d.newWithoutNode("DotDotDotToken")
-	d.newWithoutNode("SemicolonToken")
-	d.newWithoutNode("CommaToken")
-	d.newWithoutNode("QuestionDotToken")
-	d.newWithoutNode("LessThanToken")
-	d.newWithoutNode("LessThanSlashToken")
-	d.newWithoutNode("GreaterThanToken")
-	d.newWithoutNode("LessThanEqualsToken")
-	d.newWithoutNode("GreaterThanEqualsToken")
-	d.newWithoutNode("EqualsEqualsToken")
-	d.newWithoutNode("ExclamationEqualsToken")
-	d.newWithoutNode("EqualsEqualsEqualsToken")
-	d.newWithoutNode("ExclamationEqualsEqualsToken")
-	d.newWithoutNode("EqualsGreaterThanToken")
-	d.newWithoutNode("PlusToken")
-	d.newWithoutNode("MinusToken")
-	d.newWithoutNode("AsteriskToken")
-	d.newWithoutNode("AsteriskAsteriskToken")
-	d.newWithoutNode("SlashToken")
-	d.newWithoutNode("PercentToken")
-	d.newWithoutNode("PlusPlusToken")
-	d.newWithoutNode("MinusMinusToken")
-	d.newWithoutNode("LessThanLessThanToken")
-	d.newWithoutNode("GreaterThanGreaterThanToken")
-	d.newWithoutNode("GreaterThanGreaterThanGreaterThanToken")
-	d.newWithoutNode("AmpersandToken")
-	d.newWithoutNode("BarToken")
-	d.newWithoutNode("CaretToken")
-	d.newWithoutNode("ExclamationToken")
-	d.newWithoutNode("TildeToken")
-	d.newWithoutNode("AmpersandAmpersandToken")
-	d.newWithoutNode("BarBarToken")
-	d.newWithoutNode("QuestionToken")
-	d.newWithoutNode("ColonToken")
-	d.newWithoutNode("AtToken")
-	d.newWithoutNode("QuestionQuestionToken")
-	d.newWithoutNode("BacktickToken")
-	d.newWithoutNode("HashToken")
-	firstAssignment := d.newWithoutNode("EqualsToken")
-	firstCompoundAssignment := d.newWithoutNode("PlusEqualsToken")
-	d.newWithoutNode("MinusEqualsToken")
-	d.newWithoutNode("AsteriskEqualsToken")
-	d.newWithoutNode("AsteriskAsteriskEqualsToken")
-	d.newWithoutNode("SlashEqualsToken")
-	d.newWithoutNode("PercentEqualsToken")
-	d.newWithoutNode("LessThanLessThanEqualsToken")
-	d.newWithoutNode("GreaterThanGreaterThanEqualsToken")
-	d.newWithoutNode("GreaterThanGreaterThanGreaterThanEqualsToken")
-	d.newWithoutNode("AmpersandEqualsToken")
-	d.newWithoutNode("BarEqualsToken")
-	d.newWithoutNode("BarBarEqualsToken")
-	d.newWithoutNode("AmpersandAmpersandEqualsToken")
-	d.newWithoutNode("QuestionQuestionEqualsToken")
-	lastPunctuation := d.newWithoutNode("CaretEqualsToken")
+	firstPunctuation := d.declareKindOnly("OpenBraceToken")
+	d.declareKindOnly("CloseBraceToken")
+	d.declareKindOnly("OpenParenToken")
+	d.declareKindOnly("CloseParenToken")
+	d.declareKindOnly("OpenBracketToken")
+	d.declareKindOnly("CloseBracketToken")
+	d.declareKindOnly("DotToken")
+	d.declareKindOnly("DotDotDotToken")
+	d.declareKindOnly("SemicolonToken")
+	d.declareKindOnly("CommaToken")
+	d.declareKindOnly("QuestionDotToken")
+	d.declareKindOnly("LessThanToken")
+	d.declareKindOnly("LessThanSlashToken")
+	d.declareKindOnly("GreaterThanToken")
+	d.declareKindOnly("LessThanEqualsToken")
+	d.declareKindOnly("GreaterThanEqualsToken")
+	d.declareKindOnly("EqualsEqualsToken")
+	d.declareKindOnly("ExclamationEqualsToken")
+	d.declareKindOnly("EqualsEqualsEqualsToken")
+	d.declareKindOnly("ExclamationEqualsEqualsToken")
+	d.declareKindOnly("EqualsGreaterThanToken")
+	d.declareKindOnly("PlusToken")
+	d.declareKindOnly("MinusToken")
+	d.declareKindOnly("AsteriskToken")
+	d.declareKindOnly("AsteriskAsteriskToken")
+	d.declareKindOnly("SlashToken")
+	d.declareKindOnly("PercentToken")
+	d.declareKindOnly("PlusPlusToken")
+	d.declareKindOnly("MinusMinusToken")
+	d.declareKindOnly("LessThanLessThanToken")
+	d.declareKindOnly("GreaterThanGreaterThanToken")
+	d.declareKindOnly("GreaterThanGreaterThanGreaterThanToken")
+	d.declareKindOnly("AmpersandToken")
+	d.declareKindOnly("BarToken")
+	d.declareKindOnly("CaretToken")
+	d.declareKindOnly("ExclamationToken")
+	d.declareKindOnly("TildeToken")
+	d.declareKindOnly("AmpersandAmpersandToken")
+	d.declareKindOnly("BarBarToken")
+	d.declareKindOnly("QuestionToken")
+	d.declareKindOnly("ColonToken")
+	d.declareKindOnly("AtToken")
+	d.declareKindOnly("QuestionQuestionToken")
+	d.declareKindOnly("BacktickToken")
+	d.declareKindOnly("HashToken")
+	firstAssignment := d.declareKindOnly("EqualsToken")
+	firstCompoundAssignment := d.declareKindOnly("PlusEqualsToken")
+	d.declareKindOnly("MinusEqualsToken")
+	d.declareKindOnly("AsteriskEqualsToken")
+	d.declareKindOnly("AsteriskAsteriskEqualsToken")
+	d.declareKindOnly("SlashEqualsToken")
+	d.declareKindOnly("PercentEqualsToken")
+	d.declareKindOnly("LessThanLessThanEqualsToken")
+	d.declareKindOnly("GreaterThanGreaterThanEqualsToken")
+	d.declareKindOnly("GreaterThanGreaterThanGreaterThanEqualsToken")
+	d.declareKindOnly("AmpersandEqualsToken")
+	d.declareKindOnly("BarEqualsToken")
+	d.declareKindOnly("BarBarEqualsToken")
+	d.declareKindOnly("AmpersandAmpersandEqualsToken")
+	d.declareKindOnly("QuestionQuestionEqualsToken")
+	lastPunctuation := d.declareKindOnly("CaretEqualsToken")
 	lastAssignment := lastPunctuation
 	lastCompoundAssignment := lastAssignment
 
-	d.newNode("Identifier", &nodeOptions{})
-	d.newNode("PrivateIdentifier", &nodeOptions{})
-	d.newWithoutNode("JSDocCommentTextToken") // TODO: why is this here??
+	d.declare("Identifier", &declOptions{})
+	d.declare("PrivateIdentifier", &declOptions{})
+	d.declareKindOnly("JSDocCommentTextToken") // TODO: why is this here??
 
-	firstReservedWord := d.newWithoutNode("BreakKeyword")
+	firstReservedWord := d.declareKindOnly("BreakKeyword")
 	// Reserved words
 	firstKeyword := firstReservedWord
-	d.newWithoutNode("CaseKeyword")
-	d.newWithoutNode("CatchKeyword")
-	d.newWithoutNode("ClassKeyword")
-	d.newWithoutNode("ConstKeyword")
-	d.newWithoutNode("ContinueKeyword")
-	d.newWithoutNode("DebuggerKeyword")
-	d.newWithoutNode("DefaultKeyword")
-	d.newWithoutNode("DeleteKeyword")
-	d.newWithoutNode("DoKeyword")
-	d.newWithoutNode("ElseKeyword")
-	d.newWithoutNode("EnumKeyword")
-	d.newWithoutNode("ExportKeyword")
-	d.newWithoutNode("ExtendsKeyword")
-	d.newWithoutNode("FalseKeyword")
-	d.newWithoutNode("FinallyKeyword")
-	d.newWithoutNode("ForKeyword")
-	d.newWithoutNode("FunctionKeyword")
-	d.newWithoutNode("IfKeyword")
-	d.newWithoutNode("ImportKeyword")
-	d.newWithoutNode("InKeyword")
-	d.newWithoutNode("InstanceOfKeyword")
-	d.newWithoutNode("NewKeyword")
-	d.newWithoutNode("NullKeyword")
-	d.newWithoutNode("ReturnKeyword")
-	d.newWithoutNode("SuperKeyword")
-	d.newWithoutNode("SwitchKeyword")
-	d.newWithoutNode("ThisKeyword")
-	d.newWithoutNode("ThrowKeyword")
-	d.newWithoutNode("TrueKeyword")
-	d.newWithoutNode("TryKeyword")
-	d.newWithoutNode("TypeOfKeyword")
-	d.newWithoutNode("VarKeyword")
-	d.newWithoutNode("VoidKeyword")
-	d.newWithoutNode("WhileKeyword")
-	lastReservedWord := d.newWithoutNode("WithKeyword")
+	d.declareKindOnly("CaseKeyword")
+	d.declareKindOnly("CatchKeyword")
+	d.declareKindOnly("ClassKeyword")
+	d.declareKindOnly("ConstKeyword")
+	d.declareKindOnly("ContinueKeyword")
+	d.declareKindOnly("DebuggerKeyword")
+	d.declareKindOnly("DefaultKeyword")
+	d.declareKindOnly("DeleteKeyword")
+	d.declareKindOnly("DoKeyword")
+	d.declareKindOnly("ElseKeyword")
+	d.declareKindOnly("EnumKeyword")
+	d.declareKindOnly("ExportKeyword")
+	d.declareKindOnly("ExtendsKeyword")
+	d.declareKindOnly("FalseKeyword")
+	d.declareKindOnly("FinallyKeyword")
+	d.declareKindOnly("ForKeyword")
+	d.declareKindOnly("FunctionKeyword")
+	d.declareKindOnly("IfKeyword")
+	d.declareKindOnly("ImportKeyword")
+	d.declareKindOnly("InKeyword")
+	d.declareKindOnly("InstanceOfKeyword")
+	d.declareKindOnly("NewKeyword")
+	d.declareKindOnly("NullKeyword")
+	d.declareKindOnly("ReturnKeyword")
+	d.declareKindOnly("SuperKeyword")
+	d.declareKindOnly("SwitchKeyword")
+	d.declareKindOnly("ThisKeyword")
+	d.declareKindOnly("ThrowKeyword")
+	d.declareKindOnly("TrueKeyword")
+	d.declareKindOnly("TryKeyword")
+	d.declareKindOnly("TypeOfKeyword")
+	d.declareKindOnly("VarKeyword")
+	d.declareKindOnly("VoidKeyword")
+	d.declareKindOnly("WhileKeyword")
+	lastReservedWord := d.declareKindOnly("WithKeyword")
 
 	// Strict mode reserved words
-	firstFutureReservedWord := d.newWithoutNode("ImplementsKeyword")
-	d.newWithoutNode("InterfaceKeyword")
-	d.newWithoutNode("LetKeyword")
-	d.newWithoutNode("PackageKeyword")
-	d.newWithoutNode("PrivateKeyword")
-	d.newWithoutNode("ProtectedKeyword")
-	d.newWithoutNode("PublicKeyword")
-	d.newWithoutNode("StaticKeyword")
-	lastFutureReservedWord := d.newWithoutNode("YieldKeyword")
+	firstFutureReservedWord := d.declareKindOnly("ImplementsKeyword")
+	d.declareKindOnly("InterfaceKeyword")
+	d.declareKindOnly("LetKeyword")
+	d.declareKindOnly("PackageKeyword")
+	d.declareKindOnly("PrivateKeyword")
+	d.declareKindOnly("ProtectedKeyword")
+	d.declareKindOnly("PublicKeyword")
+	d.declareKindOnly("StaticKeyword")
+	lastFutureReservedWord := d.declareKindOnly("YieldKeyword")
 
 	// Contextual keywords
-	d.newWithoutNode("AbstractKeyword")
-	d.newWithoutNode("AccessorKeyword")
-	d.newWithoutNode("AsKeyword")
-	d.newWithoutNode("AssertsKeyword")
-	d.newWithoutNode("AssertKeyword")
-	d.newWithoutNode("AnyKeyword")
-	d.newWithoutNode("AsyncKeyword")
-	d.newWithoutNode("AwaitKeyword")
-	d.newWithoutNode("BooleanKeyword")
-	d.newWithoutNode("ConstructorKeyword")
-	d.newWithoutNode("DeclareKeyword")
-	d.newWithoutNode("GetKeyword")
-	d.newWithoutNode("ImmediateKeyword")
-	d.newWithoutNode("InferKeyword")
-	d.newWithoutNode("IntrinsicKeyword")
-	d.newWithoutNode("IsKeyword")
-	d.newWithoutNode("KeyOfKeyword")
-	d.newWithoutNode("ModuleKeyword")
-	d.newWithoutNode("NamespaceKeyword")
-	d.newWithoutNode("NeverKeyword")
-	d.newWithoutNode("OutKeyword")
-	d.newWithoutNode("ReadonlyKeyword")
-	d.newWithoutNode("RequireKeyword")
-	d.newWithoutNode("NumberKeyword")
-	d.newWithoutNode("ObjectKeyword")
-	d.newWithoutNode("SatisfiesKeyword")
-	d.newWithoutNode("SetKeyword")
-	d.newWithoutNode("StringKeyword")
-	d.newWithoutNode("SymbolKeyword")
-	d.newWithoutNode("TypeKeyword")
-	d.newWithoutNode("UndefinedKeyword")
-	d.newWithoutNode("UniqueKeyword")
-	d.newWithoutNode("UnknownKeyword")
-	d.newWithoutNode("UsingKeyword")
-	d.newWithoutNode("FromKeyword")
-	d.newWithoutNode("GlobalKeyword")
-	d.newWithoutNode("BigIntKeyword")
-	d.newWithoutNode("OverrideKeyword")
-	lastKeyword := d.newWithoutNode("OfKeyword")
+	d.declareKindOnly("AbstractKeyword")
+	d.declareKindOnly("AccessorKeyword")
+	d.declareKindOnly("AsKeyword")
+	d.declareKindOnly("AssertsKeyword")
+	d.declareKindOnly("AssertKeyword")
+	d.declareKindOnly("AnyKeyword")
+	d.declareKindOnly("AsyncKeyword")
+	d.declareKindOnly("AwaitKeyword")
+	d.declareKindOnly("BooleanKeyword")
+	d.declareKindOnly("ConstructorKeyword")
+	d.declareKindOnly("DeclareKeyword")
+	d.declareKindOnly("GetKeyword")
+	d.declareKindOnly("ImmediateKeyword")
+	d.declareKindOnly("InferKeyword")
+	d.declareKindOnly("IntrinsicKeyword")
+	d.declareKindOnly("IsKeyword")
+	d.declareKindOnly("KeyOfKeyword")
+	d.declareKindOnly("ModuleKeyword")
+	d.declareKindOnly("NamespaceKeyword")
+	d.declareKindOnly("NeverKeyword")
+	d.declareKindOnly("OutKeyword")
+	d.declareKindOnly("ReadonlyKeyword")
+	d.declareKindOnly("RequireKeyword")
+	d.declareKindOnly("NumberKeyword")
+	d.declareKindOnly("ObjectKeyword")
+	d.declareKindOnly("SatisfiesKeyword")
+	d.declareKindOnly("SetKeyword")
+	d.declareKindOnly("StringKeyword")
+	d.declareKindOnly("SymbolKeyword")
+	d.declareKindOnly("TypeKeyword")
+	d.declareKindOnly("UndefinedKeyword")
+	d.declareKindOnly("UniqueKeyword")
+	d.declareKindOnly("UnknownKeyword")
+	d.declareKindOnly("UsingKeyword")
+	d.declareKindOnly("FromKeyword")
+	d.declareKindOnly("GlobalKeyword")
+	d.declareKindOnly("BigIntKeyword")
+	d.declareKindOnly("OverrideKeyword")
+	lastKeyword := d.declareKindOnly("OfKeyword")
 	lastToken := lastKeyword
 
 	// Parse tree nodes
 	// Names
+
+	// Markers
 
 	d.createGroup("Assignment", firstAssignment, lastAssignment)
 	d.createGroup("CompoundAssignment", firstCompoundAssignment, lastCompoundAssignment)
@@ -211,8 +213,8 @@ func main() {
 	fmt.Println()
 	fmt.Println("const (")
 
-	for _, n := range d.nodes {
-		if n.first {
+	for i, n := range d.nodes {
+		if i == 0 {
 			fmt.Printf("\tSyntaxKind%s SyntaxKind = iota\n", n.name)
 		} else {
 			fmt.Printf("\tSyntaxKind%s\n", n.name)
@@ -230,60 +232,131 @@ func main() {
 
 	fmt.Println(")")
 
-	// TODO: Count
-
+	for _, n := range d.nodes {
+		n.Generate()
+	}
 }
 
 type declarer struct {
-	nodes       []*SyntaxKind
-	nodesByName map[string]*SyntaxKind
+	nodes       []*syntaxKind
+	nodesByName map[string]*syntaxKind
 	groups      []*group
 }
 
 type group struct {
 	name  string
-	start *SyntaxKind
-	end   *SyntaxKind
+	start *syntaxKind
+	end   *syntaxKind
 }
 
-func (d *declarer) createGroup(name string, start, end *SyntaxKind) {
+func (d *declarer) createGroup(name string, start, end *syntaxKind) {
 	d.groups = append(d.groups, &group{name: name, start: start, end: end})
 }
 
-type nodeOptions struct {
+type declOptions struct {
+	poolAllocate bool
 }
 
-func (d *declarer) newWithoutNode(name string) *SyntaxKind {
-	return d.newNode(name, nil)
+func (d *declarer) declareKindOnly(name string) *syntaxKind {
+	return d.declare(name, nil)
 }
 
-func (d *declarer) newNode(name string, opts *nodeOptions) *SyntaxKind {
+func (d *declarer) declare(name string, opts *declOptions) *syntaxKind {
 	if d.nodesByName == nil {
-		d.nodesByName = make(map[string]*SyntaxKind)
+		d.nodesByName = make(map[string]*syntaxKind)
 	}
 
-	n := &SyntaxKind{
-		first: len(d.nodes) == 0,
-		name:  name,
+	n := &syntaxKind{
+		name: name,
+		opts: opts,
 	}
 	d.nodes = append(d.nodes, n)
 	d.nodesByName[name] = n
 	return n
 }
 
-type Type interface {
+type genType interface {
 	Name() string
 }
 
-type SyntaxKind struct {
-	first    bool
-	name     string
-	children []Child
+type goType struct {
+	name string
 }
 
-func (n *SyntaxKind) Name() string { return n.name }
+func (t *goType) Name() string { return t.name }
 
-type Child struct {
+var (
+	stringType = &goType{name: "string"}
+)
+
+type syntaxKind struct {
+	name   string
+	opts   *declOptions
+	fields []field
+}
+
+type field struct {
 	name string
-	typ  Type
+	typ  genType
+}
+
+func (n *syntaxKind) Name() string { return n.name }
+
+func (n *syntaxKind) Generate() {
+	// TODO: stream to output?
+
+	if n.opts == nil {
+		return // not a real node; no code
+	}
+
+	fmt.Println()
+	fmt.Printf("type %s struct {\n", n.name)
+	fmt.Println("\tNodeBase")
+	// TODO: children
+	fmt.Println("}")
+	fmt.Println()
+
+	printNewParams := func() {
+		// TODO
+	}
+	printNewArgs := func() {
+		// TODO
+	}
+
+	// TODO: accept and set children
+	fmt.Printf("func (n *%s) reset(", n.name)
+	printNewParams()
+	fmt.Println(") {")
+	// TODO: generate optimal assignment
+	fmt.Printf("\t*n = %s{}\n", n.name)
+	fmt.Println("}")
+	fmt.Println()
+
+	fmt.Printf("func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", n.name, n.name)
+	fmt.Println()
+
+	fmt.Printf("func New%s(", n.name)
+	printNewParams()
+	fmt.Printf(") *%s {\n", n.name)
+	fmt.Printf("\tv := &%s{}\n", n.name)
+	fmt.Printf("\tv.reset(")
+	printNewArgs()
+	fmt.Println(")")
+	fmt.Println("\treturn v")
+	fmt.Println("}")
+	fmt.Println()
+
+	// TODO: params
+	fmt.Printf("func (f *Factory) New%s() *%s {\n", n.name, n.name)
+	if n.opts.poolAllocate {
+		fmt.Printf("\tv := f.%sPool.Get()\n", n.name)
+	} else {
+		fmt.Printf("\tv := &%s{}\n", n.name)
+	}
+	fmt.Printf("\tv.reset(")
+	printNewArgs()
+	fmt.Println(")")
+	fmt.Println("\treturn v")
+	fmt.Println("}")
+	fmt.Println()
 }
