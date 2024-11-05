@@ -3,10 +3,32 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
+	"os"
 )
 
+var output = flag.String("output", "", "output file")
+
 func main() {
+	flag.Parse()
+
+	f := os.Stdout
+	if *output != "" {
+		var err error
+		f, err = os.Create(*output)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer f.Close()
+	}
+
+	declare(f)
+}
+
+func declare(w io.Writer) {
 	var d declarer
 
 	firstToken := d.declareKindOnly("Unknown")
@@ -92,7 +114,9 @@ func main() {
 	lastAssignment := lastPunctuation
 	lastCompoundAssignment := lastAssignment
 
-	d.declare("Identifier", &declOptions{})
+	d.declare("Identifier", &declOptions{
+		poolAllocate: true,
+	})
 	d.declare("PrivateIdentifier", &declOptions{})
 	d.declareKindOnly("JSDocCommentTextToken") // TODO: why is this here??
 
@@ -209,31 +233,53 @@ func main() {
 	// d.createGroup("JSDocTagNode", firstJSDocTagNode, lastJSDocTagNode)
 	// d.createGroup("ContextualKeyword", firstContextualKeyword, lastContextualKeyword)
 
-	fmt.Println("type SyntaxKind int64")
-	fmt.Println()
-	fmt.Println("const (")
+	fmt.Fprintln(w, "package ast")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "type SyntaxKind int16")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "const (")
 
 	for i, n := range d.nodes {
 		if i == 0 {
-			fmt.Printf("\tSyntaxKind%s SyntaxKind = iota\n", n.name)
+			fmt.Fprintf(w, "\tSyntaxKind%s SyntaxKind = iota\n", n.name)
 		} else {
-			fmt.Printf("\tSyntaxKind%s\n", n.name)
+			fmt.Fprintf(w, "\tSyntaxKind%s\n", n.name)
 		}
 	}
 
-	fmt.Println()
-	fmt.Println("\tSyntaxKindCount")
-	fmt.Println()
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "\tSyntaxKindCount")
+	fmt.Fprintln(w)
 
 	for _, g := range d.groups {
-		fmt.Printf("\t%sStart = SyntaxKind%s\n", g.name, g.start.name)
-		fmt.Printf("\t%sEnd = SyntaxKind%s\n", g.name, g.end.name)
+		fmt.Fprintf(w, "\t%sStart = SyntaxKind%s\n", g.name, g.start.name)
+		fmt.Fprintf(w, "\t%sEnd = SyntaxKind%s\n", g.name, g.end.name)
 	}
 
-	fmt.Println(")")
+	fmt.Fprintln(w, ")")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "type NodeFlags uint32")
+	fmt.Fprintln(w, "type NodeID uint32")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "type TextRange struct {")
+	fmt.Fprintln(w, "\tPos int32")
+	fmt.Fprintln(w, "\tEnd int32")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "type Node struct {")
+	fmt.Fprintln(w, "\tkind   SyntaxKind")
+	fmt.Fprintln(w, "\tflags  NodeFlags")
+	fmt.Fprintln(w, "\tloc    TextRange")
+	fmt.Fprintln(w, "\tid     NodeID")
+	fmt.Fprintln(w, "\tparent *Node")
+	fmt.Fprintln(w, "\tdata   NodeData")
+	fmt.Fprintln(w, "}")
 
 	for _, n := range d.nodes {
-		n.Generate()
+		n.Generate(w)
 	}
 }
 
@@ -241,6 +287,7 @@ type declarer struct {
 	nodes       []*syntaxKind
 	nodesByName map[string]*syntaxKind
 	groups      []*group
+	count       int
 }
 
 type group struct {
@@ -250,6 +297,9 @@ type group struct {
 }
 
 func (d *declarer) createGroup(name string, start, end *syntaxKind) {
+	if start.kind > end.kind {
+		panic("start > end")
+	}
 	d.groups = append(d.groups, &group{name: name, start: start, end: end})
 }
 
@@ -267,11 +317,13 @@ func (d *declarer) declare(name string, opts *declOptions) *syntaxKind {
 	}
 
 	n := &syntaxKind{
+		kind: d.count,
 		name: name,
 		opts: opts,
 	}
 	d.nodes = append(d.nodes, n)
 	d.nodesByName[name] = n
+	d.count++
 	return n
 }
 
@@ -290,6 +342,7 @@ var (
 )
 
 type syntaxKind struct {
+	kind   int
 	name   string
 	opts   *declOptions
 	fields []field
@@ -302,19 +355,19 @@ type field struct {
 
 func (n *syntaxKind) Name() string { return n.name }
 
-func (n *syntaxKind) Generate() {
+func (n *syntaxKind) Generate(w io.Writer) {
 	// TODO: stream to output?
 
 	if n.opts == nil {
 		return // not a real node; no code
 	}
 
-	fmt.Println()
-	fmt.Printf("type %s struct {\n", n.name)
-	fmt.Println("\tNodeBase")
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "type %s struct {\n", n.name)
+	fmt.Fprintln(w, "\tNodeBase")
 	// TODO: children
-	fmt.Println("}")
-	fmt.Println()
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 
 	printNewParams := func() {
 		// TODO
@@ -324,39 +377,39 @@ func (n *syntaxKind) Generate() {
 	}
 
 	// TODO: accept and set children
-	fmt.Printf("func (n *%s) reset(", n.name)
+	fmt.Fprintf(w, "func (n *%s) reset(", n.name)
 	printNewParams()
-	fmt.Println(") {")
+	fmt.Fprintln(w, ") {")
 	// TODO: generate optimal assignment
-	fmt.Printf("\t*n = %s{}\n", n.name)
-	fmt.Println("}")
-	fmt.Println()
+	fmt.Fprintf(w, "\t*n = %s{}\n", n.name)
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 
-	fmt.Printf("func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", n.name, n.name)
-	fmt.Println()
+	fmt.Fprintf(w, "func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", n.name, n.name)
+	fmt.Fprintln(w)
 
-	fmt.Printf("func New%s(", n.name)
+	fmt.Fprintf(w, "func New%s(", n.name)
 	printNewParams()
-	fmt.Printf(") *%s {\n", n.name)
-	fmt.Printf("\tv := &%s{}\n", n.name)
-	fmt.Printf("\tv.reset(")
+	fmt.Fprintf(w, ") *%s {\n", n.name)
+	fmt.Fprintf(w, "\tv := &%s{}\n", n.name)
+	fmt.Fprintf(w, "\tv.reset(")
 	printNewArgs()
-	fmt.Println(")")
-	fmt.Println("\treturn v")
-	fmt.Println("}")
-	fmt.Println()
+	fmt.Fprintln(w, ")")
+	fmt.Fprintln(w, "\treturn v")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 
 	// TODO: params
-	fmt.Printf("func (f *Factory) New%s() *%s {\n", n.name, n.name)
+	fmt.Fprintf(w, "func (f *Factory) New%s() *%s {\n", n.name, n.name)
 	if n.opts.poolAllocate {
-		fmt.Printf("\tv := f.%sPool.Get()\n", n.name)
+		fmt.Fprintf(w, "\tv := f.%sPool.Get()\n", n.name)
 	} else {
-		fmt.Printf("\tv := &%s{}\n", n.name)
+		fmt.Fprintf(w, "\tv := &%s{}\n", n.name)
 	}
-	fmt.Printf("\tv.reset(")
+	fmt.Fprintf(w, "\tv.reset(")
 	printNewArgs()
-	fmt.Println(")")
-	fmt.Println("\treturn v")
-	fmt.Println("}")
-	fmt.Println()
+	fmt.Fprintln(w, ")")
+	fmt.Fprintln(w, "\treturn v")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 }
