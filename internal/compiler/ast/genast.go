@@ -3,8 +3,10 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"go/format"
 	"io"
 	"os"
 )
@@ -13,6 +15,15 @@ var output = flag.String("output", "", "output file")
 
 func main() {
 	flag.Parse()
+
+	var buf bytes.Buffer
+	declare(&buf)
+
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
 	f := os.Stdout
 	if *output != "" {
@@ -25,7 +36,7 @@ func main() {
 		defer f.Close()
 	}
 
-	declare(f)
+	f.Write(formatted)
 }
 
 func declare(w io.Writer) {
@@ -270,13 +281,14 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "type Node struct {")
-	fmt.Fprintln(w, "\tkind   SyntaxKind")
+	fmt.Fprintln(w, "\tkind SyntaxKind")
 	fmt.Fprintln(w, "\tflags  NodeFlags")
-	fmt.Fprintln(w, "\tloc    TextRange")
-	fmt.Fprintln(w, "\tid     NodeID")
+	fmt.Fprintln(w, "\tloc TextRange")
+	fmt.Fprintln(w, "\tid NodeID")
 	fmt.Fprintln(w, "\tparent *Node")
-	fmt.Fprintln(w, "\tdata   NodeData")
+	fmt.Fprintln(w, "\tdata NodeData")
 	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
 
 	for _, n := range d.nodes {
 		n.Generate(w)
@@ -341,6 +353,17 @@ var (
 	stringType = &goType{name: "string"}
 )
 
+type unionType struct {
+	name string
+	types []genType
+}
+
+func (t *unionType) Name() string { return t.name }
+
+func newUnionType(name string, types ...genType) *unionType {
+	return &unionType{name: name, types: types}
+}
+
 type syntaxKind struct {
 	kind   int
 	name   string
@@ -367,6 +390,9 @@ func (n *syntaxKind) Generate(w io.Writer) {
 	fmt.Fprintln(w, "\tNodeBase")
 	// TODO: children
 	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+
+	fmt.Fprintf(w, "func (n *Node) As%s() *%s { return n.data.(*%s) }\n", n.name, n.name, n.name)
 	fmt.Fprintln(w)
 
 	printNewParams := func() {

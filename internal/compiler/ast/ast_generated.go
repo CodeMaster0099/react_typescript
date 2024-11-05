@@ -168,24 +168,24 @@ const (
 
 	SyntaxKindCount
 
-	AssignmentStart = SyntaxKindEqualsToken
-	AssignmentEnd = SyntaxKindCaretEqualsToken
+	AssignmentStart         = SyntaxKindEqualsToken
+	AssignmentEnd           = SyntaxKindCaretEqualsToken
 	CompoundAssignmentStart = SyntaxKindPlusEqualsToken
-	CompoundAssignmentEnd = SyntaxKindCaretEqualsToken
-	ReservedWordStart = SyntaxKindBreakKeyword
-	ReservedWordEnd = SyntaxKindWithKeyword
-	KeywordStart = SyntaxKindBreakKeyword
-	KeywordEnd = SyntaxKindOfKeyword
+	CompoundAssignmentEnd   = SyntaxKindCaretEqualsToken
+	ReservedWordStart       = SyntaxKindBreakKeyword
+	ReservedWordEnd         = SyntaxKindWithKeyword
+	KeywordStart            = SyntaxKindBreakKeyword
+	KeywordEnd              = SyntaxKindOfKeyword
 	FutureReservedWordStart = SyntaxKindImplementsKeyword
-	FutureReservedWordEnd = SyntaxKindYieldKeyword
-	PunctuationStart = SyntaxKindOpenBraceToken
-	PunctuationEnd = SyntaxKindCaretEqualsToken
-	TokenStart = SyntaxKindUnknown
-	TokenEnd = SyntaxKindOfKeyword
-	LiteralTokenStart = SyntaxKindNumericLiteral
-	LiteralTokenEnd = SyntaxKindNoSubstitutionTemplateLiteral
-	TemplateTokenStart = SyntaxKindNoSubstitutionTemplateLiteral
-	TemplateTokenEnd = SyntaxKindTemplateTail
+	FutureReservedWordEnd   = SyntaxKindYieldKeyword
+	PunctuationStart        = SyntaxKindOpenBraceToken
+	PunctuationEnd          = SyntaxKindCaretEqualsToken
+	TokenStart              = SyntaxKindUnknown
+	TokenEnd                = SyntaxKindOfKeyword
+	LiteralTokenStart       = SyntaxKindNumericLiteral
+	LiteralTokenEnd         = SyntaxKindNoSubstitutionTemplateLiteral
+	TemplateTokenStart      = SyntaxKindNoSubstitutionTemplateLiteral
+	TemplateTokenEnd        = SyntaxKindTemplateTail
 )
 
 type NodeFlags uint32
@@ -209,6 +209,8 @@ type NumericLiteral struct {
 	NodeBase
 }
 
+func (n *Node) AsNumericLiteral() *NumericLiteral { return n.data.(*NumericLiteral) }
+
 func (n *NumericLiteral) reset() {
 	*n = NumericLiteral{}
 }
@@ -227,10 +229,11 @@ func (f *Factory) NewNumericLiteral() *NumericLiteral {
 	return v
 }
 
-
 type BigIntLiteral struct {
 	NodeBase
 }
+
+func (n *Node) AsBigIntLiteral() *BigIntLiteral { return n.data.(*BigIntLiteral) }
 
 func (n *BigIntLiteral) reset() {
 	*n = BigIntLiteral{}
@@ -250,10 +253,11 @@ func (f *Factory) NewBigIntLiteral() *BigIntLiteral {
 	return v
 }
 
-
 type StringLiteral struct {
 	NodeBase
 }
+
+func (n *Node) AsStringLiteral() *StringLiteral { return n.data.(*StringLiteral) }
 
 func (n *StringLiteral) reset() {
 	*n = StringLiteral{}
@@ -273,10 +277,11 @@ func (f *Factory) NewStringLiteral() *StringLiteral {
 	return v
 }
 
-
 type JsxText struct {
 	NodeBase
 }
+
+func (n *Node) AsJsxText() *JsxText { return n.data.(*JsxText) }
 
 func (n *JsxText) reset() {
 	*n = JsxText{}
@@ -296,9 +301,12 @@ func (f *Factory) NewJsxText() *JsxText {
 	return v
 }
 
-
 type RegularExpressionLiteral struct {
 	NodeBase
+}
+
+func (n *Node) AsRegularExpressionLiteral() *RegularExpressionLiteral {
+	return n.data.(*RegularExpressionLiteral)
 }
 
 func (n *RegularExpressionLiteral) reset() {
@@ -319,16 +327,21 @@ func (f *Factory) NewRegularExpressionLiteral() *RegularExpressionLiteral {
 	return v
 }
 
-
 type NoSubstitutionTemplateLiteral struct {
 	NodeBase
+}
+
+func (n *Node) AsNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLiteral {
+	return n.data.(*NoSubstitutionTemplateLiteral)
 }
 
 func (n *NoSubstitutionTemplateLiteral) reset() {
 	*n = NoSubstitutionTemplateLiteral{}
 }
 
-func (n *NoSubstitutionTemplateLiteral) Kind() SyntaxKind { return SyntaxKindNoSubstitutionTemplateLiteral }
+func (n *NoSubstitutionTemplateLiteral) Kind() SyntaxKind {
+	return SyntaxKindNoSubstitutionTemplateLiteral
+}
 
 func NewNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLiteral {
 	v := &NoSubstitutionTemplateLiteral{}
@@ -342,10 +355,11 @@ func (f *Factory) NewNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLite
 	return v
 }
 
-
 type TemplateHead struct {
 	NodeBase
 }
+
+func (n *Node) AsTemplateHead() *TemplateHead { return n.data.(*TemplateHead) }
 
 func (n *TemplateHead) reset() {
 	*n = TemplateHead{}
@@ -365,10 +379,11 @@ func (f *Factory) NewTemplateHead() *TemplateHead {
 	return v
 }
 
-
 type TemplateMiddle struct {
 	NodeBase
 }
+
+func (n *Node) AsTemplateMiddle() *TemplateMiddle { return n.data.(*TemplateMiddle) }
 
 func (n *TemplateMiddle) reset() {
 	*n = TemplateMiddle{}
@@ -388,10 +403,11 @@ func (f *Factory) NewTemplateMiddle() *TemplateMiddle {
 	return v
 }
 
-
 type TemplateTail struct {
 	NodeBase
 }
+
+func (n *Node) AsTemplateTail() *TemplateTail { return n.data.(*TemplateTail) }
 
 func (n *TemplateTail) reset() {
 	*n = TemplateTail{}
@@ -411,10 +427,11 @@ func (f *Factory) NewTemplateTail() *TemplateTail {
 	return v
 }
 
-
 type Identifier struct {
 	NodeBase
 }
+
+func (n *Node) AsIdentifier() *Identifier { return n.data.(*Identifier) }
 
 func (n *Identifier) reset() {
 	*n = Identifier{}
@@ -434,10 +451,11 @@ func (f *Factory) NewIdentifier() *Identifier {
 	return v
 }
 
-
 type PrivateIdentifier struct {
 	NodeBase
 }
+
+func (n *Node) AsPrivateIdentifier() *PrivateIdentifier { return n.data.(*PrivateIdentifier) }
 
 func (n *PrivateIdentifier) reset() {
 	*n = PrivateIdentifier{}
@@ -456,4 +474,3 @@ func (f *Factory) NewPrivateIdentifier() *PrivateIdentifier {
 	v.reset()
 	return v
 }
-
