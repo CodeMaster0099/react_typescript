@@ -730,6 +730,7 @@ func (n *syntaxKind) Generate(w io.Writer) {
 	fmt.Fprintln(w)
 
 	// TODO: params
+	// TODO: return *Node, call a helper func that converts to *Node and sets kind
 	fmt.Fprintf(w, "func (f *Factory) New%s() *%s {\n", n.name, n.name)
 	if n.opts.poolAllocate {
 		fmt.Fprintf(w, "\tv := f._%sPool.allocate()\n", n.name)
