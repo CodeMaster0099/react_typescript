@@ -72,7 +72,7 @@ func declare(w io.Writer) {
 	d.declareKindOnly("SemicolonToken")
 	d.declareKindOnly("CommaToken")
 	d.declareKindOnly("QuestionDotToken")
-	d.declareKindOnly("LessThanToken")
+	firstBinaryOperator := d.declareKindOnly("LessThanToken")
 	d.declareKindOnly("LessThanSlashToken")
 	d.declareKindOnly("GreaterThanToken")
 	d.declareKindOnly("LessThanEqualsToken")
@@ -123,7 +123,8 @@ func declare(w io.Writer) {
 	d.declareKindOnly("QuestionQuestionEqualsToken")
 	lastPunctuation := d.declareKindOnly("CaretEqualsToken")
 	lastAssignment := lastPunctuation
-	lastCompoundAssignment := lastAssignment
+	lastCompoundAssignment := lastPunctuation
+	lastBinaryOperator := lastPunctuation
 
 	d.declare("Identifier", &declOptions{
 		poolAllocate: true,
@@ -182,7 +183,7 @@ func declare(w io.Writer) {
 	lastFutureReservedWord := d.declareKindOnly("YieldKeyword")
 
 	// Contextual keywords
-	d.declareKindOnly("AbstractKeyword")
+	firstContextualKeyword := d.declareKindOnly("AbstractKeyword")
 	d.declareKindOnly("AccessorKeyword")
 	d.declareKindOnly("AsKeyword")
 	d.declareKindOnly("AssertsKeyword")
@@ -222,9 +223,241 @@ func declare(w io.Writer) {
 	d.declareKindOnly("OverrideKeyword")
 	lastKeyword := d.declareKindOnly("OfKeyword")
 	lastToken := lastKeyword
+	lastContextualKeyword := lastKeyword
 
 	// Parse tree nodes
 	// Names
+	firstNode := d.declare("QualifiedName", &declOptions{})
+	d.declare("ComputedPropertyName", &declOptions{})
+
+	// Lists
+	d.declare("ModifierList", &declOptions{})
+	d.declare("TypeParameterList", &declOptions{})
+	d.declare("TypeArgumentList", &declOptions{})
+
+	// Signature elements
+	d.declare("TypeParameter", &declOptions{})
+	d.declare("Parameter", &declOptions{})
+	d.declare("Decorator", &declOptions{})
+
+	// TypeMember
+	d.declare("PropertySignature", &declOptions{})
+	d.declare("PropertyDeclaration", &declOptions{})
+	d.declare("MethodSignature", &declOptions{})
+	d.declare("MethodDeclaration", &declOptions{})
+	d.declare("ClassStaticBlockDeclaration", &declOptions{})
+	d.declare("Constructor", &declOptions{})
+	d.declare("GetAccessor", &declOptions{})
+	d.declare("SetAccessor", &declOptions{})
+	d.declare("CallSignature", &declOptions{})
+	d.declare("ConstructSignature", &declOptions{})
+	d.declare("IndexSignature", &declOptions{})
+
+	// Type
+	firstTypeNode := d.declare("TypePredicate", &declOptions{})
+	d.declare("TypeReference", &declOptions{})
+	d.declare("FunctionType", &declOptions{})
+	d.declare("ConstructorType", &declOptions{})
+	d.declare("TypeQuery", &declOptions{})
+	d.declare("TypeLiteral", &declOptions{})
+	d.declare("ArrayType", &declOptions{})
+	d.declare("TupleType", &declOptions{})
+	d.declare("OptionalType", &declOptions{})
+	d.declare("RestType", &declOptions{})
+	d.declare("UnionType", &declOptions{})
+	d.declare("IntersectionType", &declOptions{})
+	d.declare("ConditionalType", &declOptions{})
+	d.declare("InferType", &declOptions{})
+	d.declare("ParenthesizedType", &declOptions{})
+	d.declare("ThisType", &declOptions{})
+	d.declare("TypeOperator", &declOptions{})
+	d.declare("IndexedAccessType", &declOptions{})
+	d.declare("MappedType", &declOptions{})
+	d.declare("LiteralType", &declOptions{})
+	d.declare("NamedTupleMember", &declOptions{})
+	d.declare("TemplateLiteralType", &declOptions{})
+	d.declare("TemplateLiteralTypeSpan", &declOptions{})
+	lastTypeNode := d.declare("ImportType", &declOptions{})
+
+	// Binding patterns
+	d.declare("ObjectBindingPattern", &declOptions{})
+	d.declare("ArrayBindingPattern", &declOptions{})
+	d.declare("BindingElement", &declOptions{})
+
+	// Expression
+	d.declare("ArrayLiteralExpression", &declOptions{})
+	d.declare("ObjectLiteralExpression", &declOptions{})
+	propertyAccessExpression := d.declare("PropertyAccessExpression", &declOptions{})
+	elementAccessExpression := d.declare("ElementAccessExpression", &declOptions{})
+	d.declare("CallExpression", &declOptions{})
+	d.declare("NewExpression", &declOptions{})
+	d.declare("TaggedTemplateExpression", &declOptions{})
+	d.declare("TypeAssertionExpression", &declOptions{})
+	d.declare("ParenthesizedExpression", &declOptions{})
+	d.declare("FunctionExpression", &declOptions{})
+	d.declare("ArrowFunction", &declOptions{})
+	d.declare("DeleteExpression", &declOptions{})
+	d.declare("TypeOfExpression", &declOptions{})
+	d.declare("VoidExpression", &declOptions{})
+	d.declare("AwaitExpression", &declOptions{})
+	d.declare("PrefixUnaryExpression", &declOptions{})
+	d.declare("PostfixUnaryExpression", &declOptions{})
+	d.declare("BinaryExpression", &declOptions{})
+	d.declare("ConditionalExpression", &declOptions{})
+	d.declare("TemplateExpression", &declOptions{})
+	d.declare("YieldExpression", &declOptions{})
+	d.declare("SpreadElement", &declOptions{})
+	d.declare("ClassExpression", &declOptions{})
+	d.declare("OmittedExpression", &declOptions{})
+	d.declare("ExpressionWithTypeArguments", &declOptions{})
+	d.declare("AsExpression", &declOptions{})
+	d.declare("NonNullExpression", &declOptions{})
+	d.declare("MetaProperty", &declOptions{})
+	d.declare("SyntheticExpression", &declOptions{})
+	d.declare("SatisfiesExpression", &declOptions{})
+
+	// Misc
+	d.declare("TemplateSpan", &declOptions{})
+	d.declare("SemicolonClassElement", &declOptions{})
+
+	// Element
+	d.declare("Block", &declOptions{})
+	d.declare("EmptyStatement", &declOptions{})
+	d.declare("VariableStatement", &declOptions{})
+	d.declare("ExpressionStatement", &declOptions{})
+	d.declare("IfStatement", &declOptions{})
+	d.declare("DoStatement", &declOptions{})
+	d.declare("WhileStatement", &declOptions{})
+	d.declare("ForStatement", &declOptions{})
+	d.declare("ForInStatement", &declOptions{})
+	d.declare("ForOfStatement", &declOptions{})
+	d.declare("ContinueStatement", &declOptions{})
+	d.declare("BreakStatement", &declOptions{})
+	d.declare("ReturnStatement", &declOptions{})
+	d.declare("WithStatement", &declOptions{})
+	d.declare("SwitchStatement", &declOptions{})
+	d.declare("LabeledStatement", &declOptions{})
+	d.declare("ThrowStatement", &declOptions{})
+	d.declare("TryStatement", &declOptions{})
+	d.declare("DebuggerStatement", &declOptions{})
+	d.declare("VariableDeclaration", &declOptions{})
+	d.declare("VariableDeclarationList", &declOptions{})
+	d.declare("FunctionDeclaration", &declOptions{})
+	d.declare("ClassDeclaration", &declOptions{})
+	d.declare("InterfaceDeclaration", &declOptions{})
+	d.declare("TypeAliasDeclaration", &declOptions{})
+	d.declare("EnumDeclaration", &declOptions{})
+	d.declare("ModuleDeclaration", &declOptions{})
+	d.declare("ModuleBlock", &declOptions{})
+	d.declare("CaseBlock", &declOptions{})
+	d.declare("NamespaceExportDeclaration", &declOptions{})
+	d.declare("ImportEqualsDeclaration", &declOptions{})
+	d.declare("ImportDeclaration", &declOptions{})
+	d.declare("ImportClause", &declOptions{})
+	d.declare("NamespaceImport", &declOptions{})
+	d.declare("NamedImports", &declOptions{})
+	d.declare("ImportSpecifier", &declOptions{})
+	d.declare("ExportAssignment", &declOptions{})
+	d.declare("ExportDeclaration", &declOptions{})
+	d.declare("NamedExports", &declOptions{})
+	d.declare("NamespaceExport", &declOptions{})
+	d.declare("ExportSpecifier", &declOptions{})
+	d.declare("MissingDeclaration", &declOptions{})
+
+	// Module references
+	d.declare("ExternalModuleReference", &declOptions{})
+
+	// JSX
+	d.declare("JsxElement", &declOptions{})
+	d.declare("JsxSelfClosingElement", &declOptions{})
+	d.declare("JsxOpeningElement", &declOptions{})
+	d.declare("JsxClosingElement", &declOptions{})
+	d.declare("JsxFragment", &declOptions{})
+	d.declare("JsxOpeningFragment", &declOptions{})
+	d.declare("JsxClosingFragment", &declOptions{})
+	d.declare("JsxAttribute", &declOptions{})
+	d.declare("JsxAttributes", &declOptions{})
+	d.declare("JsxSpreadAttribute", &declOptions{})
+	d.declare("JsxExpression", &declOptions{})
+	d.declare("JsxNamespacedName", &declOptions{})
+
+	// Clauses
+	d.declare("CaseClause", &declOptions{})
+	d.declare("DefaultClause", &declOptions{})
+	d.declare("HeritageClause", &declOptions{})
+	d.declare("CatchClause", &declOptions{})
+
+	// Import attributes
+	d.declare("ImportAttributes", &declOptions{})
+	d.declare("ImportAttribute", &declOptions{})
+
+	// Property assignments
+	d.declare("PropertyAssignment", &declOptions{})
+	d.declare("ShorthandPropertyAssignment", &declOptions{})
+	d.declare("SpreadAssignment", &declOptions{})
+
+	// Enum
+	d.declare("EnumMember", &declOptions{})
+
+	// Top-level nodes
+	d.declare("SourceFile", &declOptions{})
+	d.declare("Bundle", &declOptions{})
+
+	// JSDoc nodes
+	firstJSDocNode := d.declare("JSDocTypeExpression", &declOptions{})
+	d.declare("JSDocNameReference", &declOptions{})
+	d.declare("JSDocMemberName", &declOptions{})  // C#p
+	d.declare("JSDocAllType", &declOptions{})     // The * type
+	d.declare("JSDocUnknownType", &declOptions{}) // The ? type
+	d.declare("JSDocNullableType", &declOptions{})
+	d.declare("JSDocNonNullableType", &declOptions{})
+	d.declare("JSDocOptionalType", &declOptions{})
+	d.declare("JSDocFunctionType", &declOptions{})
+	d.declare("JSDocVariadicType", &declOptions{})
+	d.declare("JSDocNamepathType", &declOptions{}) // https://jsdoc.app/about-namepaths.html
+	d.declare("JSDoc", &declOptions{})
+	d.declare("JSDocText", &declOptions{})
+	d.declare("JSDocTypeLiteral", &declOptions{})
+	d.declare("JSDocSignature", &declOptions{})
+	d.declare("JSDocLink", &declOptions{})
+	d.declare("JSDocLinkCode", &declOptions{})
+	d.declare("JSDocLinkPlain", &declOptions{})
+	firstJSDocTagNode := d.declare("JSDocTag", &declOptions{})
+	d.declare("JSDocAugmentsTag", &declOptions{})
+	d.declare("JSDocImplementsTag", &declOptions{})
+	d.declare("JSDocAuthorTag", &declOptions{})
+	d.declare("JSDocDeprecatedTag", &declOptions{})
+	d.declare("JSDocImmediateTag", &declOptions{})
+	d.declare("JSDocClassTag", &declOptions{})
+	d.declare("JSDocPublicTag", &declOptions{})
+	d.declare("JSDocPrivateTag", &declOptions{})
+	d.declare("JSDocProtectedTag", &declOptions{})
+	d.declare("JSDocReadonlyTag", &declOptions{})
+	d.declare("JSDocOverrideTag", &declOptions{})
+	d.declare("JSDocCallbackTag", &declOptions{})
+	d.declare("JSDocOverloadTag", &declOptions{})
+	d.declare("JSDocEnumTag", &declOptions{})
+	d.declare("JSDocParameterTag", &declOptions{})
+	d.declare("JSDocReturnTag", &declOptions{})
+	d.declare("JSDocThisTag", &declOptions{})
+	d.declare("JSDocTypeTag", &declOptions{})
+	d.declare("JSDocTemplateTag", &declOptions{})
+	d.declare("JSDocTypedefTag", &declOptions{})
+	d.declare("JSDocSeeTag", &declOptions{})
+	d.declare("JSDocPropertyTag", &declOptions{})
+	d.declare("JSDocThrowsTag", &declOptions{})
+	d.declare("JSDocSatisfiesTag", &declOptions{})
+	lastJSDocNode := d.declare("JSDocImportTag", &declOptions{})
+	lastJSDocTagNode := lastJSDocNode
+
+	// Synthesized list
+	d.declare("SyntaxList", &declOptions{})
+
+	// Transformation nodes
+	d.declare("NotEmittedStatement", &declOptions{})
+	d.declare("PartiallyEmittedExpression", &declOptions{})
+	d.declare("CommaListExpression", &declOptions{})
+	d.declare("SyntheticReferenceExpression", &declOptions{})
 
 	// Markers
 
@@ -233,18 +466,20 @@ func declare(w io.Writer) {
 	d.createGroup("ReservedWord", firstReservedWord, lastReservedWord)
 	d.createGroup("Keyword", firstKeyword, lastKeyword)
 	d.createGroup("FutureReservedWord", firstFutureReservedWord, lastFutureReservedWord)
-	// d.createGroup("TypeNode", firstTypeNode, lastTypeNode)
+	d.createGroup("TypeNode", firstTypeNode, lastTypeNode)
 	d.createGroup("Punctuation", firstPunctuation, lastPunctuation)
 	d.createGroup("Token", firstToken, lastToken)
 	d.createGroup("LiteralToken", firstLiteralToken, lastLiteralToken)
 	d.createGroup("TemplateToken", firstTemplateToken, lastTemplateToken)
-	// d.createGroup("BinaryOperator", firstBinaryOperator, lastBinaryOperator)
-	// d.createGroup("Node", firstNode, d.nodes[len(d.nodes)-1])
-	// d.createGroup("JSDocNode", firstJSDocNode, lastJSDocNode)
-	// d.createGroup("JSDocTagNode", firstJSDocTagNode, lastJSDocTagNode)
-	// d.createGroup("ContextualKeyword", firstContextualKeyword, lastContextualKeyword)
+	d.createGroup("BinaryOperator", firstBinaryOperator, lastBinaryOperator)
+	d.createGroup("Node", firstNode, d.nodes[len(d.nodes)-1])
+	d.createGroup("JSDocNode", firstJSDocNode, lastJSDocNode)
+	d.createGroup("JSDocTagNode", firstJSDocTagNode, lastJSDocTagNode)
+	d.createGroup("ContextualKeyword", firstContextualKeyword, lastContextualKeyword)
 
 	fmt.Fprintln(w, "package ast")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "import \"fmt\"")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "type SyntaxKind int16")
 	fmt.Fprintln(w)
@@ -270,6 +505,22 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w, ")")
 	fmt.Fprintln(w)
 
+	fmt.Fprintln(w, "var syntaxKindNames = [SyntaxKindCount+1]string{")
+	for _, n := range d.nodes {
+		fmt.Fprintf(w, "\tSyntaxKind%s: %q,\n", n.name, n.name)
+	}
+	fmt.Fprintln(w, "\tSyntaxKindCount: \"SyntaxKindCount\",")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "func (k SyntaxKind) String() string {")
+	fmt.Fprintln(w, "\tif k < 0 || k >= SyntaxKindCount {")
+	fmt.Fprintf(w, "%s", "\t\treturn fmt.Sprintf(\"SyntaxKind(%d)\", k)")
+	fmt.Fprintln(w, "\t}")
+	fmt.Fprintln(w, "\treturn syntaxKindNames[k]")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+
 	fmt.Fprintln(w, "type NodeFlags uint32")
 	fmt.Fprintln(w, "type NodeID uint32")
 	fmt.Fprintln(w)
@@ -290,9 +541,26 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
 
+	fmt.Fprintln(w, "type NodeData interface{} // TODO")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "type Factory struct { // TODO")
+	for _, n := range d.nodes {
+		if n.opts != nil && n.opts.poolAllocate {
+			fmt.Fprintf(w, "\t_%sPool pool[%s]\n", n.name, n.name)
+		}
+	}
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+
+	fmt.Fprintln(w, "type NodeBase struct {} // TODO")
+
 	for _, n := range d.nodes {
 		n.Generate(w)
 	}
+
+	accessExpression := newNodeUnion("AccessExpression", propertyAccessExpression, elementAccessExpression)
+	d.generateNodeUnion(w, accessExpression)
 }
 
 type declarer struct {
@@ -317,6 +585,10 @@ func (d *declarer) createGroup(name string, start, end *syntaxKind) {
 
 type declOptions struct {
 	poolAllocate bool
+
+	embedded any
+
+	children []field
 }
 
 func (d *declarer) declareKindOnly(name string) *syntaxKind {
@@ -351,17 +623,49 @@ func (t *goType) Name() string { return t.name }
 
 var (
 	stringType = &goType{name: "string"}
+	anyType    = &goType{name: "any"}
+	boolType   = &goType{name: "bool"}
 )
 
-type unionType struct {
-	name string
-	types []genType
+type nodeUnion struct {
+	name  string
+	types []*syntaxKind
 }
 
-func (t *unionType) Name() string { return t.name }
+var _ genType = (*nodeUnion)(nil)
 
-func newUnionType(name string, types ...genType) *unionType {
-	return &unionType{name: name, types: types}
+func (u *nodeUnion) Name() string { return u.name }
+
+func newNodeUnion(name string, types ...*syntaxKind) *nodeUnion {
+	return &nodeUnion{name: name, types: types}
+}
+
+func (d *declarer) generateNodeUnion(w io.Writer, u *nodeUnion) {
+	fmt.Fprintf(w, "type %s = Node // ", u.name)
+	for i, t := range u.types {
+		if i > 0 {
+			fmt.Fprint(w, " | ")
+		}
+		fmt.Fprintf(w, "%s", t.name)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w)
+
+	fmt.Fprintf(w, "var is%sTable = [SyntaxKindCount]bool{\n", u.name)
+	for _, t := range u.types {
+		fmt.Fprintf(w, "\tSyntaxKind%s: true,\n", t.name)
+	}
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+
+	fmt.Fprintf(w, "func is%sKind(kind SyntaxKind) bool { return is%sTable[kind] }\n", u.name, u.name)
+	fmt.Fprintf(w, "func is%s(n *Node) bool { return is%sTable[n.kind] }\n", u.name, u.name)
+	fmt.Fprintf(w, "func assertIs%s(n *Node) {\n", u.name)
+	fmt.Fprintf(w, "if !is%s(n) {\n", u.name)
+	fmt.Fprintf(w, "panic(\"expected %s, got \" + n.kind.String())\n", u.name)
+	fmt.Fprintf(w, "}\n")
+	fmt.Fprintf(w, "}\n")
+	fmt.Fprintln(w)
 }
 
 type syntaxKind struct {
@@ -371,6 +675,8 @@ type syntaxKind struct {
 	fields []field
 }
 
+var _ genType = (*syntaxKind)(nil)
+
 type field struct {
 	name string
 	typ  genType
@@ -379,8 +685,6 @@ type field struct {
 func (n *syntaxKind) Name() string { return n.name }
 
 func (n *syntaxKind) Generate(w io.Writer) {
-	// TODO: stream to output?
-
 	if n.opts == nil {
 		return // not a real node; no code
 	}
@@ -428,7 +732,7 @@ func (n *syntaxKind) Generate(w io.Writer) {
 	// TODO: params
 	fmt.Fprintf(w, "func (f *Factory) New%s() *%s {\n", n.name, n.name)
 	if n.opts.poolAllocate {
-		fmt.Fprintf(w, "\tv := f.%sPool.Get()\n", n.name)
+		fmt.Fprintf(w, "\tv := f._%sPool.allocate()\n", n.name)
 	} else {
 		fmt.Fprintf(w, "\tv := &%s{}\n", n.name)
 	}
