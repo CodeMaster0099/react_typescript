@@ -14,6 +14,10 @@ import (
 var output = flag.String("output", "", "output file")
 
 func main() {
+	os.Exit(run())
+}
+
+func run() (exitCode int) {
 	flag.Parse()
 
 	var buf bytes.Buffer
@@ -22,7 +26,8 @@ func main() {
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		exitCode = 1
+		formatted = buf.Bytes()
 	}
 
 	f := os.Stdout
@@ -31,12 +36,13 @@ func main() {
 		f, err = os.Create(*output)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return 1
 		}
 		defer f.Close()
 	}
 
 	f.Write(formatted)
+	return exitCode
 }
 
 func declare(w io.Writer) {
@@ -526,8 +532,21 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "type TextRange struct {")
-	fmt.Fprintln(w, "\tPos int32")
-	fmt.Fprintln(w, "\tEnd int32")
+	fmt.Fprintln(w, "\tpos int32")
+	fmt.Fprintln(w, "\tend int32")
+	fmt.Fprintln(w, "}")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "func NewTextRange(pos, end int32) TextRange { return TextRange{pos: pos, end: end} }")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "func (r TextRange) Pos() int32 { return r.pos }")
+	fmt.Fprintln(w, "func (r TextRange) End() int32 { return r.end }")
+	fmt.Fprintln(w, "func (r TextRange) Len() int32 { return r.end - r.pos }")
+	fmt.Fprintln(w, "func (r TextRange) ContainsInclusive(pos int32) bool { return r.pos <= pos && pos <= r.end }")
+	fmt.Fprintln(w)
+
+	// TODO
+	fmt.Fprintln(w, "type NodeData interface{")
+	fmt.Fprintln(w, "\tAsNode() *Node")
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
 
@@ -541,7 +560,16 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
 
-	fmt.Fprintln(w, "type NodeData interface{} // TODO")
+	fmt.Fprintln(w, "func (n *Node) Pos() int32 { return n.loc.Pos() }")
+
+	// TODO
+	fmt.Fprintln(w, "type NodeDefault struct {\nNode\n}")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "func (n *NodeDefault) AsNode() *Node { return &n.Node }")
+	fmt.Fprintln(w)
+
+	// TODO
+	fmt.Fprintln(w, "type NodeBase struct {\nNodeDefault\n} ")
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "type Factory struct { // TODO")
@@ -552,8 +580,6 @@ func declare(w io.Writer) {
 	}
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
-
-	fmt.Fprintln(w, "type NodeBase struct {} // TODO")
 
 	for _, n := range d.nodes {
 		n.Generate(w)
@@ -697,6 +723,7 @@ func (n *syntaxKind) Generate(w io.Writer) {
 	fmt.Fprintln(w)
 
 	fmt.Fprintf(w, "func (n *Node) As%s() *%s { return n.data.(*%s) }\n", n.name, n.name, n.name)
+	fmt.Fprintf(w, "func (n *Node) Is%s() bool { return n.kind == SyntaxKind%s }\n", n.name, n.name)
 	fmt.Fprintln(w)
 
 	printNewParams := func() {
@@ -707,11 +734,13 @@ func (n *syntaxKind) Generate(w io.Writer) {
 	}
 
 	// TODO: accept and set children
-	fmt.Fprintf(w, "func (n *%s) reset(", n.name)
+	fmt.Fprintf(w, "func (n *%s) set(", n.name)
 	printNewParams()
 	fmt.Fprintln(w, ") {")
 	// TODO: generate optimal assignment
 	fmt.Fprintf(w, "\t*n = %s{}\n", n.name)
+	fmt.Fprintln(w, "\tn.kind = SyntaxKind"+n.name)
+	fmt.Fprintln(w, "\tn.data = n")
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
 
@@ -720,27 +749,30 @@ func (n *syntaxKind) Generate(w io.Writer) {
 
 	fmt.Fprintf(w, "func New%s(", n.name)
 	printNewParams()
-	fmt.Fprintf(w, ") *%s {\n", n.name)
-	fmt.Fprintf(w, "\tv := &%s{}\n", n.name)
-	fmt.Fprintf(w, "\tv.reset(")
+	fmt.Fprintln(w, ") *Node {")
+	fmt.Fprintf(w, "\tn := &%s{}\n", n.name)
+	fmt.Fprintf(w, "\tn.set(")
 	printNewArgs()
 	fmt.Fprintln(w, ")")
-	fmt.Fprintln(w, "\treturn v")
+	fmt.Fprintln(w, "\treturn n.AsNode()")
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
 
 	// TODO: params
 	// TODO: return *Node, call a helper func that converts to *Node and sets kind
-	fmt.Fprintf(w, "func (f *Factory) New%s() *%s {\n", n.name, n.name)
+	fmt.Fprintf(w, "func (f *Factory) New%s() *Node {\n", n.name)
 	if n.opts.poolAllocate {
-		fmt.Fprintf(w, "\tv := f._%sPool.allocate()\n", n.name)
+		fmt.Fprintf(w, "\tn := f._%sPool.allocate()\n", n.name)
+		fmt.Fprintf(w, "\tn.set(")
+		printNewArgs()
+		fmt.Fprintln(w, ")")
+		fmt.Fprintln(w, "\treturn n.AsNode()")
 	} else {
-		fmt.Fprintf(w, "\tv := &%s{}\n", n.name)
+		fmt.Fprintf(w, "\treturn New%s(", n.name)
+		printNewArgs()
+		fmt.Fprintln(w, ")")
 	}
-	fmt.Fprintf(w, "\tv.reset(")
-	printNewArgs()
-	fmt.Fprintln(w, ")")
-	fmt.Fprintln(w, "\treturn v")
 	fmt.Fprintln(w, "}")
+
 	fmt.Fprintln(w)
 }

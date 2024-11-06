@@ -767,8 +767,19 @@ type NodeFlags uint32
 type NodeID uint32
 
 type TextRange struct {
-	Pos int32
-	End int32
+	pos int32
+	end int32
+}
+
+func NewTextRange(pos, end int32) TextRange { return TextRange{pos: pos, end: end} }
+
+func (r TextRange) Pos() int32                       { return r.pos }
+func (r TextRange) End() int32                       { return r.end }
+func (r TextRange) Len() int32                       { return r.end - r.pos }
+func (r TextRange) ContainsInclusive(pos int32) bool { return r.pos <= pos && pos <= r.end }
+
+type NodeData interface {
+	AsNode() *Node
 }
 
 type Node struct {
@@ -780,36 +791,45 @@ type Node struct {
 	data   NodeData
 }
 
-type NodeData interface{} // TODO
+func (n *Node) Pos() int32 { return n.loc.Pos() }
+
+type NodeDefault struct {
+	Node
+}
+
+func (n *NodeDefault) AsNode() *Node { return &n.Node }
+
+type NodeBase struct {
+	NodeDefault
+}
 
 type Factory struct { // TODO
 	_IdentifierPool pool[Identifier]
 }
-
-type NodeBase struct{} // TODO
 
 type NumericLiteral struct {
 	NodeBase
 }
 
 func (n *Node) AsNumericLiteral() *NumericLiteral { return n.data.(*NumericLiteral) }
+func (n *Node) IsNumericLiteral() bool            { return n.kind == SyntaxKindNumericLiteral }
 
-func (n *NumericLiteral) reset() {
+func (n *NumericLiteral) set() {
 	*n = NumericLiteral{}
+	n.kind = SyntaxKindNumericLiteral
+	n.data = n
 }
 
 func (n *NumericLiteral) Kind() SyntaxKind { return SyntaxKindNumericLiteral }
 
-func NewNumericLiteral() *NumericLiteral {
-	v := &NumericLiteral{}
-	v.reset()
-	return v
+func NewNumericLiteral() *Node {
+	n := &NumericLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNumericLiteral() *NumericLiteral {
-	v := &NumericLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewNumericLiteral() *Node {
+	return NewNumericLiteral()
 }
 
 type BigIntLiteral struct {
@@ -817,23 +837,24 @@ type BigIntLiteral struct {
 }
 
 func (n *Node) AsBigIntLiteral() *BigIntLiteral { return n.data.(*BigIntLiteral) }
+func (n *Node) IsBigIntLiteral() bool           { return n.kind == SyntaxKindBigIntLiteral }
 
-func (n *BigIntLiteral) reset() {
+func (n *BigIntLiteral) set() {
 	*n = BigIntLiteral{}
+	n.kind = SyntaxKindBigIntLiteral
+	n.data = n
 }
 
 func (n *BigIntLiteral) Kind() SyntaxKind { return SyntaxKindBigIntLiteral }
 
-func NewBigIntLiteral() *BigIntLiteral {
-	v := &BigIntLiteral{}
-	v.reset()
-	return v
+func NewBigIntLiteral() *Node {
+	n := &BigIntLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewBigIntLiteral() *BigIntLiteral {
-	v := &BigIntLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewBigIntLiteral() *Node {
+	return NewBigIntLiteral()
 }
 
 type StringLiteral struct {
@@ -841,23 +862,24 @@ type StringLiteral struct {
 }
 
 func (n *Node) AsStringLiteral() *StringLiteral { return n.data.(*StringLiteral) }
+func (n *Node) IsStringLiteral() bool           { return n.kind == SyntaxKindStringLiteral }
 
-func (n *StringLiteral) reset() {
+func (n *StringLiteral) set() {
 	*n = StringLiteral{}
+	n.kind = SyntaxKindStringLiteral
+	n.data = n
 }
 
 func (n *StringLiteral) Kind() SyntaxKind { return SyntaxKindStringLiteral }
 
-func NewStringLiteral() *StringLiteral {
-	v := &StringLiteral{}
-	v.reset()
-	return v
+func NewStringLiteral() *Node {
+	n := &StringLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewStringLiteral() *StringLiteral {
-	v := &StringLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewStringLiteral() *Node {
+	return NewStringLiteral()
 }
 
 type JsxText struct {
@@ -865,23 +887,24 @@ type JsxText struct {
 }
 
 func (n *Node) AsJsxText() *JsxText { return n.data.(*JsxText) }
+func (n *Node) IsJsxText() bool     { return n.kind == SyntaxKindJsxText }
 
-func (n *JsxText) reset() {
+func (n *JsxText) set() {
 	*n = JsxText{}
+	n.kind = SyntaxKindJsxText
+	n.data = n
 }
 
 func (n *JsxText) Kind() SyntaxKind { return SyntaxKindJsxText }
 
-func NewJsxText() *JsxText {
-	v := &JsxText{}
-	v.reset()
-	return v
+func NewJsxText() *Node {
+	n := &JsxText{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxText() *JsxText {
-	v := &JsxText{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxText() *Node {
+	return NewJsxText()
 }
 
 type RegularExpressionLiteral struct {
@@ -891,23 +914,24 @@ type RegularExpressionLiteral struct {
 func (n *Node) AsRegularExpressionLiteral() *RegularExpressionLiteral {
 	return n.data.(*RegularExpressionLiteral)
 }
+func (n *Node) IsRegularExpressionLiteral() bool { return n.kind == SyntaxKindRegularExpressionLiteral }
 
-func (n *RegularExpressionLiteral) reset() {
+func (n *RegularExpressionLiteral) set() {
 	*n = RegularExpressionLiteral{}
+	n.kind = SyntaxKindRegularExpressionLiteral
+	n.data = n
 }
 
 func (n *RegularExpressionLiteral) Kind() SyntaxKind { return SyntaxKindRegularExpressionLiteral }
 
-func NewRegularExpressionLiteral() *RegularExpressionLiteral {
-	v := &RegularExpressionLiteral{}
-	v.reset()
-	return v
+func NewRegularExpressionLiteral() *Node {
+	n := &RegularExpressionLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewRegularExpressionLiteral() *RegularExpressionLiteral {
-	v := &RegularExpressionLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewRegularExpressionLiteral() *Node {
+	return NewRegularExpressionLiteral()
 }
 
 type NoSubstitutionTemplateLiteral struct {
@@ -917,25 +941,28 @@ type NoSubstitutionTemplateLiteral struct {
 func (n *Node) AsNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLiteral {
 	return n.data.(*NoSubstitutionTemplateLiteral)
 }
+func (n *Node) IsNoSubstitutionTemplateLiteral() bool {
+	return n.kind == SyntaxKindNoSubstitutionTemplateLiteral
+}
 
-func (n *NoSubstitutionTemplateLiteral) reset() {
+func (n *NoSubstitutionTemplateLiteral) set() {
 	*n = NoSubstitutionTemplateLiteral{}
+	n.kind = SyntaxKindNoSubstitutionTemplateLiteral
+	n.data = n
 }
 
 func (n *NoSubstitutionTemplateLiteral) Kind() SyntaxKind {
 	return SyntaxKindNoSubstitutionTemplateLiteral
 }
 
-func NewNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLiteral {
-	v := &NoSubstitutionTemplateLiteral{}
-	v.reset()
-	return v
+func NewNoSubstitutionTemplateLiteral() *Node {
+	n := &NoSubstitutionTemplateLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLiteral {
-	v := &NoSubstitutionTemplateLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewNoSubstitutionTemplateLiteral() *Node {
+	return NewNoSubstitutionTemplateLiteral()
 }
 
 type TemplateHead struct {
@@ -943,23 +970,24 @@ type TemplateHead struct {
 }
 
 func (n *Node) AsTemplateHead() *TemplateHead { return n.data.(*TemplateHead) }
+func (n *Node) IsTemplateHead() bool          { return n.kind == SyntaxKindTemplateHead }
 
-func (n *TemplateHead) reset() {
+func (n *TemplateHead) set() {
 	*n = TemplateHead{}
+	n.kind = SyntaxKindTemplateHead
+	n.data = n
 }
 
 func (n *TemplateHead) Kind() SyntaxKind { return SyntaxKindTemplateHead }
 
-func NewTemplateHead() *TemplateHead {
-	v := &TemplateHead{}
-	v.reset()
-	return v
+func NewTemplateHead() *Node {
+	n := &TemplateHead{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateHead() *TemplateHead {
-	v := &TemplateHead{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateHead() *Node {
+	return NewTemplateHead()
 }
 
 type TemplateMiddle struct {
@@ -967,23 +995,24 @@ type TemplateMiddle struct {
 }
 
 func (n *Node) AsTemplateMiddle() *TemplateMiddle { return n.data.(*TemplateMiddle) }
+func (n *Node) IsTemplateMiddle() bool            { return n.kind == SyntaxKindTemplateMiddle }
 
-func (n *TemplateMiddle) reset() {
+func (n *TemplateMiddle) set() {
 	*n = TemplateMiddle{}
+	n.kind = SyntaxKindTemplateMiddle
+	n.data = n
 }
 
 func (n *TemplateMiddle) Kind() SyntaxKind { return SyntaxKindTemplateMiddle }
 
-func NewTemplateMiddle() *TemplateMiddle {
-	v := &TemplateMiddle{}
-	v.reset()
-	return v
+func NewTemplateMiddle() *Node {
+	n := &TemplateMiddle{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateMiddle() *TemplateMiddle {
-	v := &TemplateMiddle{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateMiddle() *Node {
+	return NewTemplateMiddle()
 }
 
 type TemplateTail struct {
@@ -991,23 +1020,24 @@ type TemplateTail struct {
 }
 
 func (n *Node) AsTemplateTail() *TemplateTail { return n.data.(*TemplateTail) }
+func (n *Node) IsTemplateTail() bool          { return n.kind == SyntaxKindTemplateTail }
 
-func (n *TemplateTail) reset() {
+func (n *TemplateTail) set() {
 	*n = TemplateTail{}
+	n.kind = SyntaxKindTemplateTail
+	n.data = n
 }
 
 func (n *TemplateTail) Kind() SyntaxKind { return SyntaxKindTemplateTail }
 
-func NewTemplateTail() *TemplateTail {
-	v := &TemplateTail{}
-	v.reset()
-	return v
+func NewTemplateTail() *Node {
+	n := &TemplateTail{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateTail() *TemplateTail {
-	v := &TemplateTail{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateTail() *Node {
+	return NewTemplateTail()
 }
 
 type Identifier struct {
@@ -1015,23 +1045,26 @@ type Identifier struct {
 }
 
 func (n *Node) AsIdentifier() *Identifier { return n.data.(*Identifier) }
+func (n *Node) IsIdentifier() bool        { return n.kind == SyntaxKindIdentifier }
 
-func (n *Identifier) reset() {
+func (n *Identifier) set() {
 	*n = Identifier{}
+	n.kind = SyntaxKindIdentifier
+	n.data = n
 }
 
 func (n *Identifier) Kind() SyntaxKind { return SyntaxKindIdentifier }
 
-func NewIdentifier() *Identifier {
-	v := &Identifier{}
-	v.reset()
-	return v
+func NewIdentifier() *Node {
+	n := &Identifier{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewIdentifier() *Identifier {
-	v := f._IdentifierPool.allocate()
-	v.reset()
-	return v
+func (f *Factory) NewIdentifier() *Node {
+	n := f._IdentifierPool.allocate()
+	n.set()
+	return n.AsNode()
 }
 
 type PrivateIdentifier struct {
@@ -1039,23 +1072,24 @@ type PrivateIdentifier struct {
 }
 
 func (n *Node) AsPrivateIdentifier() *PrivateIdentifier { return n.data.(*PrivateIdentifier) }
+func (n *Node) IsPrivateIdentifier() bool               { return n.kind == SyntaxKindPrivateIdentifier }
 
-func (n *PrivateIdentifier) reset() {
+func (n *PrivateIdentifier) set() {
 	*n = PrivateIdentifier{}
+	n.kind = SyntaxKindPrivateIdentifier
+	n.data = n
 }
 
 func (n *PrivateIdentifier) Kind() SyntaxKind { return SyntaxKindPrivateIdentifier }
 
-func NewPrivateIdentifier() *PrivateIdentifier {
-	v := &PrivateIdentifier{}
-	v.reset()
-	return v
+func NewPrivateIdentifier() *Node {
+	n := &PrivateIdentifier{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPrivateIdentifier() *PrivateIdentifier {
-	v := &PrivateIdentifier{}
-	v.reset()
-	return v
+func (f *Factory) NewPrivateIdentifier() *Node {
+	return NewPrivateIdentifier()
 }
 
 type QualifiedName struct {
@@ -1063,23 +1097,24 @@ type QualifiedName struct {
 }
 
 func (n *Node) AsQualifiedName() *QualifiedName { return n.data.(*QualifiedName) }
+func (n *Node) IsQualifiedName() bool           { return n.kind == SyntaxKindQualifiedName }
 
-func (n *QualifiedName) reset() {
+func (n *QualifiedName) set() {
 	*n = QualifiedName{}
+	n.kind = SyntaxKindQualifiedName
+	n.data = n
 }
 
 func (n *QualifiedName) Kind() SyntaxKind { return SyntaxKindQualifiedName }
 
-func NewQualifiedName() *QualifiedName {
-	v := &QualifiedName{}
-	v.reset()
-	return v
+func NewQualifiedName() *Node {
+	n := &QualifiedName{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewQualifiedName() *QualifiedName {
-	v := &QualifiedName{}
-	v.reset()
-	return v
+func (f *Factory) NewQualifiedName() *Node {
+	return NewQualifiedName()
 }
 
 type ComputedPropertyName struct {
@@ -1087,23 +1122,24 @@ type ComputedPropertyName struct {
 }
 
 func (n *Node) AsComputedPropertyName() *ComputedPropertyName { return n.data.(*ComputedPropertyName) }
+func (n *Node) IsComputedPropertyName() bool                  { return n.kind == SyntaxKindComputedPropertyName }
 
-func (n *ComputedPropertyName) reset() {
+func (n *ComputedPropertyName) set() {
 	*n = ComputedPropertyName{}
+	n.kind = SyntaxKindComputedPropertyName
+	n.data = n
 }
 
 func (n *ComputedPropertyName) Kind() SyntaxKind { return SyntaxKindComputedPropertyName }
 
-func NewComputedPropertyName() *ComputedPropertyName {
-	v := &ComputedPropertyName{}
-	v.reset()
-	return v
+func NewComputedPropertyName() *Node {
+	n := &ComputedPropertyName{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewComputedPropertyName() *ComputedPropertyName {
-	v := &ComputedPropertyName{}
-	v.reset()
-	return v
+func (f *Factory) NewComputedPropertyName() *Node {
+	return NewComputedPropertyName()
 }
 
 type ModifierList struct {
@@ -1111,23 +1147,24 @@ type ModifierList struct {
 }
 
 func (n *Node) AsModifierList() *ModifierList { return n.data.(*ModifierList) }
+func (n *Node) IsModifierList() bool          { return n.kind == SyntaxKindModifierList }
 
-func (n *ModifierList) reset() {
+func (n *ModifierList) set() {
 	*n = ModifierList{}
+	n.kind = SyntaxKindModifierList
+	n.data = n
 }
 
 func (n *ModifierList) Kind() SyntaxKind { return SyntaxKindModifierList }
 
-func NewModifierList() *ModifierList {
-	v := &ModifierList{}
-	v.reset()
-	return v
+func NewModifierList() *Node {
+	n := &ModifierList{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewModifierList() *ModifierList {
-	v := &ModifierList{}
-	v.reset()
-	return v
+func (f *Factory) NewModifierList() *Node {
+	return NewModifierList()
 }
 
 type TypeParameterList struct {
@@ -1135,23 +1172,24 @@ type TypeParameterList struct {
 }
 
 func (n *Node) AsTypeParameterList() *TypeParameterList { return n.data.(*TypeParameterList) }
+func (n *Node) IsTypeParameterList() bool               { return n.kind == SyntaxKindTypeParameterList }
 
-func (n *TypeParameterList) reset() {
+func (n *TypeParameterList) set() {
 	*n = TypeParameterList{}
+	n.kind = SyntaxKindTypeParameterList
+	n.data = n
 }
 
 func (n *TypeParameterList) Kind() SyntaxKind { return SyntaxKindTypeParameterList }
 
-func NewTypeParameterList() *TypeParameterList {
-	v := &TypeParameterList{}
-	v.reset()
-	return v
+func NewTypeParameterList() *Node {
+	n := &TypeParameterList{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeParameterList() *TypeParameterList {
-	v := &TypeParameterList{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeParameterList() *Node {
+	return NewTypeParameterList()
 }
 
 type TypeArgumentList struct {
@@ -1159,23 +1197,24 @@ type TypeArgumentList struct {
 }
 
 func (n *Node) AsTypeArgumentList() *TypeArgumentList { return n.data.(*TypeArgumentList) }
+func (n *Node) IsTypeArgumentList() bool              { return n.kind == SyntaxKindTypeArgumentList }
 
-func (n *TypeArgumentList) reset() {
+func (n *TypeArgumentList) set() {
 	*n = TypeArgumentList{}
+	n.kind = SyntaxKindTypeArgumentList
+	n.data = n
 }
 
 func (n *TypeArgumentList) Kind() SyntaxKind { return SyntaxKindTypeArgumentList }
 
-func NewTypeArgumentList() *TypeArgumentList {
-	v := &TypeArgumentList{}
-	v.reset()
-	return v
+func NewTypeArgumentList() *Node {
+	n := &TypeArgumentList{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeArgumentList() *TypeArgumentList {
-	v := &TypeArgumentList{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeArgumentList() *Node {
+	return NewTypeArgumentList()
 }
 
 type TypeParameter struct {
@@ -1183,23 +1222,24 @@ type TypeParameter struct {
 }
 
 func (n *Node) AsTypeParameter() *TypeParameter { return n.data.(*TypeParameter) }
+func (n *Node) IsTypeParameter() bool           { return n.kind == SyntaxKindTypeParameter }
 
-func (n *TypeParameter) reset() {
+func (n *TypeParameter) set() {
 	*n = TypeParameter{}
+	n.kind = SyntaxKindTypeParameter
+	n.data = n
 }
 
 func (n *TypeParameter) Kind() SyntaxKind { return SyntaxKindTypeParameter }
 
-func NewTypeParameter() *TypeParameter {
-	v := &TypeParameter{}
-	v.reset()
-	return v
+func NewTypeParameter() *Node {
+	n := &TypeParameter{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeParameter() *TypeParameter {
-	v := &TypeParameter{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeParameter() *Node {
+	return NewTypeParameter()
 }
 
 type Parameter struct {
@@ -1207,23 +1247,24 @@ type Parameter struct {
 }
 
 func (n *Node) AsParameter() *Parameter { return n.data.(*Parameter) }
+func (n *Node) IsParameter() bool       { return n.kind == SyntaxKindParameter }
 
-func (n *Parameter) reset() {
+func (n *Parameter) set() {
 	*n = Parameter{}
+	n.kind = SyntaxKindParameter
+	n.data = n
 }
 
 func (n *Parameter) Kind() SyntaxKind { return SyntaxKindParameter }
 
-func NewParameter() *Parameter {
-	v := &Parameter{}
-	v.reset()
-	return v
+func NewParameter() *Node {
+	n := &Parameter{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewParameter() *Parameter {
-	v := &Parameter{}
-	v.reset()
-	return v
+func (f *Factory) NewParameter() *Node {
+	return NewParameter()
 }
 
 type Decorator struct {
@@ -1231,23 +1272,24 @@ type Decorator struct {
 }
 
 func (n *Node) AsDecorator() *Decorator { return n.data.(*Decorator) }
+func (n *Node) IsDecorator() bool       { return n.kind == SyntaxKindDecorator }
 
-func (n *Decorator) reset() {
+func (n *Decorator) set() {
 	*n = Decorator{}
+	n.kind = SyntaxKindDecorator
+	n.data = n
 }
 
 func (n *Decorator) Kind() SyntaxKind { return SyntaxKindDecorator }
 
-func NewDecorator() *Decorator {
-	v := &Decorator{}
-	v.reset()
-	return v
+func NewDecorator() *Node {
+	n := &Decorator{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewDecorator() *Decorator {
-	v := &Decorator{}
-	v.reset()
-	return v
+func (f *Factory) NewDecorator() *Node {
+	return NewDecorator()
 }
 
 type PropertySignature struct {
@@ -1255,23 +1297,24 @@ type PropertySignature struct {
 }
 
 func (n *Node) AsPropertySignature() *PropertySignature { return n.data.(*PropertySignature) }
+func (n *Node) IsPropertySignature() bool               { return n.kind == SyntaxKindPropertySignature }
 
-func (n *PropertySignature) reset() {
+func (n *PropertySignature) set() {
 	*n = PropertySignature{}
+	n.kind = SyntaxKindPropertySignature
+	n.data = n
 }
 
 func (n *PropertySignature) Kind() SyntaxKind { return SyntaxKindPropertySignature }
 
-func NewPropertySignature() *PropertySignature {
-	v := &PropertySignature{}
-	v.reset()
-	return v
+func NewPropertySignature() *Node {
+	n := &PropertySignature{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPropertySignature() *PropertySignature {
-	v := &PropertySignature{}
-	v.reset()
-	return v
+func (f *Factory) NewPropertySignature() *Node {
+	return NewPropertySignature()
 }
 
 type PropertyDeclaration struct {
@@ -1279,23 +1322,24 @@ type PropertyDeclaration struct {
 }
 
 func (n *Node) AsPropertyDeclaration() *PropertyDeclaration { return n.data.(*PropertyDeclaration) }
+func (n *Node) IsPropertyDeclaration() bool                 { return n.kind == SyntaxKindPropertyDeclaration }
 
-func (n *PropertyDeclaration) reset() {
+func (n *PropertyDeclaration) set() {
 	*n = PropertyDeclaration{}
+	n.kind = SyntaxKindPropertyDeclaration
+	n.data = n
 }
 
 func (n *PropertyDeclaration) Kind() SyntaxKind { return SyntaxKindPropertyDeclaration }
 
-func NewPropertyDeclaration() *PropertyDeclaration {
-	v := &PropertyDeclaration{}
-	v.reset()
-	return v
+func NewPropertyDeclaration() *Node {
+	n := &PropertyDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPropertyDeclaration() *PropertyDeclaration {
-	v := &PropertyDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewPropertyDeclaration() *Node {
+	return NewPropertyDeclaration()
 }
 
 type MethodSignature struct {
@@ -1303,23 +1347,24 @@ type MethodSignature struct {
 }
 
 func (n *Node) AsMethodSignature() *MethodSignature { return n.data.(*MethodSignature) }
+func (n *Node) IsMethodSignature() bool             { return n.kind == SyntaxKindMethodSignature }
 
-func (n *MethodSignature) reset() {
+func (n *MethodSignature) set() {
 	*n = MethodSignature{}
+	n.kind = SyntaxKindMethodSignature
+	n.data = n
 }
 
 func (n *MethodSignature) Kind() SyntaxKind { return SyntaxKindMethodSignature }
 
-func NewMethodSignature() *MethodSignature {
-	v := &MethodSignature{}
-	v.reset()
-	return v
+func NewMethodSignature() *Node {
+	n := &MethodSignature{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewMethodSignature() *MethodSignature {
-	v := &MethodSignature{}
-	v.reset()
-	return v
+func (f *Factory) NewMethodSignature() *Node {
+	return NewMethodSignature()
 }
 
 type MethodDeclaration struct {
@@ -1327,23 +1372,24 @@ type MethodDeclaration struct {
 }
 
 func (n *Node) AsMethodDeclaration() *MethodDeclaration { return n.data.(*MethodDeclaration) }
+func (n *Node) IsMethodDeclaration() bool               { return n.kind == SyntaxKindMethodDeclaration }
 
-func (n *MethodDeclaration) reset() {
+func (n *MethodDeclaration) set() {
 	*n = MethodDeclaration{}
+	n.kind = SyntaxKindMethodDeclaration
+	n.data = n
 }
 
 func (n *MethodDeclaration) Kind() SyntaxKind { return SyntaxKindMethodDeclaration }
 
-func NewMethodDeclaration() *MethodDeclaration {
-	v := &MethodDeclaration{}
-	v.reset()
-	return v
+func NewMethodDeclaration() *Node {
+	n := &MethodDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewMethodDeclaration() *MethodDeclaration {
-	v := &MethodDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewMethodDeclaration() *Node {
+	return NewMethodDeclaration()
 }
 
 type ClassStaticBlockDeclaration struct {
@@ -1353,23 +1399,26 @@ type ClassStaticBlockDeclaration struct {
 func (n *Node) AsClassStaticBlockDeclaration() *ClassStaticBlockDeclaration {
 	return n.data.(*ClassStaticBlockDeclaration)
 }
+func (n *Node) IsClassStaticBlockDeclaration() bool {
+	return n.kind == SyntaxKindClassStaticBlockDeclaration
+}
 
-func (n *ClassStaticBlockDeclaration) reset() {
+func (n *ClassStaticBlockDeclaration) set() {
 	*n = ClassStaticBlockDeclaration{}
+	n.kind = SyntaxKindClassStaticBlockDeclaration
+	n.data = n
 }
 
 func (n *ClassStaticBlockDeclaration) Kind() SyntaxKind { return SyntaxKindClassStaticBlockDeclaration }
 
-func NewClassStaticBlockDeclaration() *ClassStaticBlockDeclaration {
-	v := &ClassStaticBlockDeclaration{}
-	v.reset()
-	return v
+func NewClassStaticBlockDeclaration() *Node {
+	n := &ClassStaticBlockDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewClassStaticBlockDeclaration() *ClassStaticBlockDeclaration {
-	v := &ClassStaticBlockDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewClassStaticBlockDeclaration() *Node {
+	return NewClassStaticBlockDeclaration()
 }
 
 type Constructor struct {
@@ -1377,23 +1426,24 @@ type Constructor struct {
 }
 
 func (n *Node) AsConstructor() *Constructor { return n.data.(*Constructor) }
+func (n *Node) IsConstructor() bool         { return n.kind == SyntaxKindConstructor }
 
-func (n *Constructor) reset() {
+func (n *Constructor) set() {
 	*n = Constructor{}
+	n.kind = SyntaxKindConstructor
+	n.data = n
 }
 
 func (n *Constructor) Kind() SyntaxKind { return SyntaxKindConstructor }
 
-func NewConstructor() *Constructor {
-	v := &Constructor{}
-	v.reset()
-	return v
+func NewConstructor() *Node {
+	n := &Constructor{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewConstructor() *Constructor {
-	v := &Constructor{}
-	v.reset()
-	return v
+func (f *Factory) NewConstructor() *Node {
+	return NewConstructor()
 }
 
 type GetAccessor struct {
@@ -1401,23 +1451,24 @@ type GetAccessor struct {
 }
 
 func (n *Node) AsGetAccessor() *GetAccessor { return n.data.(*GetAccessor) }
+func (n *Node) IsGetAccessor() bool         { return n.kind == SyntaxKindGetAccessor }
 
-func (n *GetAccessor) reset() {
+func (n *GetAccessor) set() {
 	*n = GetAccessor{}
+	n.kind = SyntaxKindGetAccessor
+	n.data = n
 }
 
 func (n *GetAccessor) Kind() SyntaxKind { return SyntaxKindGetAccessor }
 
-func NewGetAccessor() *GetAccessor {
-	v := &GetAccessor{}
-	v.reset()
-	return v
+func NewGetAccessor() *Node {
+	n := &GetAccessor{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewGetAccessor() *GetAccessor {
-	v := &GetAccessor{}
-	v.reset()
-	return v
+func (f *Factory) NewGetAccessor() *Node {
+	return NewGetAccessor()
 }
 
 type SetAccessor struct {
@@ -1425,23 +1476,24 @@ type SetAccessor struct {
 }
 
 func (n *Node) AsSetAccessor() *SetAccessor { return n.data.(*SetAccessor) }
+func (n *Node) IsSetAccessor() bool         { return n.kind == SyntaxKindSetAccessor }
 
-func (n *SetAccessor) reset() {
+func (n *SetAccessor) set() {
 	*n = SetAccessor{}
+	n.kind = SyntaxKindSetAccessor
+	n.data = n
 }
 
 func (n *SetAccessor) Kind() SyntaxKind { return SyntaxKindSetAccessor }
 
-func NewSetAccessor() *SetAccessor {
-	v := &SetAccessor{}
-	v.reset()
-	return v
+func NewSetAccessor() *Node {
+	n := &SetAccessor{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSetAccessor() *SetAccessor {
-	v := &SetAccessor{}
-	v.reset()
-	return v
+func (f *Factory) NewSetAccessor() *Node {
+	return NewSetAccessor()
 }
 
 type CallSignature struct {
@@ -1449,23 +1501,24 @@ type CallSignature struct {
 }
 
 func (n *Node) AsCallSignature() *CallSignature { return n.data.(*CallSignature) }
+func (n *Node) IsCallSignature() bool           { return n.kind == SyntaxKindCallSignature }
 
-func (n *CallSignature) reset() {
+func (n *CallSignature) set() {
 	*n = CallSignature{}
+	n.kind = SyntaxKindCallSignature
+	n.data = n
 }
 
 func (n *CallSignature) Kind() SyntaxKind { return SyntaxKindCallSignature }
 
-func NewCallSignature() *CallSignature {
-	v := &CallSignature{}
-	v.reset()
-	return v
+func NewCallSignature() *Node {
+	n := &CallSignature{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewCallSignature() *CallSignature {
-	v := &CallSignature{}
-	v.reset()
-	return v
+func (f *Factory) NewCallSignature() *Node {
+	return NewCallSignature()
 }
 
 type ConstructSignature struct {
@@ -1473,23 +1526,24 @@ type ConstructSignature struct {
 }
 
 func (n *Node) AsConstructSignature() *ConstructSignature { return n.data.(*ConstructSignature) }
+func (n *Node) IsConstructSignature() bool                { return n.kind == SyntaxKindConstructSignature }
 
-func (n *ConstructSignature) reset() {
+func (n *ConstructSignature) set() {
 	*n = ConstructSignature{}
+	n.kind = SyntaxKindConstructSignature
+	n.data = n
 }
 
 func (n *ConstructSignature) Kind() SyntaxKind { return SyntaxKindConstructSignature }
 
-func NewConstructSignature() *ConstructSignature {
-	v := &ConstructSignature{}
-	v.reset()
-	return v
+func NewConstructSignature() *Node {
+	n := &ConstructSignature{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewConstructSignature() *ConstructSignature {
-	v := &ConstructSignature{}
-	v.reset()
-	return v
+func (f *Factory) NewConstructSignature() *Node {
+	return NewConstructSignature()
 }
 
 type IndexSignature struct {
@@ -1497,23 +1551,24 @@ type IndexSignature struct {
 }
 
 func (n *Node) AsIndexSignature() *IndexSignature { return n.data.(*IndexSignature) }
+func (n *Node) IsIndexSignature() bool            { return n.kind == SyntaxKindIndexSignature }
 
-func (n *IndexSignature) reset() {
+func (n *IndexSignature) set() {
 	*n = IndexSignature{}
+	n.kind = SyntaxKindIndexSignature
+	n.data = n
 }
 
 func (n *IndexSignature) Kind() SyntaxKind { return SyntaxKindIndexSignature }
 
-func NewIndexSignature() *IndexSignature {
-	v := &IndexSignature{}
-	v.reset()
-	return v
+func NewIndexSignature() *Node {
+	n := &IndexSignature{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewIndexSignature() *IndexSignature {
-	v := &IndexSignature{}
-	v.reset()
-	return v
+func (f *Factory) NewIndexSignature() *Node {
+	return NewIndexSignature()
 }
 
 type TypePredicate struct {
@@ -1521,23 +1576,24 @@ type TypePredicate struct {
 }
 
 func (n *Node) AsTypePredicate() *TypePredicate { return n.data.(*TypePredicate) }
+func (n *Node) IsTypePredicate() bool           { return n.kind == SyntaxKindTypePredicate }
 
-func (n *TypePredicate) reset() {
+func (n *TypePredicate) set() {
 	*n = TypePredicate{}
+	n.kind = SyntaxKindTypePredicate
+	n.data = n
 }
 
 func (n *TypePredicate) Kind() SyntaxKind { return SyntaxKindTypePredicate }
 
-func NewTypePredicate() *TypePredicate {
-	v := &TypePredicate{}
-	v.reset()
-	return v
+func NewTypePredicate() *Node {
+	n := &TypePredicate{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypePredicate() *TypePredicate {
-	v := &TypePredicate{}
-	v.reset()
-	return v
+func (f *Factory) NewTypePredicate() *Node {
+	return NewTypePredicate()
 }
 
 type TypeReference struct {
@@ -1545,23 +1601,24 @@ type TypeReference struct {
 }
 
 func (n *Node) AsTypeReference() *TypeReference { return n.data.(*TypeReference) }
+func (n *Node) IsTypeReference() bool           { return n.kind == SyntaxKindTypeReference }
 
-func (n *TypeReference) reset() {
+func (n *TypeReference) set() {
 	*n = TypeReference{}
+	n.kind = SyntaxKindTypeReference
+	n.data = n
 }
 
 func (n *TypeReference) Kind() SyntaxKind { return SyntaxKindTypeReference }
 
-func NewTypeReference() *TypeReference {
-	v := &TypeReference{}
-	v.reset()
-	return v
+func NewTypeReference() *Node {
+	n := &TypeReference{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeReference() *TypeReference {
-	v := &TypeReference{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeReference() *Node {
+	return NewTypeReference()
 }
 
 type FunctionType struct {
@@ -1569,23 +1626,24 @@ type FunctionType struct {
 }
 
 func (n *Node) AsFunctionType() *FunctionType { return n.data.(*FunctionType) }
+func (n *Node) IsFunctionType() bool          { return n.kind == SyntaxKindFunctionType }
 
-func (n *FunctionType) reset() {
+func (n *FunctionType) set() {
 	*n = FunctionType{}
+	n.kind = SyntaxKindFunctionType
+	n.data = n
 }
 
 func (n *FunctionType) Kind() SyntaxKind { return SyntaxKindFunctionType }
 
-func NewFunctionType() *FunctionType {
-	v := &FunctionType{}
-	v.reset()
-	return v
+func NewFunctionType() *Node {
+	n := &FunctionType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewFunctionType() *FunctionType {
-	v := &FunctionType{}
-	v.reset()
-	return v
+func (f *Factory) NewFunctionType() *Node {
+	return NewFunctionType()
 }
 
 type ConstructorType struct {
@@ -1593,23 +1651,24 @@ type ConstructorType struct {
 }
 
 func (n *Node) AsConstructorType() *ConstructorType { return n.data.(*ConstructorType) }
+func (n *Node) IsConstructorType() bool             { return n.kind == SyntaxKindConstructorType }
 
-func (n *ConstructorType) reset() {
+func (n *ConstructorType) set() {
 	*n = ConstructorType{}
+	n.kind = SyntaxKindConstructorType
+	n.data = n
 }
 
 func (n *ConstructorType) Kind() SyntaxKind { return SyntaxKindConstructorType }
 
-func NewConstructorType() *ConstructorType {
-	v := &ConstructorType{}
-	v.reset()
-	return v
+func NewConstructorType() *Node {
+	n := &ConstructorType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewConstructorType() *ConstructorType {
-	v := &ConstructorType{}
-	v.reset()
-	return v
+func (f *Factory) NewConstructorType() *Node {
+	return NewConstructorType()
 }
 
 type TypeQuery struct {
@@ -1617,23 +1676,24 @@ type TypeQuery struct {
 }
 
 func (n *Node) AsTypeQuery() *TypeQuery { return n.data.(*TypeQuery) }
+func (n *Node) IsTypeQuery() bool       { return n.kind == SyntaxKindTypeQuery }
 
-func (n *TypeQuery) reset() {
+func (n *TypeQuery) set() {
 	*n = TypeQuery{}
+	n.kind = SyntaxKindTypeQuery
+	n.data = n
 }
 
 func (n *TypeQuery) Kind() SyntaxKind { return SyntaxKindTypeQuery }
 
-func NewTypeQuery() *TypeQuery {
-	v := &TypeQuery{}
-	v.reset()
-	return v
+func NewTypeQuery() *Node {
+	n := &TypeQuery{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeQuery() *TypeQuery {
-	v := &TypeQuery{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeQuery() *Node {
+	return NewTypeQuery()
 }
 
 type TypeLiteral struct {
@@ -1641,23 +1701,24 @@ type TypeLiteral struct {
 }
 
 func (n *Node) AsTypeLiteral() *TypeLiteral { return n.data.(*TypeLiteral) }
+func (n *Node) IsTypeLiteral() bool         { return n.kind == SyntaxKindTypeLiteral }
 
-func (n *TypeLiteral) reset() {
+func (n *TypeLiteral) set() {
 	*n = TypeLiteral{}
+	n.kind = SyntaxKindTypeLiteral
+	n.data = n
 }
 
 func (n *TypeLiteral) Kind() SyntaxKind { return SyntaxKindTypeLiteral }
 
-func NewTypeLiteral() *TypeLiteral {
-	v := &TypeLiteral{}
-	v.reset()
-	return v
+func NewTypeLiteral() *Node {
+	n := &TypeLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeLiteral() *TypeLiteral {
-	v := &TypeLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeLiteral() *Node {
+	return NewTypeLiteral()
 }
 
 type ArrayType struct {
@@ -1665,23 +1726,24 @@ type ArrayType struct {
 }
 
 func (n *Node) AsArrayType() *ArrayType { return n.data.(*ArrayType) }
+func (n *Node) IsArrayType() bool       { return n.kind == SyntaxKindArrayType }
 
-func (n *ArrayType) reset() {
+func (n *ArrayType) set() {
 	*n = ArrayType{}
+	n.kind = SyntaxKindArrayType
+	n.data = n
 }
 
 func (n *ArrayType) Kind() SyntaxKind { return SyntaxKindArrayType }
 
-func NewArrayType() *ArrayType {
-	v := &ArrayType{}
-	v.reset()
-	return v
+func NewArrayType() *Node {
+	n := &ArrayType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewArrayType() *ArrayType {
-	v := &ArrayType{}
-	v.reset()
-	return v
+func (f *Factory) NewArrayType() *Node {
+	return NewArrayType()
 }
 
 type TupleType struct {
@@ -1689,23 +1751,24 @@ type TupleType struct {
 }
 
 func (n *Node) AsTupleType() *TupleType { return n.data.(*TupleType) }
+func (n *Node) IsTupleType() bool       { return n.kind == SyntaxKindTupleType }
 
-func (n *TupleType) reset() {
+func (n *TupleType) set() {
 	*n = TupleType{}
+	n.kind = SyntaxKindTupleType
+	n.data = n
 }
 
 func (n *TupleType) Kind() SyntaxKind { return SyntaxKindTupleType }
 
-func NewTupleType() *TupleType {
-	v := &TupleType{}
-	v.reset()
-	return v
+func NewTupleType() *Node {
+	n := &TupleType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTupleType() *TupleType {
-	v := &TupleType{}
-	v.reset()
-	return v
+func (f *Factory) NewTupleType() *Node {
+	return NewTupleType()
 }
 
 type OptionalType struct {
@@ -1713,23 +1776,24 @@ type OptionalType struct {
 }
 
 func (n *Node) AsOptionalType() *OptionalType { return n.data.(*OptionalType) }
+func (n *Node) IsOptionalType() bool          { return n.kind == SyntaxKindOptionalType }
 
-func (n *OptionalType) reset() {
+func (n *OptionalType) set() {
 	*n = OptionalType{}
+	n.kind = SyntaxKindOptionalType
+	n.data = n
 }
 
 func (n *OptionalType) Kind() SyntaxKind { return SyntaxKindOptionalType }
 
-func NewOptionalType() *OptionalType {
-	v := &OptionalType{}
-	v.reset()
-	return v
+func NewOptionalType() *Node {
+	n := &OptionalType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewOptionalType() *OptionalType {
-	v := &OptionalType{}
-	v.reset()
-	return v
+func (f *Factory) NewOptionalType() *Node {
+	return NewOptionalType()
 }
 
 type RestType struct {
@@ -1737,23 +1801,24 @@ type RestType struct {
 }
 
 func (n *Node) AsRestType() *RestType { return n.data.(*RestType) }
+func (n *Node) IsRestType() bool      { return n.kind == SyntaxKindRestType }
 
-func (n *RestType) reset() {
+func (n *RestType) set() {
 	*n = RestType{}
+	n.kind = SyntaxKindRestType
+	n.data = n
 }
 
 func (n *RestType) Kind() SyntaxKind { return SyntaxKindRestType }
 
-func NewRestType() *RestType {
-	v := &RestType{}
-	v.reset()
-	return v
+func NewRestType() *Node {
+	n := &RestType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewRestType() *RestType {
-	v := &RestType{}
-	v.reset()
-	return v
+func (f *Factory) NewRestType() *Node {
+	return NewRestType()
 }
 
 type UnionType struct {
@@ -1761,23 +1826,24 @@ type UnionType struct {
 }
 
 func (n *Node) AsUnionType() *UnionType { return n.data.(*UnionType) }
+func (n *Node) IsUnionType() bool       { return n.kind == SyntaxKindUnionType }
 
-func (n *UnionType) reset() {
+func (n *UnionType) set() {
 	*n = UnionType{}
+	n.kind = SyntaxKindUnionType
+	n.data = n
 }
 
 func (n *UnionType) Kind() SyntaxKind { return SyntaxKindUnionType }
 
-func NewUnionType() *UnionType {
-	v := &UnionType{}
-	v.reset()
-	return v
+func NewUnionType() *Node {
+	n := &UnionType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewUnionType() *UnionType {
-	v := &UnionType{}
-	v.reset()
-	return v
+func (f *Factory) NewUnionType() *Node {
+	return NewUnionType()
 }
 
 type IntersectionType struct {
@@ -1785,23 +1851,24 @@ type IntersectionType struct {
 }
 
 func (n *Node) AsIntersectionType() *IntersectionType { return n.data.(*IntersectionType) }
+func (n *Node) IsIntersectionType() bool              { return n.kind == SyntaxKindIntersectionType }
 
-func (n *IntersectionType) reset() {
+func (n *IntersectionType) set() {
 	*n = IntersectionType{}
+	n.kind = SyntaxKindIntersectionType
+	n.data = n
 }
 
 func (n *IntersectionType) Kind() SyntaxKind { return SyntaxKindIntersectionType }
 
-func NewIntersectionType() *IntersectionType {
-	v := &IntersectionType{}
-	v.reset()
-	return v
+func NewIntersectionType() *Node {
+	n := &IntersectionType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewIntersectionType() *IntersectionType {
-	v := &IntersectionType{}
-	v.reset()
-	return v
+func (f *Factory) NewIntersectionType() *Node {
+	return NewIntersectionType()
 }
 
 type ConditionalType struct {
@@ -1809,23 +1876,24 @@ type ConditionalType struct {
 }
 
 func (n *Node) AsConditionalType() *ConditionalType { return n.data.(*ConditionalType) }
+func (n *Node) IsConditionalType() bool             { return n.kind == SyntaxKindConditionalType }
 
-func (n *ConditionalType) reset() {
+func (n *ConditionalType) set() {
 	*n = ConditionalType{}
+	n.kind = SyntaxKindConditionalType
+	n.data = n
 }
 
 func (n *ConditionalType) Kind() SyntaxKind { return SyntaxKindConditionalType }
 
-func NewConditionalType() *ConditionalType {
-	v := &ConditionalType{}
-	v.reset()
-	return v
+func NewConditionalType() *Node {
+	n := &ConditionalType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewConditionalType() *ConditionalType {
-	v := &ConditionalType{}
-	v.reset()
-	return v
+func (f *Factory) NewConditionalType() *Node {
+	return NewConditionalType()
 }
 
 type InferType struct {
@@ -1833,23 +1901,24 @@ type InferType struct {
 }
 
 func (n *Node) AsInferType() *InferType { return n.data.(*InferType) }
+func (n *Node) IsInferType() bool       { return n.kind == SyntaxKindInferType }
 
-func (n *InferType) reset() {
+func (n *InferType) set() {
 	*n = InferType{}
+	n.kind = SyntaxKindInferType
+	n.data = n
 }
 
 func (n *InferType) Kind() SyntaxKind { return SyntaxKindInferType }
 
-func NewInferType() *InferType {
-	v := &InferType{}
-	v.reset()
-	return v
+func NewInferType() *Node {
+	n := &InferType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewInferType() *InferType {
-	v := &InferType{}
-	v.reset()
-	return v
+func (f *Factory) NewInferType() *Node {
+	return NewInferType()
 }
 
 type ParenthesizedType struct {
@@ -1857,23 +1926,24 @@ type ParenthesizedType struct {
 }
 
 func (n *Node) AsParenthesizedType() *ParenthesizedType { return n.data.(*ParenthesizedType) }
+func (n *Node) IsParenthesizedType() bool               { return n.kind == SyntaxKindParenthesizedType }
 
-func (n *ParenthesizedType) reset() {
+func (n *ParenthesizedType) set() {
 	*n = ParenthesizedType{}
+	n.kind = SyntaxKindParenthesizedType
+	n.data = n
 }
 
 func (n *ParenthesizedType) Kind() SyntaxKind { return SyntaxKindParenthesizedType }
 
-func NewParenthesizedType() *ParenthesizedType {
-	v := &ParenthesizedType{}
-	v.reset()
-	return v
+func NewParenthesizedType() *Node {
+	n := &ParenthesizedType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewParenthesizedType() *ParenthesizedType {
-	v := &ParenthesizedType{}
-	v.reset()
-	return v
+func (f *Factory) NewParenthesizedType() *Node {
+	return NewParenthesizedType()
 }
 
 type ThisType struct {
@@ -1881,23 +1951,24 @@ type ThisType struct {
 }
 
 func (n *Node) AsThisType() *ThisType { return n.data.(*ThisType) }
+func (n *Node) IsThisType() bool      { return n.kind == SyntaxKindThisType }
 
-func (n *ThisType) reset() {
+func (n *ThisType) set() {
 	*n = ThisType{}
+	n.kind = SyntaxKindThisType
+	n.data = n
 }
 
 func (n *ThisType) Kind() SyntaxKind { return SyntaxKindThisType }
 
-func NewThisType() *ThisType {
-	v := &ThisType{}
-	v.reset()
-	return v
+func NewThisType() *Node {
+	n := &ThisType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewThisType() *ThisType {
-	v := &ThisType{}
-	v.reset()
-	return v
+func (f *Factory) NewThisType() *Node {
+	return NewThisType()
 }
 
 type TypeOperator struct {
@@ -1905,23 +1976,24 @@ type TypeOperator struct {
 }
 
 func (n *Node) AsTypeOperator() *TypeOperator { return n.data.(*TypeOperator) }
+func (n *Node) IsTypeOperator() bool          { return n.kind == SyntaxKindTypeOperator }
 
-func (n *TypeOperator) reset() {
+func (n *TypeOperator) set() {
 	*n = TypeOperator{}
+	n.kind = SyntaxKindTypeOperator
+	n.data = n
 }
 
 func (n *TypeOperator) Kind() SyntaxKind { return SyntaxKindTypeOperator }
 
-func NewTypeOperator() *TypeOperator {
-	v := &TypeOperator{}
-	v.reset()
-	return v
+func NewTypeOperator() *Node {
+	n := &TypeOperator{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeOperator() *TypeOperator {
-	v := &TypeOperator{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeOperator() *Node {
+	return NewTypeOperator()
 }
 
 type IndexedAccessType struct {
@@ -1929,23 +2001,24 @@ type IndexedAccessType struct {
 }
 
 func (n *Node) AsIndexedAccessType() *IndexedAccessType { return n.data.(*IndexedAccessType) }
+func (n *Node) IsIndexedAccessType() bool               { return n.kind == SyntaxKindIndexedAccessType }
 
-func (n *IndexedAccessType) reset() {
+func (n *IndexedAccessType) set() {
 	*n = IndexedAccessType{}
+	n.kind = SyntaxKindIndexedAccessType
+	n.data = n
 }
 
 func (n *IndexedAccessType) Kind() SyntaxKind { return SyntaxKindIndexedAccessType }
 
-func NewIndexedAccessType() *IndexedAccessType {
-	v := &IndexedAccessType{}
-	v.reset()
-	return v
+func NewIndexedAccessType() *Node {
+	n := &IndexedAccessType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewIndexedAccessType() *IndexedAccessType {
-	v := &IndexedAccessType{}
-	v.reset()
-	return v
+func (f *Factory) NewIndexedAccessType() *Node {
+	return NewIndexedAccessType()
 }
 
 type MappedType struct {
@@ -1953,23 +2026,24 @@ type MappedType struct {
 }
 
 func (n *Node) AsMappedType() *MappedType { return n.data.(*MappedType) }
+func (n *Node) IsMappedType() bool        { return n.kind == SyntaxKindMappedType }
 
-func (n *MappedType) reset() {
+func (n *MappedType) set() {
 	*n = MappedType{}
+	n.kind = SyntaxKindMappedType
+	n.data = n
 }
 
 func (n *MappedType) Kind() SyntaxKind { return SyntaxKindMappedType }
 
-func NewMappedType() *MappedType {
-	v := &MappedType{}
-	v.reset()
-	return v
+func NewMappedType() *Node {
+	n := &MappedType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewMappedType() *MappedType {
-	v := &MappedType{}
-	v.reset()
-	return v
+func (f *Factory) NewMappedType() *Node {
+	return NewMappedType()
 }
 
 type LiteralType struct {
@@ -1977,23 +2051,24 @@ type LiteralType struct {
 }
 
 func (n *Node) AsLiteralType() *LiteralType { return n.data.(*LiteralType) }
+func (n *Node) IsLiteralType() bool         { return n.kind == SyntaxKindLiteralType }
 
-func (n *LiteralType) reset() {
+func (n *LiteralType) set() {
 	*n = LiteralType{}
+	n.kind = SyntaxKindLiteralType
+	n.data = n
 }
 
 func (n *LiteralType) Kind() SyntaxKind { return SyntaxKindLiteralType }
 
-func NewLiteralType() *LiteralType {
-	v := &LiteralType{}
-	v.reset()
-	return v
+func NewLiteralType() *Node {
+	n := &LiteralType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewLiteralType() *LiteralType {
-	v := &LiteralType{}
-	v.reset()
-	return v
+func (f *Factory) NewLiteralType() *Node {
+	return NewLiteralType()
 }
 
 type NamedTupleMember struct {
@@ -2001,23 +2076,24 @@ type NamedTupleMember struct {
 }
 
 func (n *Node) AsNamedTupleMember() *NamedTupleMember { return n.data.(*NamedTupleMember) }
+func (n *Node) IsNamedTupleMember() bool              { return n.kind == SyntaxKindNamedTupleMember }
 
-func (n *NamedTupleMember) reset() {
+func (n *NamedTupleMember) set() {
 	*n = NamedTupleMember{}
+	n.kind = SyntaxKindNamedTupleMember
+	n.data = n
 }
 
 func (n *NamedTupleMember) Kind() SyntaxKind { return SyntaxKindNamedTupleMember }
 
-func NewNamedTupleMember() *NamedTupleMember {
-	v := &NamedTupleMember{}
-	v.reset()
-	return v
+func NewNamedTupleMember() *Node {
+	n := &NamedTupleMember{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNamedTupleMember() *NamedTupleMember {
-	v := &NamedTupleMember{}
-	v.reset()
-	return v
+func (f *Factory) NewNamedTupleMember() *Node {
+	return NewNamedTupleMember()
 }
 
 type TemplateLiteralType struct {
@@ -2025,23 +2101,24 @@ type TemplateLiteralType struct {
 }
 
 func (n *Node) AsTemplateLiteralType() *TemplateLiteralType { return n.data.(*TemplateLiteralType) }
+func (n *Node) IsTemplateLiteralType() bool                 { return n.kind == SyntaxKindTemplateLiteralType }
 
-func (n *TemplateLiteralType) reset() {
+func (n *TemplateLiteralType) set() {
 	*n = TemplateLiteralType{}
+	n.kind = SyntaxKindTemplateLiteralType
+	n.data = n
 }
 
 func (n *TemplateLiteralType) Kind() SyntaxKind { return SyntaxKindTemplateLiteralType }
 
-func NewTemplateLiteralType() *TemplateLiteralType {
-	v := &TemplateLiteralType{}
-	v.reset()
-	return v
+func NewTemplateLiteralType() *Node {
+	n := &TemplateLiteralType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateLiteralType() *TemplateLiteralType {
-	v := &TemplateLiteralType{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateLiteralType() *Node {
+	return NewTemplateLiteralType()
 }
 
 type TemplateLiteralTypeSpan struct {
@@ -2051,23 +2128,24 @@ type TemplateLiteralTypeSpan struct {
 func (n *Node) AsTemplateLiteralTypeSpan() *TemplateLiteralTypeSpan {
 	return n.data.(*TemplateLiteralTypeSpan)
 }
+func (n *Node) IsTemplateLiteralTypeSpan() bool { return n.kind == SyntaxKindTemplateLiteralTypeSpan }
 
-func (n *TemplateLiteralTypeSpan) reset() {
+func (n *TemplateLiteralTypeSpan) set() {
 	*n = TemplateLiteralTypeSpan{}
+	n.kind = SyntaxKindTemplateLiteralTypeSpan
+	n.data = n
 }
 
 func (n *TemplateLiteralTypeSpan) Kind() SyntaxKind { return SyntaxKindTemplateLiteralTypeSpan }
 
-func NewTemplateLiteralTypeSpan() *TemplateLiteralTypeSpan {
-	v := &TemplateLiteralTypeSpan{}
-	v.reset()
-	return v
+func NewTemplateLiteralTypeSpan() *Node {
+	n := &TemplateLiteralTypeSpan{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateLiteralTypeSpan() *TemplateLiteralTypeSpan {
-	v := &TemplateLiteralTypeSpan{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateLiteralTypeSpan() *Node {
+	return NewTemplateLiteralTypeSpan()
 }
 
 type ImportType struct {
@@ -2075,23 +2153,24 @@ type ImportType struct {
 }
 
 func (n *Node) AsImportType() *ImportType { return n.data.(*ImportType) }
+func (n *Node) IsImportType() bool        { return n.kind == SyntaxKindImportType }
 
-func (n *ImportType) reset() {
+func (n *ImportType) set() {
 	*n = ImportType{}
+	n.kind = SyntaxKindImportType
+	n.data = n
 }
 
 func (n *ImportType) Kind() SyntaxKind { return SyntaxKindImportType }
 
-func NewImportType() *ImportType {
-	v := &ImportType{}
-	v.reset()
-	return v
+func NewImportType() *Node {
+	n := &ImportType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportType() *ImportType {
-	v := &ImportType{}
-	v.reset()
-	return v
+func (f *Factory) NewImportType() *Node {
+	return NewImportType()
 }
 
 type ObjectBindingPattern struct {
@@ -2099,23 +2178,24 @@ type ObjectBindingPattern struct {
 }
 
 func (n *Node) AsObjectBindingPattern() *ObjectBindingPattern { return n.data.(*ObjectBindingPattern) }
+func (n *Node) IsObjectBindingPattern() bool                  { return n.kind == SyntaxKindObjectBindingPattern }
 
-func (n *ObjectBindingPattern) reset() {
+func (n *ObjectBindingPattern) set() {
 	*n = ObjectBindingPattern{}
+	n.kind = SyntaxKindObjectBindingPattern
+	n.data = n
 }
 
 func (n *ObjectBindingPattern) Kind() SyntaxKind { return SyntaxKindObjectBindingPattern }
 
-func NewObjectBindingPattern() *ObjectBindingPattern {
-	v := &ObjectBindingPattern{}
-	v.reset()
-	return v
+func NewObjectBindingPattern() *Node {
+	n := &ObjectBindingPattern{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewObjectBindingPattern() *ObjectBindingPattern {
-	v := &ObjectBindingPattern{}
-	v.reset()
-	return v
+func (f *Factory) NewObjectBindingPattern() *Node {
+	return NewObjectBindingPattern()
 }
 
 type ArrayBindingPattern struct {
@@ -2123,23 +2203,24 @@ type ArrayBindingPattern struct {
 }
 
 func (n *Node) AsArrayBindingPattern() *ArrayBindingPattern { return n.data.(*ArrayBindingPattern) }
+func (n *Node) IsArrayBindingPattern() bool                 { return n.kind == SyntaxKindArrayBindingPattern }
 
-func (n *ArrayBindingPattern) reset() {
+func (n *ArrayBindingPattern) set() {
 	*n = ArrayBindingPattern{}
+	n.kind = SyntaxKindArrayBindingPattern
+	n.data = n
 }
 
 func (n *ArrayBindingPattern) Kind() SyntaxKind { return SyntaxKindArrayBindingPattern }
 
-func NewArrayBindingPattern() *ArrayBindingPattern {
-	v := &ArrayBindingPattern{}
-	v.reset()
-	return v
+func NewArrayBindingPattern() *Node {
+	n := &ArrayBindingPattern{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewArrayBindingPattern() *ArrayBindingPattern {
-	v := &ArrayBindingPattern{}
-	v.reset()
-	return v
+func (f *Factory) NewArrayBindingPattern() *Node {
+	return NewArrayBindingPattern()
 }
 
 type BindingElement struct {
@@ -2147,23 +2228,24 @@ type BindingElement struct {
 }
 
 func (n *Node) AsBindingElement() *BindingElement { return n.data.(*BindingElement) }
+func (n *Node) IsBindingElement() bool            { return n.kind == SyntaxKindBindingElement }
 
-func (n *BindingElement) reset() {
+func (n *BindingElement) set() {
 	*n = BindingElement{}
+	n.kind = SyntaxKindBindingElement
+	n.data = n
 }
 
 func (n *BindingElement) Kind() SyntaxKind { return SyntaxKindBindingElement }
 
-func NewBindingElement() *BindingElement {
-	v := &BindingElement{}
-	v.reset()
-	return v
+func NewBindingElement() *Node {
+	n := &BindingElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewBindingElement() *BindingElement {
-	v := &BindingElement{}
-	v.reset()
-	return v
+func (f *Factory) NewBindingElement() *Node {
+	return NewBindingElement()
 }
 
 type ArrayLiteralExpression struct {
@@ -2173,23 +2255,24 @@ type ArrayLiteralExpression struct {
 func (n *Node) AsArrayLiteralExpression() *ArrayLiteralExpression {
 	return n.data.(*ArrayLiteralExpression)
 }
+func (n *Node) IsArrayLiteralExpression() bool { return n.kind == SyntaxKindArrayLiteralExpression }
 
-func (n *ArrayLiteralExpression) reset() {
+func (n *ArrayLiteralExpression) set() {
 	*n = ArrayLiteralExpression{}
+	n.kind = SyntaxKindArrayLiteralExpression
+	n.data = n
 }
 
 func (n *ArrayLiteralExpression) Kind() SyntaxKind { return SyntaxKindArrayLiteralExpression }
 
-func NewArrayLiteralExpression() *ArrayLiteralExpression {
-	v := &ArrayLiteralExpression{}
-	v.reset()
-	return v
+func NewArrayLiteralExpression() *Node {
+	n := &ArrayLiteralExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewArrayLiteralExpression() *ArrayLiteralExpression {
-	v := &ArrayLiteralExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewArrayLiteralExpression() *Node {
+	return NewArrayLiteralExpression()
 }
 
 type ObjectLiteralExpression struct {
@@ -2199,23 +2282,24 @@ type ObjectLiteralExpression struct {
 func (n *Node) AsObjectLiteralExpression() *ObjectLiteralExpression {
 	return n.data.(*ObjectLiteralExpression)
 }
+func (n *Node) IsObjectLiteralExpression() bool { return n.kind == SyntaxKindObjectLiteralExpression }
 
-func (n *ObjectLiteralExpression) reset() {
+func (n *ObjectLiteralExpression) set() {
 	*n = ObjectLiteralExpression{}
+	n.kind = SyntaxKindObjectLiteralExpression
+	n.data = n
 }
 
 func (n *ObjectLiteralExpression) Kind() SyntaxKind { return SyntaxKindObjectLiteralExpression }
 
-func NewObjectLiteralExpression() *ObjectLiteralExpression {
-	v := &ObjectLiteralExpression{}
-	v.reset()
-	return v
+func NewObjectLiteralExpression() *Node {
+	n := &ObjectLiteralExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewObjectLiteralExpression() *ObjectLiteralExpression {
-	v := &ObjectLiteralExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewObjectLiteralExpression() *Node {
+	return NewObjectLiteralExpression()
 }
 
 type PropertyAccessExpression struct {
@@ -2225,23 +2309,24 @@ type PropertyAccessExpression struct {
 func (n *Node) AsPropertyAccessExpression() *PropertyAccessExpression {
 	return n.data.(*PropertyAccessExpression)
 }
+func (n *Node) IsPropertyAccessExpression() bool { return n.kind == SyntaxKindPropertyAccessExpression }
 
-func (n *PropertyAccessExpression) reset() {
+func (n *PropertyAccessExpression) set() {
 	*n = PropertyAccessExpression{}
+	n.kind = SyntaxKindPropertyAccessExpression
+	n.data = n
 }
 
 func (n *PropertyAccessExpression) Kind() SyntaxKind { return SyntaxKindPropertyAccessExpression }
 
-func NewPropertyAccessExpression() *PropertyAccessExpression {
-	v := &PropertyAccessExpression{}
-	v.reset()
-	return v
+func NewPropertyAccessExpression() *Node {
+	n := &PropertyAccessExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPropertyAccessExpression() *PropertyAccessExpression {
-	v := &PropertyAccessExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewPropertyAccessExpression() *Node {
+	return NewPropertyAccessExpression()
 }
 
 type ElementAccessExpression struct {
@@ -2251,23 +2336,24 @@ type ElementAccessExpression struct {
 func (n *Node) AsElementAccessExpression() *ElementAccessExpression {
 	return n.data.(*ElementAccessExpression)
 }
+func (n *Node) IsElementAccessExpression() bool { return n.kind == SyntaxKindElementAccessExpression }
 
-func (n *ElementAccessExpression) reset() {
+func (n *ElementAccessExpression) set() {
 	*n = ElementAccessExpression{}
+	n.kind = SyntaxKindElementAccessExpression
+	n.data = n
 }
 
 func (n *ElementAccessExpression) Kind() SyntaxKind { return SyntaxKindElementAccessExpression }
 
-func NewElementAccessExpression() *ElementAccessExpression {
-	v := &ElementAccessExpression{}
-	v.reset()
-	return v
+func NewElementAccessExpression() *Node {
+	n := &ElementAccessExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewElementAccessExpression() *ElementAccessExpression {
-	v := &ElementAccessExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewElementAccessExpression() *Node {
+	return NewElementAccessExpression()
 }
 
 type CallExpression struct {
@@ -2275,23 +2361,24 @@ type CallExpression struct {
 }
 
 func (n *Node) AsCallExpression() *CallExpression { return n.data.(*CallExpression) }
+func (n *Node) IsCallExpression() bool            { return n.kind == SyntaxKindCallExpression }
 
-func (n *CallExpression) reset() {
+func (n *CallExpression) set() {
 	*n = CallExpression{}
+	n.kind = SyntaxKindCallExpression
+	n.data = n
 }
 
 func (n *CallExpression) Kind() SyntaxKind { return SyntaxKindCallExpression }
 
-func NewCallExpression() *CallExpression {
-	v := &CallExpression{}
-	v.reset()
-	return v
+func NewCallExpression() *Node {
+	n := &CallExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewCallExpression() *CallExpression {
-	v := &CallExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewCallExpression() *Node {
+	return NewCallExpression()
 }
 
 type NewExpression struct {
@@ -2299,23 +2386,24 @@ type NewExpression struct {
 }
 
 func (n *Node) AsNewExpression() *NewExpression { return n.data.(*NewExpression) }
+func (n *Node) IsNewExpression() bool           { return n.kind == SyntaxKindNewExpression }
 
-func (n *NewExpression) reset() {
+func (n *NewExpression) set() {
 	*n = NewExpression{}
+	n.kind = SyntaxKindNewExpression
+	n.data = n
 }
 
 func (n *NewExpression) Kind() SyntaxKind { return SyntaxKindNewExpression }
 
-func NewNewExpression() *NewExpression {
-	v := &NewExpression{}
-	v.reset()
-	return v
+func NewNewExpression() *Node {
+	n := &NewExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNewExpression() *NewExpression {
-	v := &NewExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewNewExpression() *Node {
+	return NewNewExpression()
 }
 
 type TaggedTemplateExpression struct {
@@ -2325,23 +2413,24 @@ type TaggedTemplateExpression struct {
 func (n *Node) AsTaggedTemplateExpression() *TaggedTemplateExpression {
 	return n.data.(*TaggedTemplateExpression)
 }
+func (n *Node) IsTaggedTemplateExpression() bool { return n.kind == SyntaxKindTaggedTemplateExpression }
 
-func (n *TaggedTemplateExpression) reset() {
+func (n *TaggedTemplateExpression) set() {
 	*n = TaggedTemplateExpression{}
+	n.kind = SyntaxKindTaggedTemplateExpression
+	n.data = n
 }
 
 func (n *TaggedTemplateExpression) Kind() SyntaxKind { return SyntaxKindTaggedTemplateExpression }
 
-func NewTaggedTemplateExpression() *TaggedTemplateExpression {
-	v := &TaggedTemplateExpression{}
-	v.reset()
-	return v
+func NewTaggedTemplateExpression() *Node {
+	n := &TaggedTemplateExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTaggedTemplateExpression() *TaggedTemplateExpression {
-	v := &TaggedTemplateExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewTaggedTemplateExpression() *Node {
+	return NewTaggedTemplateExpression()
 }
 
 type TypeAssertionExpression struct {
@@ -2351,23 +2440,24 @@ type TypeAssertionExpression struct {
 func (n *Node) AsTypeAssertionExpression() *TypeAssertionExpression {
 	return n.data.(*TypeAssertionExpression)
 }
+func (n *Node) IsTypeAssertionExpression() bool { return n.kind == SyntaxKindTypeAssertionExpression }
 
-func (n *TypeAssertionExpression) reset() {
+func (n *TypeAssertionExpression) set() {
 	*n = TypeAssertionExpression{}
+	n.kind = SyntaxKindTypeAssertionExpression
+	n.data = n
 }
 
 func (n *TypeAssertionExpression) Kind() SyntaxKind { return SyntaxKindTypeAssertionExpression }
 
-func NewTypeAssertionExpression() *TypeAssertionExpression {
-	v := &TypeAssertionExpression{}
-	v.reset()
-	return v
+func NewTypeAssertionExpression() *Node {
+	n := &TypeAssertionExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeAssertionExpression() *TypeAssertionExpression {
-	v := &TypeAssertionExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeAssertionExpression() *Node {
+	return NewTypeAssertionExpression()
 }
 
 type ParenthesizedExpression struct {
@@ -2377,23 +2467,24 @@ type ParenthesizedExpression struct {
 func (n *Node) AsParenthesizedExpression() *ParenthesizedExpression {
 	return n.data.(*ParenthesizedExpression)
 }
+func (n *Node) IsParenthesizedExpression() bool { return n.kind == SyntaxKindParenthesizedExpression }
 
-func (n *ParenthesizedExpression) reset() {
+func (n *ParenthesizedExpression) set() {
 	*n = ParenthesizedExpression{}
+	n.kind = SyntaxKindParenthesizedExpression
+	n.data = n
 }
 
 func (n *ParenthesizedExpression) Kind() SyntaxKind { return SyntaxKindParenthesizedExpression }
 
-func NewParenthesizedExpression() *ParenthesizedExpression {
-	v := &ParenthesizedExpression{}
-	v.reset()
-	return v
+func NewParenthesizedExpression() *Node {
+	n := &ParenthesizedExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewParenthesizedExpression() *ParenthesizedExpression {
-	v := &ParenthesizedExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewParenthesizedExpression() *Node {
+	return NewParenthesizedExpression()
 }
 
 type FunctionExpression struct {
@@ -2401,23 +2492,24 @@ type FunctionExpression struct {
 }
 
 func (n *Node) AsFunctionExpression() *FunctionExpression { return n.data.(*FunctionExpression) }
+func (n *Node) IsFunctionExpression() bool                { return n.kind == SyntaxKindFunctionExpression }
 
-func (n *FunctionExpression) reset() {
+func (n *FunctionExpression) set() {
 	*n = FunctionExpression{}
+	n.kind = SyntaxKindFunctionExpression
+	n.data = n
 }
 
 func (n *FunctionExpression) Kind() SyntaxKind { return SyntaxKindFunctionExpression }
 
-func NewFunctionExpression() *FunctionExpression {
-	v := &FunctionExpression{}
-	v.reset()
-	return v
+func NewFunctionExpression() *Node {
+	n := &FunctionExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewFunctionExpression() *FunctionExpression {
-	v := &FunctionExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewFunctionExpression() *Node {
+	return NewFunctionExpression()
 }
 
 type ArrowFunction struct {
@@ -2425,23 +2517,24 @@ type ArrowFunction struct {
 }
 
 func (n *Node) AsArrowFunction() *ArrowFunction { return n.data.(*ArrowFunction) }
+func (n *Node) IsArrowFunction() bool           { return n.kind == SyntaxKindArrowFunction }
 
-func (n *ArrowFunction) reset() {
+func (n *ArrowFunction) set() {
 	*n = ArrowFunction{}
+	n.kind = SyntaxKindArrowFunction
+	n.data = n
 }
 
 func (n *ArrowFunction) Kind() SyntaxKind { return SyntaxKindArrowFunction }
 
-func NewArrowFunction() *ArrowFunction {
-	v := &ArrowFunction{}
-	v.reset()
-	return v
+func NewArrowFunction() *Node {
+	n := &ArrowFunction{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewArrowFunction() *ArrowFunction {
-	v := &ArrowFunction{}
-	v.reset()
-	return v
+func (f *Factory) NewArrowFunction() *Node {
+	return NewArrowFunction()
 }
 
 type DeleteExpression struct {
@@ -2449,23 +2542,24 @@ type DeleteExpression struct {
 }
 
 func (n *Node) AsDeleteExpression() *DeleteExpression { return n.data.(*DeleteExpression) }
+func (n *Node) IsDeleteExpression() bool              { return n.kind == SyntaxKindDeleteExpression }
 
-func (n *DeleteExpression) reset() {
+func (n *DeleteExpression) set() {
 	*n = DeleteExpression{}
+	n.kind = SyntaxKindDeleteExpression
+	n.data = n
 }
 
 func (n *DeleteExpression) Kind() SyntaxKind { return SyntaxKindDeleteExpression }
 
-func NewDeleteExpression() *DeleteExpression {
-	v := &DeleteExpression{}
-	v.reset()
-	return v
+func NewDeleteExpression() *Node {
+	n := &DeleteExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewDeleteExpression() *DeleteExpression {
-	v := &DeleteExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewDeleteExpression() *Node {
+	return NewDeleteExpression()
 }
 
 type TypeOfExpression struct {
@@ -2473,23 +2567,24 @@ type TypeOfExpression struct {
 }
 
 func (n *Node) AsTypeOfExpression() *TypeOfExpression { return n.data.(*TypeOfExpression) }
+func (n *Node) IsTypeOfExpression() bool              { return n.kind == SyntaxKindTypeOfExpression }
 
-func (n *TypeOfExpression) reset() {
+func (n *TypeOfExpression) set() {
 	*n = TypeOfExpression{}
+	n.kind = SyntaxKindTypeOfExpression
+	n.data = n
 }
 
 func (n *TypeOfExpression) Kind() SyntaxKind { return SyntaxKindTypeOfExpression }
 
-func NewTypeOfExpression() *TypeOfExpression {
-	v := &TypeOfExpression{}
-	v.reset()
-	return v
+func NewTypeOfExpression() *Node {
+	n := &TypeOfExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeOfExpression() *TypeOfExpression {
-	v := &TypeOfExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeOfExpression() *Node {
+	return NewTypeOfExpression()
 }
 
 type VoidExpression struct {
@@ -2497,23 +2592,24 @@ type VoidExpression struct {
 }
 
 func (n *Node) AsVoidExpression() *VoidExpression { return n.data.(*VoidExpression) }
+func (n *Node) IsVoidExpression() bool            { return n.kind == SyntaxKindVoidExpression }
 
-func (n *VoidExpression) reset() {
+func (n *VoidExpression) set() {
 	*n = VoidExpression{}
+	n.kind = SyntaxKindVoidExpression
+	n.data = n
 }
 
 func (n *VoidExpression) Kind() SyntaxKind { return SyntaxKindVoidExpression }
 
-func NewVoidExpression() *VoidExpression {
-	v := &VoidExpression{}
-	v.reset()
-	return v
+func NewVoidExpression() *Node {
+	n := &VoidExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewVoidExpression() *VoidExpression {
-	v := &VoidExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewVoidExpression() *Node {
+	return NewVoidExpression()
 }
 
 type AwaitExpression struct {
@@ -2521,23 +2617,24 @@ type AwaitExpression struct {
 }
 
 func (n *Node) AsAwaitExpression() *AwaitExpression { return n.data.(*AwaitExpression) }
+func (n *Node) IsAwaitExpression() bool             { return n.kind == SyntaxKindAwaitExpression }
 
-func (n *AwaitExpression) reset() {
+func (n *AwaitExpression) set() {
 	*n = AwaitExpression{}
+	n.kind = SyntaxKindAwaitExpression
+	n.data = n
 }
 
 func (n *AwaitExpression) Kind() SyntaxKind { return SyntaxKindAwaitExpression }
 
-func NewAwaitExpression() *AwaitExpression {
-	v := &AwaitExpression{}
-	v.reset()
-	return v
+func NewAwaitExpression() *Node {
+	n := &AwaitExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewAwaitExpression() *AwaitExpression {
-	v := &AwaitExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewAwaitExpression() *Node {
+	return NewAwaitExpression()
 }
 
 type PrefixUnaryExpression struct {
@@ -2547,23 +2644,24 @@ type PrefixUnaryExpression struct {
 func (n *Node) AsPrefixUnaryExpression() *PrefixUnaryExpression {
 	return n.data.(*PrefixUnaryExpression)
 }
+func (n *Node) IsPrefixUnaryExpression() bool { return n.kind == SyntaxKindPrefixUnaryExpression }
 
-func (n *PrefixUnaryExpression) reset() {
+func (n *PrefixUnaryExpression) set() {
 	*n = PrefixUnaryExpression{}
+	n.kind = SyntaxKindPrefixUnaryExpression
+	n.data = n
 }
 
 func (n *PrefixUnaryExpression) Kind() SyntaxKind { return SyntaxKindPrefixUnaryExpression }
 
-func NewPrefixUnaryExpression() *PrefixUnaryExpression {
-	v := &PrefixUnaryExpression{}
-	v.reset()
-	return v
+func NewPrefixUnaryExpression() *Node {
+	n := &PrefixUnaryExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPrefixUnaryExpression() *PrefixUnaryExpression {
-	v := &PrefixUnaryExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewPrefixUnaryExpression() *Node {
+	return NewPrefixUnaryExpression()
 }
 
 type PostfixUnaryExpression struct {
@@ -2573,23 +2671,24 @@ type PostfixUnaryExpression struct {
 func (n *Node) AsPostfixUnaryExpression() *PostfixUnaryExpression {
 	return n.data.(*PostfixUnaryExpression)
 }
+func (n *Node) IsPostfixUnaryExpression() bool { return n.kind == SyntaxKindPostfixUnaryExpression }
 
-func (n *PostfixUnaryExpression) reset() {
+func (n *PostfixUnaryExpression) set() {
 	*n = PostfixUnaryExpression{}
+	n.kind = SyntaxKindPostfixUnaryExpression
+	n.data = n
 }
 
 func (n *PostfixUnaryExpression) Kind() SyntaxKind { return SyntaxKindPostfixUnaryExpression }
 
-func NewPostfixUnaryExpression() *PostfixUnaryExpression {
-	v := &PostfixUnaryExpression{}
-	v.reset()
-	return v
+func NewPostfixUnaryExpression() *Node {
+	n := &PostfixUnaryExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPostfixUnaryExpression() *PostfixUnaryExpression {
-	v := &PostfixUnaryExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewPostfixUnaryExpression() *Node {
+	return NewPostfixUnaryExpression()
 }
 
 type BinaryExpression struct {
@@ -2597,23 +2696,24 @@ type BinaryExpression struct {
 }
 
 func (n *Node) AsBinaryExpression() *BinaryExpression { return n.data.(*BinaryExpression) }
+func (n *Node) IsBinaryExpression() bool              { return n.kind == SyntaxKindBinaryExpression }
 
-func (n *BinaryExpression) reset() {
+func (n *BinaryExpression) set() {
 	*n = BinaryExpression{}
+	n.kind = SyntaxKindBinaryExpression
+	n.data = n
 }
 
 func (n *BinaryExpression) Kind() SyntaxKind { return SyntaxKindBinaryExpression }
 
-func NewBinaryExpression() *BinaryExpression {
-	v := &BinaryExpression{}
-	v.reset()
-	return v
+func NewBinaryExpression() *Node {
+	n := &BinaryExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewBinaryExpression() *BinaryExpression {
-	v := &BinaryExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewBinaryExpression() *Node {
+	return NewBinaryExpression()
 }
 
 type ConditionalExpression struct {
@@ -2623,23 +2723,24 @@ type ConditionalExpression struct {
 func (n *Node) AsConditionalExpression() *ConditionalExpression {
 	return n.data.(*ConditionalExpression)
 }
+func (n *Node) IsConditionalExpression() bool { return n.kind == SyntaxKindConditionalExpression }
 
-func (n *ConditionalExpression) reset() {
+func (n *ConditionalExpression) set() {
 	*n = ConditionalExpression{}
+	n.kind = SyntaxKindConditionalExpression
+	n.data = n
 }
 
 func (n *ConditionalExpression) Kind() SyntaxKind { return SyntaxKindConditionalExpression }
 
-func NewConditionalExpression() *ConditionalExpression {
-	v := &ConditionalExpression{}
-	v.reset()
-	return v
+func NewConditionalExpression() *Node {
+	n := &ConditionalExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewConditionalExpression() *ConditionalExpression {
-	v := &ConditionalExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewConditionalExpression() *Node {
+	return NewConditionalExpression()
 }
 
 type TemplateExpression struct {
@@ -2647,23 +2748,24 @@ type TemplateExpression struct {
 }
 
 func (n *Node) AsTemplateExpression() *TemplateExpression { return n.data.(*TemplateExpression) }
+func (n *Node) IsTemplateExpression() bool                { return n.kind == SyntaxKindTemplateExpression }
 
-func (n *TemplateExpression) reset() {
+func (n *TemplateExpression) set() {
 	*n = TemplateExpression{}
+	n.kind = SyntaxKindTemplateExpression
+	n.data = n
 }
 
 func (n *TemplateExpression) Kind() SyntaxKind { return SyntaxKindTemplateExpression }
 
-func NewTemplateExpression() *TemplateExpression {
-	v := &TemplateExpression{}
-	v.reset()
-	return v
+func NewTemplateExpression() *Node {
+	n := &TemplateExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateExpression() *TemplateExpression {
-	v := &TemplateExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateExpression() *Node {
+	return NewTemplateExpression()
 }
 
 type YieldExpression struct {
@@ -2671,23 +2773,24 @@ type YieldExpression struct {
 }
 
 func (n *Node) AsYieldExpression() *YieldExpression { return n.data.(*YieldExpression) }
+func (n *Node) IsYieldExpression() bool             { return n.kind == SyntaxKindYieldExpression }
 
-func (n *YieldExpression) reset() {
+func (n *YieldExpression) set() {
 	*n = YieldExpression{}
+	n.kind = SyntaxKindYieldExpression
+	n.data = n
 }
 
 func (n *YieldExpression) Kind() SyntaxKind { return SyntaxKindYieldExpression }
 
-func NewYieldExpression() *YieldExpression {
-	v := &YieldExpression{}
-	v.reset()
-	return v
+func NewYieldExpression() *Node {
+	n := &YieldExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewYieldExpression() *YieldExpression {
-	v := &YieldExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewYieldExpression() *Node {
+	return NewYieldExpression()
 }
 
 type SpreadElement struct {
@@ -2695,23 +2798,24 @@ type SpreadElement struct {
 }
 
 func (n *Node) AsSpreadElement() *SpreadElement { return n.data.(*SpreadElement) }
+func (n *Node) IsSpreadElement() bool           { return n.kind == SyntaxKindSpreadElement }
 
-func (n *SpreadElement) reset() {
+func (n *SpreadElement) set() {
 	*n = SpreadElement{}
+	n.kind = SyntaxKindSpreadElement
+	n.data = n
 }
 
 func (n *SpreadElement) Kind() SyntaxKind { return SyntaxKindSpreadElement }
 
-func NewSpreadElement() *SpreadElement {
-	v := &SpreadElement{}
-	v.reset()
-	return v
+func NewSpreadElement() *Node {
+	n := &SpreadElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSpreadElement() *SpreadElement {
-	v := &SpreadElement{}
-	v.reset()
-	return v
+func (f *Factory) NewSpreadElement() *Node {
+	return NewSpreadElement()
 }
 
 type ClassExpression struct {
@@ -2719,23 +2823,24 @@ type ClassExpression struct {
 }
 
 func (n *Node) AsClassExpression() *ClassExpression { return n.data.(*ClassExpression) }
+func (n *Node) IsClassExpression() bool             { return n.kind == SyntaxKindClassExpression }
 
-func (n *ClassExpression) reset() {
+func (n *ClassExpression) set() {
 	*n = ClassExpression{}
+	n.kind = SyntaxKindClassExpression
+	n.data = n
 }
 
 func (n *ClassExpression) Kind() SyntaxKind { return SyntaxKindClassExpression }
 
-func NewClassExpression() *ClassExpression {
-	v := &ClassExpression{}
-	v.reset()
-	return v
+func NewClassExpression() *Node {
+	n := &ClassExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewClassExpression() *ClassExpression {
-	v := &ClassExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewClassExpression() *Node {
+	return NewClassExpression()
 }
 
 type OmittedExpression struct {
@@ -2743,23 +2848,24 @@ type OmittedExpression struct {
 }
 
 func (n *Node) AsOmittedExpression() *OmittedExpression { return n.data.(*OmittedExpression) }
+func (n *Node) IsOmittedExpression() bool               { return n.kind == SyntaxKindOmittedExpression }
 
-func (n *OmittedExpression) reset() {
+func (n *OmittedExpression) set() {
 	*n = OmittedExpression{}
+	n.kind = SyntaxKindOmittedExpression
+	n.data = n
 }
 
 func (n *OmittedExpression) Kind() SyntaxKind { return SyntaxKindOmittedExpression }
 
-func NewOmittedExpression() *OmittedExpression {
-	v := &OmittedExpression{}
-	v.reset()
-	return v
+func NewOmittedExpression() *Node {
+	n := &OmittedExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewOmittedExpression() *OmittedExpression {
-	v := &OmittedExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewOmittedExpression() *Node {
+	return NewOmittedExpression()
 }
 
 type ExpressionWithTypeArguments struct {
@@ -2769,23 +2875,26 @@ type ExpressionWithTypeArguments struct {
 func (n *Node) AsExpressionWithTypeArguments() *ExpressionWithTypeArguments {
 	return n.data.(*ExpressionWithTypeArguments)
 }
+func (n *Node) IsExpressionWithTypeArguments() bool {
+	return n.kind == SyntaxKindExpressionWithTypeArguments
+}
 
-func (n *ExpressionWithTypeArguments) reset() {
+func (n *ExpressionWithTypeArguments) set() {
 	*n = ExpressionWithTypeArguments{}
+	n.kind = SyntaxKindExpressionWithTypeArguments
+	n.data = n
 }
 
 func (n *ExpressionWithTypeArguments) Kind() SyntaxKind { return SyntaxKindExpressionWithTypeArguments }
 
-func NewExpressionWithTypeArguments() *ExpressionWithTypeArguments {
-	v := &ExpressionWithTypeArguments{}
-	v.reset()
-	return v
+func NewExpressionWithTypeArguments() *Node {
+	n := &ExpressionWithTypeArguments{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewExpressionWithTypeArguments() *ExpressionWithTypeArguments {
-	v := &ExpressionWithTypeArguments{}
-	v.reset()
-	return v
+func (f *Factory) NewExpressionWithTypeArguments() *Node {
+	return NewExpressionWithTypeArguments()
 }
 
 type AsExpression struct {
@@ -2793,23 +2902,24 @@ type AsExpression struct {
 }
 
 func (n *Node) AsAsExpression() *AsExpression { return n.data.(*AsExpression) }
+func (n *Node) IsAsExpression() bool          { return n.kind == SyntaxKindAsExpression }
 
-func (n *AsExpression) reset() {
+func (n *AsExpression) set() {
 	*n = AsExpression{}
+	n.kind = SyntaxKindAsExpression
+	n.data = n
 }
 
 func (n *AsExpression) Kind() SyntaxKind { return SyntaxKindAsExpression }
 
-func NewAsExpression() *AsExpression {
-	v := &AsExpression{}
-	v.reset()
-	return v
+func NewAsExpression() *Node {
+	n := &AsExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewAsExpression() *AsExpression {
-	v := &AsExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewAsExpression() *Node {
+	return NewAsExpression()
 }
 
 type NonNullExpression struct {
@@ -2817,23 +2927,24 @@ type NonNullExpression struct {
 }
 
 func (n *Node) AsNonNullExpression() *NonNullExpression { return n.data.(*NonNullExpression) }
+func (n *Node) IsNonNullExpression() bool               { return n.kind == SyntaxKindNonNullExpression }
 
-func (n *NonNullExpression) reset() {
+func (n *NonNullExpression) set() {
 	*n = NonNullExpression{}
+	n.kind = SyntaxKindNonNullExpression
+	n.data = n
 }
 
 func (n *NonNullExpression) Kind() SyntaxKind { return SyntaxKindNonNullExpression }
 
-func NewNonNullExpression() *NonNullExpression {
-	v := &NonNullExpression{}
-	v.reset()
-	return v
+func NewNonNullExpression() *Node {
+	n := &NonNullExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNonNullExpression() *NonNullExpression {
-	v := &NonNullExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewNonNullExpression() *Node {
+	return NewNonNullExpression()
 }
 
 type MetaProperty struct {
@@ -2841,23 +2952,24 @@ type MetaProperty struct {
 }
 
 func (n *Node) AsMetaProperty() *MetaProperty { return n.data.(*MetaProperty) }
+func (n *Node) IsMetaProperty() bool          { return n.kind == SyntaxKindMetaProperty }
 
-func (n *MetaProperty) reset() {
+func (n *MetaProperty) set() {
 	*n = MetaProperty{}
+	n.kind = SyntaxKindMetaProperty
+	n.data = n
 }
 
 func (n *MetaProperty) Kind() SyntaxKind { return SyntaxKindMetaProperty }
 
-func NewMetaProperty() *MetaProperty {
-	v := &MetaProperty{}
-	v.reset()
-	return v
+func NewMetaProperty() *Node {
+	n := &MetaProperty{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewMetaProperty() *MetaProperty {
-	v := &MetaProperty{}
-	v.reset()
-	return v
+func (f *Factory) NewMetaProperty() *Node {
+	return NewMetaProperty()
 }
 
 type SyntheticExpression struct {
@@ -2865,23 +2977,24 @@ type SyntheticExpression struct {
 }
 
 func (n *Node) AsSyntheticExpression() *SyntheticExpression { return n.data.(*SyntheticExpression) }
+func (n *Node) IsSyntheticExpression() bool                 { return n.kind == SyntaxKindSyntheticExpression }
 
-func (n *SyntheticExpression) reset() {
+func (n *SyntheticExpression) set() {
 	*n = SyntheticExpression{}
+	n.kind = SyntaxKindSyntheticExpression
+	n.data = n
 }
 
 func (n *SyntheticExpression) Kind() SyntaxKind { return SyntaxKindSyntheticExpression }
 
-func NewSyntheticExpression() *SyntheticExpression {
-	v := &SyntheticExpression{}
-	v.reset()
-	return v
+func NewSyntheticExpression() *Node {
+	n := &SyntheticExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSyntheticExpression() *SyntheticExpression {
-	v := &SyntheticExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewSyntheticExpression() *Node {
+	return NewSyntheticExpression()
 }
 
 type SatisfiesExpression struct {
@@ -2889,23 +3002,24 @@ type SatisfiesExpression struct {
 }
 
 func (n *Node) AsSatisfiesExpression() *SatisfiesExpression { return n.data.(*SatisfiesExpression) }
+func (n *Node) IsSatisfiesExpression() bool                 { return n.kind == SyntaxKindSatisfiesExpression }
 
-func (n *SatisfiesExpression) reset() {
+func (n *SatisfiesExpression) set() {
 	*n = SatisfiesExpression{}
+	n.kind = SyntaxKindSatisfiesExpression
+	n.data = n
 }
 
 func (n *SatisfiesExpression) Kind() SyntaxKind { return SyntaxKindSatisfiesExpression }
 
-func NewSatisfiesExpression() *SatisfiesExpression {
-	v := &SatisfiesExpression{}
-	v.reset()
-	return v
+func NewSatisfiesExpression() *Node {
+	n := &SatisfiesExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSatisfiesExpression() *SatisfiesExpression {
-	v := &SatisfiesExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewSatisfiesExpression() *Node {
+	return NewSatisfiesExpression()
 }
 
 type TemplateSpan struct {
@@ -2913,23 +3027,24 @@ type TemplateSpan struct {
 }
 
 func (n *Node) AsTemplateSpan() *TemplateSpan { return n.data.(*TemplateSpan) }
+func (n *Node) IsTemplateSpan() bool          { return n.kind == SyntaxKindTemplateSpan }
 
-func (n *TemplateSpan) reset() {
+func (n *TemplateSpan) set() {
 	*n = TemplateSpan{}
+	n.kind = SyntaxKindTemplateSpan
+	n.data = n
 }
 
 func (n *TemplateSpan) Kind() SyntaxKind { return SyntaxKindTemplateSpan }
 
-func NewTemplateSpan() *TemplateSpan {
-	v := &TemplateSpan{}
-	v.reset()
-	return v
+func NewTemplateSpan() *Node {
+	n := &TemplateSpan{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTemplateSpan() *TemplateSpan {
-	v := &TemplateSpan{}
-	v.reset()
-	return v
+func (f *Factory) NewTemplateSpan() *Node {
+	return NewTemplateSpan()
 }
 
 type SemicolonClassElement struct {
@@ -2939,23 +3054,24 @@ type SemicolonClassElement struct {
 func (n *Node) AsSemicolonClassElement() *SemicolonClassElement {
 	return n.data.(*SemicolonClassElement)
 }
+func (n *Node) IsSemicolonClassElement() bool { return n.kind == SyntaxKindSemicolonClassElement }
 
-func (n *SemicolonClassElement) reset() {
+func (n *SemicolonClassElement) set() {
 	*n = SemicolonClassElement{}
+	n.kind = SyntaxKindSemicolonClassElement
+	n.data = n
 }
 
 func (n *SemicolonClassElement) Kind() SyntaxKind { return SyntaxKindSemicolonClassElement }
 
-func NewSemicolonClassElement() *SemicolonClassElement {
-	v := &SemicolonClassElement{}
-	v.reset()
-	return v
+func NewSemicolonClassElement() *Node {
+	n := &SemicolonClassElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSemicolonClassElement() *SemicolonClassElement {
-	v := &SemicolonClassElement{}
-	v.reset()
-	return v
+func (f *Factory) NewSemicolonClassElement() *Node {
+	return NewSemicolonClassElement()
 }
 
 type Block struct {
@@ -2963,23 +3079,24 @@ type Block struct {
 }
 
 func (n *Node) AsBlock() *Block { return n.data.(*Block) }
+func (n *Node) IsBlock() bool   { return n.kind == SyntaxKindBlock }
 
-func (n *Block) reset() {
+func (n *Block) set() {
 	*n = Block{}
+	n.kind = SyntaxKindBlock
+	n.data = n
 }
 
 func (n *Block) Kind() SyntaxKind { return SyntaxKindBlock }
 
-func NewBlock() *Block {
-	v := &Block{}
-	v.reset()
-	return v
+func NewBlock() *Node {
+	n := &Block{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewBlock() *Block {
-	v := &Block{}
-	v.reset()
-	return v
+func (f *Factory) NewBlock() *Node {
+	return NewBlock()
 }
 
 type EmptyStatement struct {
@@ -2987,23 +3104,24 @@ type EmptyStatement struct {
 }
 
 func (n *Node) AsEmptyStatement() *EmptyStatement { return n.data.(*EmptyStatement) }
+func (n *Node) IsEmptyStatement() bool            { return n.kind == SyntaxKindEmptyStatement }
 
-func (n *EmptyStatement) reset() {
+func (n *EmptyStatement) set() {
 	*n = EmptyStatement{}
+	n.kind = SyntaxKindEmptyStatement
+	n.data = n
 }
 
 func (n *EmptyStatement) Kind() SyntaxKind { return SyntaxKindEmptyStatement }
 
-func NewEmptyStatement() *EmptyStatement {
-	v := &EmptyStatement{}
-	v.reset()
-	return v
+func NewEmptyStatement() *Node {
+	n := &EmptyStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewEmptyStatement() *EmptyStatement {
-	v := &EmptyStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewEmptyStatement() *Node {
+	return NewEmptyStatement()
 }
 
 type VariableStatement struct {
@@ -3011,23 +3129,24 @@ type VariableStatement struct {
 }
 
 func (n *Node) AsVariableStatement() *VariableStatement { return n.data.(*VariableStatement) }
+func (n *Node) IsVariableStatement() bool               { return n.kind == SyntaxKindVariableStatement }
 
-func (n *VariableStatement) reset() {
+func (n *VariableStatement) set() {
 	*n = VariableStatement{}
+	n.kind = SyntaxKindVariableStatement
+	n.data = n
 }
 
 func (n *VariableStatement) Kind() SyntaxKind { return SyntaxKindVariableStatement }
 
-func NewVariableStatement() *VariableStatement {
-	v := &VariableStatement{}
-	v.reset()
-	return v
+func NewVariableStatement() *Node {
+	n := &VariableStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewVariableStatement() *VariableStatement {
-	v := &VariableStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewVariableStatement() *Node {
+	return NewVariableStatement()
 }
 
 type ExpressionStatement struct {
@@ -3035,23 +3154,24 @@ type ExpressionStatement struct {
 }
 
 func (n *Node) AsExpressionStatement() *ExpressionStatement { return n.data.(*ExpressionStatement) }
+func (n *Node) IsExpressionStatement() bool                 { return n.kind == SyntaxKindExpressionStatement }
 
-func (n *ExpressionStatement) reset() {
+func (n *ExpressionStatement) set() {
 	*n = ExpressionStatement{}
+	n.kind = SyntaxKindExpressionStatement
+	n.data = n
 }
 
 func (n *ExpressionStatement) Kind() SyntaxKind { return SyntaxKindExpressionStatement }
 
-func NewExpressionStatement() *ExpressionStatement {
-	v := &ExpressionStatement{}
-	v.reset()
-	return v
+func NewExpressionStatement() *Node {
+	n := &ExpressionStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewExpressionStatement() *ExpressionStatement {
-	v := &ExpressionStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewExpressionStatement() *Node {
+	return NewExpressionStatement()
 }
 
 type IfStatement struct {
@@ -3059,23 +3179,24 @@ type IfStatement struct {
 }
 
 func (n *Node) AsIfStatement() *IfStatement { return n.data.(*IfStatement) }
+func (n *Node) IsIfStatement() bool         { return n.kind == SyntaxKindIfStatement }
 
-func (n *IfStatement) reset() {
+func (n *IfStatement) set() {
 	*n = IfStatement{}
+	n.kind = SyntaxKindIfStatement
+	n.data = n
 }
 
 func (n *IfStatement) Kind() SyntaxKind { return SyntaxKindIfStatement }
 
-func NewIfStatement() *IfStatement {
-	v := &IfStatement{}
-	v.reset()
-	return v
+func NewIfStatement() *Node {
+	n := &IfStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewIfStatement() *IfStatement {
-	v := &IfStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewIfStatement() *Node {
+	return NewIfStatement()
 }
 
 type DoStatement struct {
@@ -3083,23 +3204,24 @@ type DoStatement struct {
 }
 
 func (n *Node) AsDoStatement() *DoStatement { return n.data.(*DoStatement) }
+func (n *Node) IsDoStatement() bool         { return n.kind == SyntaxKindDoStatement }
 
-func (n *DoStatement) reset() {
+func (n *DoStatement) set() {
 	*n = DoStatement{}
+	n.kind = SyntaxKindDoStatement
+	n.data = n
 }
 
 func (n *DoStatement) Kind() SyntaxKind { return SyntaxKindDoStatement }
 
-func NewDoStatement() *DoStatement {
-	v := &DoStatement{}
-	v.reset()
-	return v
+func NewDoStatement() *Node {
+	n := &DoStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewDoStatement() *DoStatement {
-	v := &DoStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewDoStatement() *Node {
+	return NewDoStatement()
 }
 
 type WhileStatement struct {
@@ -3107,23 +3229,24 @@ type WhileStatement struct {
 }
 
 func (n *Node) AsWhileStatement() *WhileStatement { return n.data.(*WhileStatement) }
+func (n *Node) IsWhileStatement() bool            { return n.kind == SyntaxKindWhileStatement }
 
-func (n *WhileStatement) reset() {
+func (n *WhileStatement) set() {
 	*n = WhileStatement{}
+	n.kind = SyntaxKindWhileStatement
+	n.data = n
 }
 
 func (n *WhileStatement) Kind() SyntaxKind { return SyntaxKindWhileStatement }
 
-func NewWhileStatement() *WhileStatement {
-	v := &WhileStatement{}
-	v.reset()
-	return v
+func NewWhileStatement() *Node {
+	n := &WhileStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewWhileStatement() *WhileStatement {
-	v := &WhileStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewWhileStatement() *Node {
+	return NewWhileStatement()
 }
 
 type ForStatement struct {
@@ -3131,23 +3254,24 @@ type ForStatement struct {
 }
 
 func (n *Node) AsForStatement() *ForStatement { return n.data.(*ForStatement) }
+func (n *Node) IsForStatement() bool          { return n.kind == SyntaxKindForStatement }
 
-func (n *ForStatement) reset() {
+func (n *ForStatement) set() {
 	*n = ForStatement{}
+	n.kind = SyntaxKindForStatement
+	n.data = n
 }
 
 func (n *ForStatement) Kind() SyntaxKind { return SyntaxKindForStatement }
 
-func NewForStatement() *ForStatement {
-	v := &ForStatement{}
-	v.reset()
-	return v
+func NewForStatement() *Node {
+	n := &ForStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewForStatement() *ForStatement {
-	v := &ForStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewForStatement() *Node {
+	return NewForStatement()
 }
 
 type ForInStatement struct {
@@ -3155,23 +3279,24 @@ type ForInStatement struct {
 }
 
 func (n *Node) AsForInStatement() *ForInStatement { return n.data.(*ForInStatement) }
+func (n *Node) IsForInStatement() bool            { return n.kind == SyntaxKindForInStatement }
 
-func (n *ForInStatement) reset() {
+func (n *ForInStatement) set() {
 	*n = ForInStatement{}
+	n.kind = SyntaxKindForInStatement
+	n.data = n
 }
 
 func (n *ForInStatement) Kind() SyntaxKind { return SyntaxKindForInStatement }
 
-func NewForInStatement() *ForInStatement {
-	v := &ForInStatement{}
-	v.reset()
-	return v
+func NewForInStatement() *Node {
+	n := &ForInStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewForInStatement() *ForInStatement {
-	v := &ForInStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewForInStatement() *Node {
+	return NewForInStatement()
 }
 
 type ForOfStatement struct {
@@ -3179,23 +3304,24 @@ type ForOfStatement struct {
 }
 
 func (n *Node) AsForOfStatement() *ForOfStatement { return n.data.(*ForOfStatement) }
+func (n *Node) IsForOfStatement() bool            { return n.kind == SyntaxKindForOfStatement }
 
-func (n *ForOfStatement) reset() {
+func (n *ForOfStatement) set() {
 	*n = ForOfStatement{}
+	n.kind = SyntaxKindForOfStatement
+	n.data = n
 }
 
 func (n *ForOfStatement) Kind() SyntaxKind { return SyntaxKindForOfStatement }
 
-func NewForOfStatement() *ForOfStatement {
-	v := &ForOfStatement{}
-	v.reset()
-	return v
+func NewForOfStatement() *Node {
+	n := &ForOfStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewForOfStatement() *ForOfStatement {
-	v := &ForOfStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewForOfStatement() *Node {
+	return NewForOfStatement()
 }
 
 type ContinueStatement struct {
@@ -3203,23 +3329,24 @@ type ContinueStatement struct {
 }
 
 func (n *Node) AsContinueStatement() *ContinueStatement { return n.data.(*ContinueStatement) }
+func (n *Node) IsContinueStatement() bool               { return n.kind == SyntaxKindContinueStatement }
 
-func (n *ContinueStatement) reset() {
+func (n *ContinueStatement) set() {
 	*n = ContinueStatement{}
+	n.kind = SyntaxKindContinueStatement
+	n.data = n
 }
 
 func (n *ContinueStatement) Kind() SyntaxKind { return SyntaxKindContinueStatement }
 
-func NewContinueStatement() *ContinueStatement {
-	v := &ContinueStatement{}
-	v.reset()
-	return v
+func NewContinueStatement() *Node {
+	n := &ContinueStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewContinueStatement() *ContinueStatement {
-	v := &ContinueStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewContinueStatement() *Node {
+	return NewContinueStatement()
 }
 
 type BreakStatement struct {
@@ -3227,23 +3354,24 @@ type BreakStatement struct {
 }
 
 func (n *Node) AsBreakStatement() *BreakStatement { return n.data.(*BreakStatement) }
+func (n *Node) IsBreakStatement() bool            { return n.kind == SyntaxKindBreakStatement }
 
-func (n *BreakStatement) reset() {
+func (n *BreakStatement) set() {
 	*n = BreakStatement{}
+	n.kind = SyntaxKindBreakStatement
+	n.data = n
 }
 
 func (n *BreakStatement) Kind() SyntaxKind { return SyntaxKindBreakStatement }
 
-func NewBreakStatement() *BreakStatement {
-	v := &BreakStatement{}
-	v.reset()
-	return v
+func NewBreakStatement() *Node {
+	n := &BreakStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewBreakStatement() *BreakStatement {
-	v := &BreakStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewBreakStatement() *Node {
+	return NewBreakStatement()
 }
 
 type ReturnStatement struct {
@@ -3251,23 +3379,24 @@ type ReturnStatement struct {
 }
 
 func (n *Node) AsReturnStatement() *ReturnStatement { return n.data.(*ReturnStatement) }
+func (n *Node) IsReturnStatement() bool             { return n.kind == SyntaxKindReturnStatement }
 
-func (n *ReturnStatement) reset() {
+func (n *ReturnStatement) set() {
 	*n = ReturnStatement{}
+	n.kind = SyntaxKindReturnStatement
+	n.data = n
 }
 
 func (n *ReturnStatement) Kind() SyntaxKind { return SyntaxKindReturnStatement }
 
-func NewReturnStatement() *ReturnStatement {
-	v := &ReturnStatement{}
-	v.reset()
-	return v
+func NewReturnStatement() *Node {
+	n := &ReturnStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewReturnStatement() *ReturnStatement {
-	v := &ReturnStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewReturnStatement() *Node {
+	return NewReturnStatement()
 }
 
 type WithStatement struct {
@@ -3275,23 +3404,24 @@ type WithStatement struct {
 }
 
 func (n *Node) AsWithStatement() *WithStatement { return n.data.(*WithStatement) }
+func (n *Node) IsWithStatement() bool           { return n.kind == SyntaxKindWithStatement }
 
-func (n *WithStatement) reset() {
+func (n *WithStatement) set() {
 	*n = WithStatement{}
+	n.kind = SyntaxKindWithStatement
+	n.data = n
 }
 
 func (n *WithStatement) Kind() SyntaxKind { return SyntaxKindWithStatement }
 
-func NewWithStatement() *WithStatement {
-	v := &WithStatement{}
-	v.reset()
-	return v
+func NewWithStatement() *Node {
+	n := &WithStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewWithStatement() *WithStatement {
-	v := &WithStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewWithStatement() *Node {
+	return NewWithStatement()
 }
 
 type SwitchStatement struct {
@@ -3299,23 +3429,24 @@ type SwitchStatement struct {
 }
 
 func (n *Node) AsSwitchStatement() *SwitchStatement { return n.data.(*SwitchStatement) }
+func (n *Node) IsSwitchStatement() bool             { return n.kind == SyntaxKindSwitchStatement }
 
-func (n *SwitchStatement) reset() {
+func (n *SwitchStatement) set() {
 	*n = SwitchStatement{}
+	n.kind = SyntaxKindSwitchStatement
+	n.data = n
 }
 
 func (n *SwitchStatement) Kind() SyntaxKind { return SyntaxKindSwitchStatement }
 
-func NewSwitchStatement() *SwitchStatement {
-	v := &SwitchStatement{}
-	v.reset()
-	return v
+func NewSwitchStatement() *Node {
+	n := &SwitchStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSwitchStatement() *SwitchStatement {
-	v := &SwitchStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewSwitchStatement() *Node {
+	return NewSwitchStatement()
 }
 
 type LabeledStatement struct {
@@ -3323,23 +3454,24 @@ type LabeledStatement struct {
 }
 
 func (n *Node) AsLabeledStatement() *LabeledStatement { return n.data.(*LabeledStatement) }
+func (n *Node) IsLabeledStatement() bool              { return n.kind == SyntaxKindLabeledStatement }
 
-func (n *LabeledStatement) reset() {
+func (n *LabeledStatement) set() {
 	*n = LabeledStatement{}
+	n.kind = SyntaxKindLabeledStatement
+	n.data = n
 }
 
 func (n *LabeledStatement) Kind() SyntaxKind { return SyntaxKindLabeledStatement }
 
-func NewLabeledStatement() *LabeledStatement {
-	v := &LabeledStatement{}
-	v.reset()
-	return v
+func NewLabeledStatement() *Node {
+	n := &LabeledStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewLabeledStatement() *LabeledStatement {
-	v := &LabeledStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewLabeledStatement() *Node {
+	return NewLabeledStatement()
 }
 
 type ThrowStatement struct {
@@ -3347,23 +3479,24 @@ type ThrowStatement struct {
 }
 
 func (n *Node) AsThrowStatement() *ThrowStatement { return n.data.(*ThrowStatement) }
+func (n *Node) IsThrowStatement() bool            { return n.kind == SyntaxKindThrowStatement }
 
-func (n *ThrowStatement) reset() {
+func (n *ThrowStatement) set() {
 	*n = ThrowStatement{}
+	n.kind = SyntaxKindThrowStatement
+	n.data = n
 }
 
 func (n *ThrowStatement) Kind() SyntaxKind { return SyntaxKindThrowStatement }
 
-func NewThrowStatement() *ThrowStatement {
-	v := &ThrowStatement{}
-	v.reset()
-	return v
+func NewThrowStatement() *Node {
+	n := &ThrowStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewThrowStatement() *ThrowStatement {
-	v := &ThrowStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewThrowStatement() *Node {
+	return NewThrowStatement()
 }
 
 type TryStatement struct {
@@ -3371,23 +3504,24 @@ type TryStatement struct {
 }
 
 func (n *Node) AsTryStatement() *TryStatement { return n.data.(*TryStatement) }
+func (n *Node) IsTryStatement() bool          { return n.kind == SyntaxKindTryStatement }
 
-func (n *TryStatement) reset() {
+func (n *TryStatement) set() {
 	*n = TryStatement{}
+	n.kind = SyntaxKindTryStatement
+	n.data = n
 }
 
 func (n *TryStatement) Kind() SyntaxKind { return SyntaxKindTryStatement }
 
-func NewTryStatement() *TryStatement {
-	v := &TryStatement{}
-	v.reset()
-	return v
+func NewTryStatement() *Node {
+	n := &TryStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTryStatement() *TryStatement {
-	v := &TryStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewTryStatement() *Node {
+	return NewTryStatement()
 }
 
 type DebuggerStatement struct {
@@ -3395,23 +3529,24 @@ type DebuggerStatement struct {
 }
 
 func (n *Node) AsDebuggerStatement() *DebuggerStatement { return n.data.(*DebuggerStatement) }
+func (n *Node) IsDebuggerStatement() bool               { return n.kind == SyntaxKindDebuggerStatement }
 
-func (n *DebuggerStatement) reset() {
+func (n *DebuggerStatement) set() {
 	*n = DebuggerStatement{}
+	n.kind = SyntaxKindDebuggerStatement
+	n.data = n
 }
 
 func (n *DebuggerStatement) Kind() SyntaxKind { return SyntaxKindDebuggerStatement }
 
-func NewDebuggerStatement() *DebuggerStatement {
-	v := &DebuggerStatement{}
-	v.reset()
-	return v
+func NewDebuggerStatement() *Node {
+	n := &DebuggerStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewDebuggerStatement() *DebuggerStatement {
-	v := &DebuggerStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewDebuggerStatement() *Node {
+	return NewDebuggerStatement()
 }
 
 type VariableDeclaration struct {
@@ -3419,23 +3554,24 @@ type VariableDeclaration struct {
 }
 
 func (n *Node) AsVariableDeclaration() *VariableDeclaration { return n.data.(*VariableDeclaration) }
+func (n *Node) IsVariableDeclaration() bool                 { return n.kind == SyntaxKindVariableDeclaration }
 
-func (n *VariableDeclaration) reset() {
+func (n *VariableDeclaration) set() {
 	*n = VariableDeclaration{}
+	n.kind = SyntaxKindVariableDeclaration
+	n.data = n
 }
 
 func (n *VariableDeclaration) Kind() SyntaxKind { return SyntaxKindVariableDeclaration }
 
-func NewVariableDeclaration() *VariableDeclaration {
-	v := &VariableDeclaration{}
-	v.reset()
-	return v
+func NewVariableDeclaration() *Node {
+	n := &VariableDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewVariableDeclaration() *VariableDeclaration {
-	v := &VariableDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewVariableDeclaration() *Node {
+	return NewVariableDeclaration()
 }
 
 type VariableDeclarationList struct {
@@ -3445,23 +3581,24 @@ type VariableDeclarationList struct {
 func (n *Node) AsVariableDeclarationList() *VariableDeclarationList {
 	return n.data.(*VariableDeclarationList)
 }
+func (n *Node) IsVariableDeclarationList() bool { return n.kind == SyntaxKindVariableDeclarationList }
 
-func (n *VariableDeclarationList) reset() {
+func (n *VariableDeclarationList) set() {
 	*n = VariableDeclarationList{}
+	n.kind = SyntaxKindVariableDeclarationList
+	n.data = n
 }
 
 func (n *VariableDeclarationList) Kind() SyntaxKind { return SyntaxKindVariableDeclarationList }
 
-func NewVariableDeclarationList() *VariableDeclarationList {
-	v := &VariableDeclarationList{}
-	v.reset()
-	return v
+func NewVariableDeclarationList() *Node {
+	n := &VariableDeclarationList{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewVariableDeclarationList() *VariableDeclarationList {
-	v := &VariableDeclarationList{}
-	v.reset()
-	return v
+func (f *Factory) NewVariableDeclarationList() *Node {
+	return NewVariableDeclarationList()
 }
 
 type FunctionDeclaration struct {
@@ -3469,23 +3606,24 @@ type FunctionDeclaration struct {
 }
 
 func (n *Node) AsFunctionDeclaration() *FunctionDeclaration { return n.data.(*FunctionDeclaration) }
+func (n *Node) IsFunctionDeclaration() bool                 { return n.kind == SyntaxKindFunctionDeclaration }
 
-func (n *FunctionDeclaration) reset() {
+func (n *FunctionDeclaration) set() {
 	*n = FunctionDeclaration{}
+	n.kind = SyntaxKindFunctionDeclaration
+	n.data = n
 }
 
 func (n *FunctionDeclaration) Kind() SyntaxKind { return SyntaxKindFunctionDeclaration }
 
-func NewFunctionDeclaration() *FunctionDeclaration {
-	v := &FunctionDeclaration{}
-	v.reset()
-	return v
+func NewFunctionDeclaration() *Node {
+	n := &FunctionDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewFunctionDeclaration() *FunctionDeclaration {
-	v := &FunctionDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewFunctionDeclaration() *Node {
+	return NewFunctionDeclaration()
 }
 
 type ClassDeclaration struct {
@@ -3493,23 +3631,24 @@ type ClassDeclaration struct {
 }
 
 func (n *Node) AsClassDeclaration() *ClassDeclaration { return n.data.(*ClassDeclaration) }
+func (n *Node) IsClassDeclaration() bool              { return n.kind == SyntaxKindClassDeclaration }
 
-func (n *ClassDeclaration) reset() {
+func (n *ClassDeclaration) set() {
 	*n = ClassDeclaration{}
+	n.kind = SyntaxKindClassDeclaration
+	n.data = n
 }
 
 func (n *ClassDeclaration) Kind() SyntaxKind { return SyntaxKindClassDeclaration }
 
-func NewClassDeclaration() *ClassDeclaration {
-	v := &ClassDeclaration{}
-	v.reset()
-	return v
+func NewClassDeclaration() *Node {
+	n := &ClassDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewClassDeclaration() *ClassDeclaration {
-	v := &ClassDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewClassDeclaration() *Node {
+	return NewClassDeclaration()
 }
 
 type InterfaceDeclaration struct {
@@ -3517,23 +3656,24 @@ type InterfaceDeclaration struct {
 }
 
 func (n *Node) AsInterfaceDeclaration() *InterfaceDeclaration { return n.data.(*InterfaceDeclaration) }
+func (n *Node) IsInterfaceDeclaration() bool                  { return n.kind == SyntaxKindInterfaceDeclaration }
 
-func (n *InterfaceDeclaration) reset() {
+func (n *InterfaceDeclaration) set() {
 	*n = InterfaceDeclaration{}
+	n.kind = SyntaxKindInterfaceDeclaration
+	n.data = n
 }
 
 func (n *InterfaceDeclaration) Kind() SyntaxKind { return SyntaxKindInterfaceDeclaration }
 
-func NewInterfaceDeclaration() *InterfaceDeclaration {
-	v := &InterfaceDeclaration{}
-	v.reset()
-	return v
+func NewInterfaceDeclaration() *Node {
+	n := &InterfaceDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewInterfaceDeclaration() *InterfaceDeclaration {
-	v := &InterfaceDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewInterfaceDeclaration() *Node {
+	return NewInterfaceDeclaration()
 }
 
 type TypeAliasDeclaration struct {
@@ -3541,23 +3681,24 @@ type TypeAliasDeclaration struct {
 }
 
 func (n *Node) AsTypeAliasDeclaration() *TypeAliasDeclaration { return n.data.(*TypeAliasDeclaration) }
+func (n *Node) IsTypeAliasDeclaration() bool                  { return n.kind == SyntaxKindTypeAliasDeclaration }
 
-func (n *TypeAliasDeclaration) reset() {
+func (n *TypeAliasDeclaration) set() {
 	*n = TypeAliasDeclaration{}
+	n.kind = SyntaxKindTypeAliasDeclaration
+	n.data = n
 }
 
 func (n *TypeAliasDeclaration) Kind() SyntaxKind { return SyntaxKindTypeAliasDeclaration }
 
-func NewTypeAliasDeclaration() *TypeAliasDeclaration {
-	v := &TypeAliasDeclaration{}
-	v.reset()
-	return v
+func NewTypeAliasDeclaration() *Node {
+	n := &TypeAliasDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewTypeAliasDeclaration() *TypeAliasDeclaration {
-	v := &TypeAliasDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewTypeAliasDeclaration() *Node {
+	return NewTypeAliasDeclaration()
 }
 
 type EnumDeclaration struct {
@@ -3565,23 +3706,24 @@ type EnumDeclaration struct {
 }
 
 func (n *Node) AsEnumDeclaration() *EnumDeclaration { return n.data.(*EnumDeclaration) }
+func (n *Node) IsEnumDeclaration() bool             { return n.kind == SyntaxKindEnumDeclaration }
 
-func (n *EnumDeclaration) reset() {
+func (n *EnumDeclaration) set() {
 	*n = EnumDeclaration{}
+	n.kind = SyntaxKindEnumDeclaration
+	n.data = n
 }
 
 func (n *EnumDeclaration) Kind() SyntaxKind { return SyntaxKindEnumDeclaration }
 
-func NewEnumDeclaration() *EnumDeclaration {
-	v := &EnumDeclaration{}
-	v.reset()
-	return v
+func NewEnumDeclaration() *Node {
+	n := &EnumDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewEnumDeclaration() *EnumDeclaration {
-	v := &EnumDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewEnumDeclaration() *Node {
+	return NewEnumDeclaration()
 }
 
 type ModuleDeclaration struct {
@@ -3589,23 +3731,24 @@ type ModuleDeclaration struct {
 }
 
 func (n *Node) AsModuleDeclaration() *ModuleDeclaration { return n.data.(*ModuleDeclaration) }
+func (n *Node) IsModuleDeclaration() bool               { return n.kind == SyntaxKindModuleDeclaration }
 
-func (n *ModuleDeclaration) reset() {
+func (n *ModuleDeclaration) set() {
 	*n = ModuleDeclaration{}
+	n.kind = SyntaxKindModuleDeclaration
+	n.data = n
 }
 
 func (n *ModuleDeclaration) Kind() SyntaxKind { return SyntaxKindModuleDeclaration }
 
-func NewModuleDeclaration() *ModuleDeclaration {
-	v := &ModuleDeclaration{}
-	v.reset()
-	return v
+func NewModuleDeclaration() *Node {
+	n := &ModuleDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewModuleDeclaration() *ModuleDeclaration {
-	v := &ModuleDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewModuleDeclaration() *Node {
+	return NewModuleDeclaration()
 }
 
 type ModuleBlock struct {
@@ -3613,23 +3756,24 @@ type ModuleBlock struct {
 }
 
 func (n *Node) AsModuleBlock() *ModuleBlock { return n.data.(*ModuleBlock) }
+func (n *Node) IsModuleBlock() bool         { return n.kind == SyntaxKindModuleBlock }
 
-func (n *ModuleBlock) reset() {
+func (n *ModuleBlock) set() {
 	*n = ModuleBlock{}
+	n.kind = SyntaxKindModuleBlock
+	n.data = n
 }
 
 func (n *ModuleBlock) Kind() SyntaxKind { return SyntaxKindModuleBlock }
 
-func NewModuleBlock() *ModuleBlock {
-	v := &ModuleBlock{}
-	v.reset()
-	return v
+func NewModuleBlock() *Node {
+	n := &ModuleBlock{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewModuleBlock() *ModuleBlock {
-	v := &ModuleBlock{}
-	v.reset()
-	return v
+func (f *Factory) NewModuleBlock() *Node {
+	return NewModuleBlock()
 }
 
 type CaseBlock struct {
@@ -3637,23 +3781,24 @@ type CaseBlock struct {
 }
 
 func (n *Node) AsCaseBlock() *CaseBlock { return n.data.(*CaseBlock) }
+func (n *Node) IsCaseBlock() bool       { return n.kind == SyntaxKindCaseBlock }
 
-func (n *CaseBlock) reset() {
+func (n *CaseBlock) set() {
 	*n = CaseBlock{}
+	n.kind = SyntaxKindCaseBlock
+	n.data = n
 }
 
 func (n *CaseBlock) Kind() SyntaxKind { return SyntaxKindCaseBlock }
 
-func NewCaseBlock() *CaseBlock {
-	v := &CaseBlock{}
-	v.reset()
-	return v
+func NewCaseBlock() *Node {
+	n := &CaseBlock{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewCaseBlock() *CaseBlock {
-	v := &CaseBlock{}
-	v.reset()
-	return v
+func (f *Factory) NewCaseBlock() *Node {
+	return NewCaseBlock()
 }
 
 type NamespaceExportDeclaration struct {
@@ -3663,23 +3808,26 @@ type NamespaceExportDeclaration struct {
 func (n *Node) AsNamespaceExportDeclaration() *NamespaceExportDeclaration {
 	return n.data.(*NamespaceExportDeclaration)
 }
+func (n *Node) IsNamespaceExportDeclaration() bool {
+	return n.kind == SyntaxKindNamespaceExportDeclaration
+}
 
-func (n *NamespaceExportDeclaration) reset() {
+func (n *NamespaceExportDeclaration) set() {
 	*n = NamespaceExportDeclaration{}
+	n.kind = SyntaxKindNamespaceExportDeclaration
+	n.data = n
 }
 
 func (n *NamespaceExportDeclaration) Kind() SyntaxKind { return SyntaxKindNamespaceExportDeclaration }
 
-func NewNamespaceExportDeclaration() *NamespaceExportDeclaration {
-	v := &NamespaceExportDeclaration{}
-	v.reset()
-	return v
+func NewNamespaceExportDeclaration() *Node {
+	n := &NamespaceExportDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNamespaceExportDeclaration() *NamespaceExportDeclaration {
-	v := &NamespaceExportDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewNamespaceExportDeclaration() *Node {
+	return NewNamespaceExportDeclaration()
 }
 
 type ImportEqualsDeclaration struct {
@@ -3689,23 +3837,24 @@ type ImportEqualsDeclaration struct {
 func (n *Node) AsImportEqualsDeclaration() *ImportEqualsDeclaration {
 	return n.data.(*ImportEqualsDeclaration)
 }
+func (n *Node) IsImportEqualsDeclaration() bool { return n.kind == SyntaxKindImportEqualsDeclaration }
 
-func (n *ImportEqualsDeclaration) reset() {
+func (n *ImportEqualsDeclaration) set() {
 	*n = ImportEqualsDeclaration{}
+	n.kind = SyntaxKindImportEqualsDeclaration
+	n.data = n
 }
 
 func (n *ImportEqualsDeclaration) Kind() SyntaxKind { return SyntaxKindImportEqualsDeclaration }
 
-func NewImportEqualsDeclaration() *ImportEqualsDeclaration {
-	v := &ImportEqualsDeclaration{}
-	v.reset()
-	return v
+func NewImportEqualsDeclaration() *Node {
+	n := &ImportEqualsDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportEqualsDeclaration() *ImportEqualsDeclaration {
-	v := &ImportEqualsDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewImportEqualsDeclaration() *Node {
+	return NewImportEqualsDeclaration()
 }
 
 type ImportDeclaration struct {
@@ -3713,23 +3862,24 @@ type ImportDeclaration struct {
 }
 
 func (n *Node) AsImportDeclaration() *ImportDeclaration { return n.data.(*ImportDeclaration) }
+func (n *Node) IsImportDeclaration() bool               { return n.kind == SyntaxKindImportDeclaration }
 
-func (n *ImportDeclaration) reset() {
+func (n *ImportDeclaration) set() {
 	*n = ImportDeclaration{}
+	n.kind = SyntaxKindImportDeclaration
+	n.data = n
 }
 
 func (n *ImportDeclaration) Kind() SyntaxKind { return SyntaxKindImportDeclaration }
 
-func NewImportDeclaration() *ImportDeclaration {
-	v := &ImportDeclaration{}
-	v.reset()
-	return v
+func NewImportDeclaration() *Node {
+	n := &ImportDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportDeclaration() *ImportDeclaration {
-	v := &ImportDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewImportDeclaration() *Node {
+	return NewImportDeclaration()
 }
 
 type ImportClause struct {
@@ -3737,23 +3887,24 @@ type ImportClause struct {
 }
 
 func (n *Node) AsImportClause() *ImportClause { return n.data.(*ImportClause) }
+func (n *Node) IsImportClause() bool          { return n.kind == SyntaxKindImportClause }
 
-func (n *ImportClause) reset() {
+func (n *ImportClause) set() {
 	*n = ImportClause{}
+	n.kind = SyntaxKindImportClause
+	n.data = n
 }
 
 func (n *ImportClause) Kind() SyntaxKind { return SyntaxKindImportClause }
 
-func NewImportClause() *ImportClause {
-	v := &ImportClause{}
-	v.reset()
-	return v
+func NewImportClause() *Node {
+	n := &ImportClause{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportClause() *ImportClause {
-	v := &ImportClause{}
-	v.reset()
-	return v
+func (f *Factory) NewImportClause() *Node {
+	return NewImportClause()
 }
 
 type NamespaceImport struct {
@@ -3761,23 +3912,24 @@ type NamespaceImport struct {
 }
 
 func (n *Node) AsNamespaceImport() *NamespaceImport { return n.data.(*NamespaceImport) }
+func (n *Node) IsNamespaceImport() bool             { return n.kind == SyntaxKindNamespaceImport }
 
-func (n *NamespaceImport) reset() {
+func (n *NamespaceImport) set() {
 	*n = NamespaceImport{}
+	n.kind = SyntaxKindNamespaceImport
+	n.data = n
 }
 
 func (n *NamespaceImport) Kind() SyntaxKind { return SyntaxKindNamespaceImport }
 
-func NewNamespaceImport() *NamespaceImport {
-	v := &NamespaceImport{}
-	v.reset()
-	return v
+func NewNamespaceImport() *Node {
+	n := &NamespaceImport{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNamespaceImport() *NamespaceImport {
-	v := &NamespaceImport{}
-	v.reset()
-	return v
+func (f *Factory) NewNamespaceImport() *Node {
+	return NewNamespaceImport()
 }
 
 type NamedImports struct {
@@ -3785,23 +3937,24 @@ type NamedImports struct {
 }
 
 func (n *Node) AsNamedImports() *NamedImports { return n.data.(*NamedImports) }
+func (n *Node) IsNamedImports() bool          { return n.kind == SyntaxKindNamedImports }
 
-func (n *NamedImports) reset() {
+func (n *NamedImports) set() {
 	*n = NamedImports{}
+	n.kind = SyntaxKindNamedImports
+	n.data = n
 }
 
 func (n *NamedImports) Kind() SyntaxKind { return SyntaxKindNamedImports }
 
-func NewNamedImports() *NamedImports {
-	v := &NamedImports{}
-	v.reset()
-	return v
+func NewNamedImports() *Node {
+	n := &NamedImports{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNamedImports() *NamedImports {
-	v := &NamedImports{}
-	v.reset()
-	return v
+func (f *Factory) NewNamedImports() *Node {
+	return NewNamedImports()
 }
 
 type ImportSpecifier struct {
@@ -3809,23 +3962,24 @@ type ImportSpecifier struct {
 }
 
 func (n *Node) AsImportSpecifier() *ImportSpecifier { return n.data.(*ImportSpecifier) }
+func (n *Node) IsImportSpecifier() bool             { return n.kind == SyntaxKindImportSpecifier }
 
-func (n *ImportSpecifier) reset() {
+func (n *ImportSpecifier) set() {
 	*n = ImportSpecifier{}
+	n.kind = SyntaxKindImportSpecifier
+	n.data = n
 }
 
 func (n *ImportSpecifier) Kind() SyntaxKind { return SyntaxKindImportSpecifier }
 
-func NewImportSpecifier() *ImportSpecifier {
-	v := &ImportSpecifier{}
-	v.reset()
-	return v
+func NewImportSpecifier() *Node {
+	n := &ImportSpecifier{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportSpecifier() *ImportSpecifier {
-	v := &ImportSpecifier{}
-	v.reset()
-	return v
+func (f *Factory) NewImportSpecifier() *Node {
+	return NewImportSpecifier()
 }
 
 type ExportAssignment struct {
@@ -3833,23 +3987,24 @@ type ExportAssignment struct {
 }
 
 func (n *Node) AsExportAssignment() *ExportAssignment { return n.data.(*ExportAssignment) }
+func (n *Node) IsExportAssignment() bool              { return n.kind == SyntaxKindExportAssignment }
 
-func (n *ExportAssignment) reset() {
+func (n *ExportAssignment) set() {
 	*n = ExportAssignment{}
+	n.kind = SyntaxKindExportAssignment
+	n.data = n
 }
 
 func (n *ExportAssignment) Kind() SyntaxKind { return SyntaxKindExportAssignment }
 
-func NewExportAssignment() *ExportAssignment {
-	v := &ExportAssignment{}
-	v.reset()
-	return v
+func NewExportAssignment() *Node {
+	n := &ExportAssignment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewExportAssignment() *ExportAssignment {
-	v := &ExportAssignment{}
-	v.reset()
-	return v
+func (f *Factory) NewExportAssignment() *Node {
+	return NewExportAssignment()
 }
 
 type ExportDeclaration struct {
@@ -3857,23 +4012,24 @@ type ExportDeclaration struct {
 }
 
 func (n *Node) AsExportDeclaration() *ExportDeclaration { return n.data.(*ExportDeclaration) }
+func (n *Node) IsExportDeclaration() bool               { return n.kind == SyntaxKindExportDeclaration }
 
-func (n *ExportDeclaration) reset() {
+func (n *ExportDeclaration) set() {
 	*n = ExportDeclaration{}
+	n.kind = SyntaxKindExportDeclaration
+	n.data = n
 }
 
 func (n *ExportDeclaration) Kind() SyntaxKind { return SyntaxKindExportDeclaration }
 
-func NewExportDeclaration() *ExportDeclaration {
-	v := &ExportDeclaration{}
-	v.reset()
-	return v
+func NewExportDeclaration() *Node {
+	n := &ExportDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewExportDeclaration() *ExportDeclaration {
-	v := &ExportDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewExportDeclaration() *Node {
+	return NewExportDeclaration()
 }
 
 type NamedExports struct {
@@ -3881,23 +4037,24 @@ type NamedExports struct {
 }
 
 func (n *Node) AsNamedExports() *NamedExports { return n.data.(*NamedExports) }
+func (n *Node) IsNamedExports() bool          { return n.kind == SyntaxKindNamedExports }
 
-func (n *NamedExports) reset() {
+func (n *NamedExports) set() {
 	*n = NamedExports{}
+	n.kind = SyntaxKindNamedExports
+	n.data = n
 }
 
 func (n *NamedExports) Kind() SyntaxKind { return SyntaxKindNamedExports }
 
-func NewNamedExports() *NamedExports {
-	v := &NamedExports{}
-	v.reset()
-	return v
+func NewNamedExports() *Node {
+	n := &NamedExports{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNamedExports() *NamedExports {
-	v := &NamedExports{}
-	v.reset()
-	return v
+func (f *Factory) NewNamedExports() *Node {
+	return NewNamedExports()
 }
 
 type NamespaceExport struct {
@@ -3905,23 +4062,24 @@ type NamespaceExport struct {
 }
 
 func (n *Node) AsNamespaceExport() *NamespaceExport { return n.data.(*NamespaceExport) }
+func (n *Node) IsNamespaceExport() bool             { return n.kind == SyntaxKindNamespaceExport }
 
-func (n *NamespaceExport) reset() {
+func (n *NamespaceExport) set() {
 	*n = NamespaceExport{}
+	n.kind = SyntaxKindNamespaceExport
+	n.data = n
 }
 
 func (n *NamespaceExport) Kind() SyntaxKind { return SyntaxKindNamespaceExport }
 
-func NewNamespaceExport() *NamespaceExport {
-	v := &NamespaceExport{}
-	v.reset()
-	return v
+func NewNamespaceExport() *Node {
+	n := &NamespaceExport{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNamespaceExport() *NamespaceExport {
-	v := &NamespaceExport{}
-	v.reset()
-	return v
+func (f *Factory) NewNamespaceExport() *Node {
+	return NewNamespaceExport()
 }
 
 type ExportSpecifier struct {
@@ -3929,23 +4087,24 @@ type ExportSpecifier struct {
 }
 
 func (n *Node) AsExportSpecifier() *ExportSpecifier { return n.data.(*ExportSpecifier) }
+func (n *Node) IsExportSpecifier() bool             { return n.kind == SyntaxKindExportSpecifier }
 
-func (n *ExportSpecifier) reset() {
+func (n *ExportSpecifier) set() {
 	*n = ExportSpecifier{}
+	n.kind = SyntaxKindExportSpecifier
+	n.data = n
 }
 
 func (n *ExportSpecifier) Kind() SyntaxKind { return SyntaxKindExportSpecifier }
 
-func NewExportSpecifier() *ExportSpecifier {
-	v := &ExportSpecifier{}
-	v.reset()
-	return v
+func NewExportSpecifier() *Node {
+	n := &ExportSpecifier{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewExportSpecifier() *ExportSpecifier {
-	v := &ExportSpecifier{}
-	v.reset()
-	return v
+func (f *Factory) NewExportSpecifier() *Node {
+	return NewExportSpecifier()
 }
 
 type MissingDeclaration struct {
@@ -3953,23 +4112,24 @@ type MissingDeclaration struct {
 }
 
 func (n *Node) AsMissingDeclaration() *MissingDeclaration { return n.data.(*MissingDeclaration) }
+func (n *Node) IsMissingDeclaration() bool                { return n.kind == SyntaxKindMissingDeclaration }
 
-func (n *MissingDeclaration) reset() {
+func (n *MissingDeclaration) set() {
 	*n = MissingDeclaration{}
+	n.kind = SyntaxKindMissingDeclaration
+	n.data = n
 }
 
 func (n *MissingDeclaration) Kind() SyntaxKind { return SyntaxKindMissingDeclaration }
 
-func NewMissingDeclaration() *MissingDeclaration {
-	v := &MissingDeclaration{}
-	v.reset()
-	return v
+func NewMissingDeclaration() *Node {
+	n := &MissingDeclaration{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewMissingDeclaration() *MissingDeclaration {
-	v := &MissingDeclaration{}
-	v.reset()
-	return v
+func (f *Factory) NewMissingDeclaration() *Node {
+	return NewMissingDeclaration()
 }
 
 type ExternalModuleReference struct {
@@ -3979,23 +4139,24 @@ type ExternalModuleReference struct {
 func (n *Node) AsExternalModuleReference() *ExternalModuleReference {
 	return n.data.(*ExternalModuleReference)
 }
+func (n *Node) IsExternalModuleReference() bool { return n.kind == SyntaxKindExternalModuleReference }
 
-func (n *ExternalModuleReference) reset() {
+func (n *ExternalModuleReference) set() {
 	*n = ExternalModuleReference{}
+	n.kind = SyntaxKindExternalModuleReference
+	n.data = n
 }
 
 func (n *ExternalModuleReference) Kind() SyntaxKind { return SyntaxKindExternalModuleReference }
 
-func NewExternalModuleReference() *ExternalModuleReference {
-	v := &ExternalModuleReference{}
-	v.reset()
-	return v
+func NewExternalModuleReference() *Node {
+	n := &ExternalModuleReference{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewExternalModuleReference() *ExternalModuleReference {
-	v := &ExternalModuleReference{}
-	v.reset()
-	return v
+func (f *Factory) NewExternalModuleReference() *Node {
+	return NewExternalModuleReference()
 }
 
 type JsxElement struct {
@@ -4003,23 +4164,24 @@ type JsxElement struct {
 }
 
 func (n *Node) AsJsxElement() *JsxElement { return n.data.(*JsxElement) }
+func (n *Node) IsJsxElement() bool        { return n.kind == SyntaxKindJsxElement }
 
-func (n *JsxElement) reset() {
+func (n *JsxElement) set() {
 	*n = JsxElement{}
+	n.kind = SyntaxKindJsxElement
+	n.data = n
 }
 
 func (n *JsxElement) Kind() SyntaxKind { return SyntaxKindJsxElement }
 
-func NewJsxElement() *JsxElement {
-	v := &JsxElement{}
-	v.reset()
-	return v
+func NewJsxElement() *Node {
+	n := &JsxElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxElement() *JsxElement {
-	v := &JsxElement{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxElement() *Node {
+	return NewJsxElement()
 }
 
 type JsxSelfClosingElement struct {
@@ -4029,23 +4191,24 @@ type JsxSelfClosingElement struct {
 func (n *Node) AsJsxSelfClosingElement() *JsxSelfClosingElement {
 	return n.data.(*JsxSelfClosingElement)
 }
+func (n *Node) IsJsxSelfClosingElement() bool { return n.kind == SyntaxKindJsxSelfClosingElement }
 
-func (n *JsxSelfClosingElement) reset() {
+func (n *JsxSelfClosingElement) set() {
 	*n = JsxSelfClosingElement{}
+	n.kind = SyntaxKindJsxSelfClosingElement
+	n.data = n
 }
 
 func (n *JsxSelfClosingElement) Kind() SyntaxKind { return SyntaxKindJsxSelfClosingElement }
 
-func NewJsxSelfClosingElement() *JsxSelfClosingElement {
-	v := &JsxSelfClosingElement{}
-	v.reset()
-	return v
+func NewJsxSelfClosingElement() *Node {
+	n := &JsxSelfClosingElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxSelfClosingElement() *JsxSelfClosingElement {
-	v := &JsxSelfClosingElement{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxSelfClosingElement() *Node {
+	return NewJsxSelfClosingElement()
 }
 
 type JsxOpeningElement struct {
@@ -4053,23 +4216,24 @@ type JsxOpeningElement struct {
 }
 
 func (n *Node) AsJsxOpeningElement() *JsxOpeningElement { return n.data.(*JsxOpeningElement) }
+func (n *Node) IsJsxOpeningElement() bool               { return n.kind == SyntaxKindJsxOpeningElement }
 
-func (n *JsxOpeningElement) reset() {
+func (n *JsxOpeningElement) set() {
 	*n = JsxOpeningElement{}
+	n.kind = SyntaxKindJsxOpeningElement
+	n.data = n
 }
 
 func (n *JsxOpeningElement) Kind() SyntaxKind { return SyntaxKindJsxOpeningElement }
 
-func NewJsxOpeningElement() *JsxOpeningElement {
-	v := &JsxOpeningElement{}
-	v.reset()
-	return v
+func NewJsxOpeningElement() *Node {
+	n := &JsxOpeningElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxOpeningElement() *JsxOpeningElement {
-	v := &JsxOpeningElement{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxOpeningElement() *Node {
+	return NewJsxOpeningElement()
 }
 
 type JsxClosingElement struct {
@@ -4077,23 +4241,24 @@ type JsxClosingElement struct {
 }
 
 func (n *Node) AsJsxClosingElement() *JsxClosingElement { return n.data.(*JsxClosingElement) }
+func (n *Node) IsJsxClosingElement() bool               { return n.kind == SyntaxKindJsxClosingElement }
 
-func (n *JsxClosingElement) reset() {
+func (n *JsxClosingElement) set() {
 	*n = JsxClosingElement{}
+	n.kind = SyntaxKindJsxClosingElement
+	n.data = n
 }
 
 func (n *JsxClosingElement) Kind() SyntaxKind { return SyntaxKindJsxClosingElement }
 
-func NewJsxClosingElement() *JsxClosingElement {
-	v := &JsxClosingElement{}
-	v.reset()
-	return v
+func NewJsxClosingElement() *Node {
+	n := &JsxClosingElement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxClosingElement() *JsxClosingElement {
-	v := &JsxClosingElement{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxClosingElement() *Node {
+	return NewJsxClosingElement()
 }
 
 type JsxFragment struct {
@@ -4101,23 +4266,24 @@ type JsxFragment struct {
 }
 
 func (n *Node) AsJsxFragment() *JsxFragment { return n.data.(*JsxFragment) }
+func (n *Node) IsJsxFragment() bool         { return n.kind == SyntaxKindJsxFragment }
 
-func (n *JsxFragment) reset() {
+func (n *JsxFragment) set() {
 	*n = JsxFragment{}
+	n.kind = SyntaxKindJsxFragment
+	n.data = n
 }
 
 func (n *JsxFragment) Kind() SyntaxKind { return SyntaxKindJsxFragment }
 
-func NewJsxFragment() *JsxFragment {
-	v := &JsxFragment{}
-	v.reset()
-	return v
+func NewJsxFragment() *Node {
+	n := &JsxFragment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxFragment() *JsxFragment {
-	v := &JsxFragment{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxFragment() *Node {
+	return NewJsxFragment()
 }
 
 type JsxOpeningFragment struct {
@@ -4125,23 +4291,24 @@ type JsxOpeningFragment struct {
 }
 
 func (n *Node) AsJsxOpeningFragment() *JsxOpeningFragment { return n.data.(*JsxOpeningFragment) }
+func (n *Node) IsJsxOpeningFragment() bool                { return n.kind == SyntaxKindJsxOpeningFragment }
 
-func (n *JsxOpeningFragment) reset() {
+func (n *JsxOpeningFragment) set() {
 	*n = JsxOpeningFragment{}
+	n.kind = SyntaxKindJsxOpeningFragment
+	n.data = n
 }
 
 func (n *JsxOpeningFragment) Kind() SyntaxKind { return SyntaxKindJsxOpeningFragment }
 
-func NewJsxOpeningFragment() *JsxOpeningFragment {
-	v := &JsxOpeningFragment{}
-	v.reset()
-	return v
+func NewJsxOpeningFragment() *Node {
+	n := &JsxOpeningFragment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxOpeningFragment() *JsxOpeningFragment {
-	v := &JsxOpeningFragment{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxOpeningFragment() *Node {
+	return NewJsxOpeningFragment()
 }
 
 type JsxClosingFragment struct {
@@ -4149,23 +4316,24 @@ type JsxClosingFragment struct {
 }
 
 func (n *Node) AsJsxClosingFragment() *JsxClosingFragment { return n.data.(*JsxClosingFragment) }
+func (n *Node) IsJsxClosingFragment() bool                { return n.kind == SyntaxKindJsxClosingFragment }
 
-func (n *JsxClosingFragment) reset() {
+func (n *JsxClosingFragment) set() {
 	*n = JsxClosingFragment{}
+	n.kind = SyntaxKindJsxClosingFragment
+	n.data = n
 }
 
 func (n *JsxClosingFragment) Kind() SyntaxKind { return SyntaxKindJsxClosingFragment }
 
-func NewJsxClosingFragment() *JsxClosingFragment {
-	v := &JsxClosingFragment{}
-	v.reset()
-	return v
+func NewJsxClosingFragment() *Node {
+	n := &JsxClosingFragment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxClosingFragment() *JsxClosingFragment {
-	v := &JsxClosingFragment{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxClosingFragment() *Node {
+	return NewJsxClosingFragment()
 }
 
 type JsxAttribute struct {
@@ -4173,23 +4341,24 @@ type JsxAttribute struct {
 }
 
 func (n *Node) AsJsxAttribute() *JsxAttribute { return n.data.(*JsxAttribute) }
+func (n *Node) IsJsxAttribute() bool          { return n.kind == SyntaxKindJsxAttribute }
 
-func (n *JsxAttribute) reset() {
+func (n *JsxAttribute) set() {
 	*n = JsxAttribute{}
+	n.kind = SyntaxKindJsxAttribute
+	n.data = n
 }
 
 func (n *JsxAttribute) Kind() SyntaxKind { return SyntaxKindJsxAttribute }
 
-func NewJsxAttribute() *JsxAttribute {
-	v := &JsxAttribute{}
-	v.reset()
-	return v
+func NewJsxAttribute() *Node {
+	n := &JsxAttribute{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxAttribute() *JsxAttribute {
-	v := &JsxAttribute{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxAttribute() *Node {
+	return NewJsxAttribute()
 }
 
 type JsxAttributes struct {
@@ -4197,23 +4366,24 @@ type JsxAttributes struct {
 }
 
 func (n *Node) AsJsxAttributes() *JsxAttributes { return n.data.(*JsxAttributes) }
+func (n *Node) IsJsxAttributes() bool           { return n.kind == SyntaxKindJsxAttributes }
 
-func (n *JsxAttributes) reset() {
+func (n *JsxAttributes) set() {
 	*n = JsxAttributes{}
+	n.kind = SyntaxKindJsxAttributes
+	n.data = n
 }
 
 func (n *JsxAttributes) Kind() SyntaxKind { return SyntaxKindJsxAttributes }
 
-func NewJsxAttributes() *JsxAttributes {
-	v := &JsxAttributes{}
-	v.reset()
-	return v
+func NewJsxAttributes() *Node {
+	n := &JsxAttributes{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxAttributes() *JsxAttributes {
-	v := &JsxAttributes{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxAttributes() *Node {
+	return NewJsxAttributes()
 }
 
 type JsxSpreadAttribute struct {
@@ -4221,23 +4391,24 @@ type JsxSpreadAttribute struct {
 }
 
 func (n *Node) AsJsxSpreadAttribute() *JsxSpreadAttribute { return n.data.(*JsxSpreadAttribute) }
+func (n *Node) IsJsxSpreadAttribute() bool                { return n.kind == SyntaxKindJsxSpreadAttribute }
 
-func (n *JsxSpreadAttribute) reset() {
+func (n *JsxSpreadAttribute) set() {
 	*n = JsxSpreadAttribute{}
+	n.kind = SyntaxKindJsxSpreadAttribute
+	n.data = n
 }
 
 func (n *JsxSpreadAttribute) Kind() SyntaxKind { return SyntaxKindJsxSpreadAttribute }
 
-func NewJsxSpreadAttribute() *JsxSpreadAttribute {
-	v := &JsxSpreadAttribute{}
-	v.reset()
-	return v
+func NewJsxSpreadAttribute() *Node {
+	n := &JsxSpreadAttribute{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxSpreadAttribute() *JsxSpreadAttribute {
-	v := &JsxSpreadAttribute{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxSpreadAttribute() *Node {
+	return NewJsxSpreadAttribute()
 }
 
 type JsxExpression struct {
@@ -4245,23 +4416,24 @@ type JsxExpression struct {
 }
 
 func (n *Node) AsJsxExpression() *JsxExpression { return n.data.(*JsxExpression) }
+func (n *Node) IsJsxExpression() bool           { return n.kind == SyntaxKindJsxExpression }
 
-func (n *JsxExpression) reset() {
+func (n *JsxExpression) set() {
 	*n = JsxExpression{}
+	n.kind = SyntaxKindJsxExpression
+	n.data = n
 }
 
 func (n *JsxExpression) Kind() SyntaxKind { return SyntaxKindJsxExpression }
 
-func NewJsxExpression() *JsxExpression {
-	v := &JsxExpression{}
-	v.reset()
-	return v
+func NewJsxExpression() *Node {
+	n := &JsxExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxExpression() *JsxExpression {
-	v := &JsxExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxExpression() *Node {
+	return NewJsxExpression()
 }
 
 type JsxNamespacedName struct {
@@ -4269,23 +4441,24 @@ type JsxNamespacedName struct {
 }
 
 func (n *Node) AsJsxNamespacedName() *JsxNamespacedName { return n.data.(*JsxNamespacedName) }
+func (n *Node) IsJsxNamespacedName() bool               { return n.kind == SyntaxKindJsxNamespacedName }
 
-func (n *JsxNamespacedName) reset() {
+func (n *JsxNamespacedName) set() {
 	*n = JsxNamespacedName{}
+	n.kind = SyntaxKindJsxNamespacedName
+	n.data = n
 }
 
 func (n *JsxNamespacedName) Kind() SyntaxKind { return SyntaxKindJsxNamespacedName }
 
-func NewJsxNamespacedName() *JsxNamespacedName {
-	v := &JsxNamespacedName{}
-	v.reset()
-	return v
+func NewJsxNamespacedName() *Node {
+	n := &JsxNamespacedName{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJsxNamespacedName() *JsxNamespacedName {
-	v := &JsxNamespacedName{}
-	v.reset()
-	return v
+func (f *Factory) NewJsxNamespacedName() *Node {
+	return NewJsxNamespacedName()
 }
 
 type CaseClause struct {
@@ -4293,23 +4466,24 @@ type CaseClause struct {
 }
 
 func (n *Node) AsCaseClause() *CaseClause { return n.data.(*CaseClause) }
+func (n *Node) IsCaseClause() bool        { return n.kind == SyntaxKindCaseClause }
 
-func (n *CaseClause) reset() {
+func (n *CaseClause) set() {
 	*n = CaseClause{}
+	n.kind = SyntaxKindCaseClause
+	n.data = n
 }
 
 func (n *CaseClause) Kind() SyntaxKind { return SyntaxKindCaseClause }
 
-func NewCaseClause() *CaseClause {
-	v := &CaseClause{}
-	v.reset()
-	return v
+func NewCaseClause() *Node {
+	n := &CaseClause{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewCaseClause() *CaseClause {
-	v := &CaseClause{}
-	v.reset()
-	return v
+func (f *Factory) NewCaseClause() *Node {
+	return NewCaseClause()
 }
 
 type DefaultClause struct {
@@ -4317,23 +4491,24 @@ type DefaultClause struct {
 }
 
 func (n *Node) AsDefaultClause() *DefaultClause { return n.data.(*DefaultClause) }
+func (n *Node) IsDefaultClause() bool           { return n.kind == SyntaxKindDefaultClause }
 
-func (n *DefaultClause) reset() {
+func (n *DefaultClause) set() {
 	*n = DefaultClause{}
+	n.kind = SyntaxKindDefaultClause
+	n.data = n
 }
 
 func (n *DefaultClause) Kind() SyntaxKind { return SyntaxKindDefaultClause }
 
-func NewDefaultClause() *DefaultClause {
-	v := &DefaultClause{}
-	v.reset()
-	return v
+func NewDefaultClause() *Node {
+	n := &DefaultClause{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewDefaultClause() *DefaultClause {
-	v := &DefaultClause{}
-	v.reset()
-	return v
+func (f *Factory) NewDefaultClause() *Node {
+	return NewDefaultClause()
 }
 
 type HeritageClause struct {
@@ -4341,23 +4516,24 @@ type HeritageClause struct {
 }
 
 func (n *Node) AsHeritageClause() *HeritageClause { return n.data.(*HeritageClause) }
+func (n *Node) IsHeritageClause() bool            { return n.kind == SyntaxKindHeritageClause }
 
-func (n *HeritageClause) reset() {
+func (n *HeritageClause) set() {
 	*n = HeritageClause{}
+	n.kind = SyntaxKindHeritageClause
+	n.data = n
 }
 
 func (n *HeritageClause) Kind() SyntaxKind { return SyntaxKindHeritageClause }
 
-func NewHeritageClause() *HeritageClause {
-	v := &HeritageClause{}
-	v.reset()
-	return v
+func NewHeritageClause() *Node {
+	n := &HeritageClause{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewHeritageClause() *HeritageClause {
-	v := &HeritageClause{}
-	v.reset()
-	return v
+func (f *Factory) NewHeritageClause() *Node {
+	return NewHeritageClause()
 }
 
 type CatchClause struct {
@@ -4365,23 +4541,24 @@ type CatchClause struct {
 }
 
 func (n *Node) AsCatchClause() *CatchClause { return n.data.(*CatchClause) }
+func (n *Node) IsCatchClause() bool         { return n.kind == SyntaxKindCatchClause }
 
-func (n *CatchClause) reset() {
+func (n *CatchClause) set() {
 	*n = CatchClause{}
+	n.kind = SyntaxKindCatchClause
+	n.data = n
 }
 
 func (n *CatchClause) Kind() SyntaxKind { return SyntaxKindCatchClause }
 
-func NewCatchClause() *CatchClause {
-	v := &CatchClause{}
-	v.reset()
-	return v
+func NewCatchClause() *Node {
+	n := &CatchClause{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewCatchClause() *CatchClause {
-	v := &CatchClause{}
-	v.reset()
-	return v
+func (f *Factory) NewCatchClause() *Node {
+	return NewCatchClause()
 }
 
 type ImportAttributes struct {
@@ -4389,23 +4566,24 @@ type ImportAttributes struct {
 }
 
 func (n *Node) AsImportAttributes() *ImportAttributes { return n.data.(*ImportAttributes) }
+func (n *Node) IsImportAttributes() bool              { return n.kind == SyntaxKindImportAttributes }
 
-func (n *ImportAttributes) reset() {
+func (n *ImportAttributes) set() {
 	*n = ImportAttributes{}
+	n.kind = SyntaxKindImportAttributes
+	n.data = n
 }
 
 func (n *ImportAttributes) Kind() SyntaxKind { return SyntaxKindImportAttributes }
 
-func NewImportAttributes() *ImportAttributes {
-	v := &ImportAttributes{}
-	v.reset()
-	return v
+func NewImportAttributes() *Node {
+	n := &ImportAttributes{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportAttributes() *ImportAttributes {
-	v := &ImportAttributes{}
-	v.reset()
-	return v
+func (f *Factory) NewImportAttributes() *Node {
+	return NewImportAttributes()
 }
 
 type ImportAttribute struct {
@@ -4413,23 +4591,24 @@ type ImportAttribute struct {
 }
 
 func (n *Node) AsImportAttribute() *ImportAttribute { return n.data.(*ImportAttribute) }
+func (n *Node) IsImportAttribute() bool             { return n.kind == SyntaxKindImportAttribute }
 
-func (n *ImportAttribute) reset() {
+func (n *ImportAttribute) set() {
 	*n = ImportAttribute{}
+	n.kind = SyntaxKindImportAttribute
+	n.data = n
 }
 
 func (n *ImportAttribute) Kind() SyntaxKind { return SyntaxKindImportAttribute }
 
-func NewImportAttribute() *ImportAttribute {
-	v := &ImportAttribute{}
-	v.reset()
-	return v
+func NewImportAttribute() *Node {
+	n := &ImportAttribute{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewImportAttribute() *ImportAttribute {
-	v := &ImportAttribute{}
-	v.reset()
-	return v
+func (f *Factory) NewImportAttribute() *Node {
+	return NewImportAttribute()
 }
 
 type PropertyAssignment struct {
@@ -4437,23 +4616,24 @@ type PropertyAssignment struct {
 }
 
 func (n *Node) AsPropertyAssignment() *PropertyAssignment { return n.data.(*PropertyAssignment) }
+func (n *Node) IsPropertyAssignment() bool                { return n.kind == SyntaxKindPropertyAssignment }
 
-func (n *PropertyAssignment) reset() {
+func (n *PropertyAssignment) set() {
 	*n = PropertyAssignment{}
+	n.kind = SyntaxKindPropertyAssignment
+	n.data = n
 }
 
 func (n *PropertyAssignment) Kind() SyntaxKind { return SyntaxKindPropertyAssignment }
 
-func NewPropertyAssignment() *PropertyAssignment {
-	v := &PropertyAssignment{}
-	v.reset()
-	return v
+func NewPropertyAssignment() *Node {
+	n := &PropertyAssignment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPropertyAssignment() *PropertyAssignment {
-	v := &PropertyAssignment{}
-	v.reset()
-	return v
+func (f *Factory) NewPropertyAssignment() *Node {
+	return NewPropertyAssignment()
 }
 
 type ShorthandPropertyAssignment struct {
@@ -4463,23 +4643,26 @@ type ShorthandPropertyAssignment struct {
 func (n *Node) AsShorthandPropertyAssignment() *ShorthandPropertyAssignment {
 	return n.data.(*ShorthandPropertyAssignment)
 }
+func (n *Node) IsShorthandPropertyAssignment() bool {
+	return n.kind == SyntaxKindShorthandPropertyAssignment
+}
 
-func (n *ShorthandPropertyAssignment) reset() {
+func (n *ShorthandPropertyAssignment) set() {
 	*n = ShorthandPropertyAssignment{}
+	n.kind = SyntaxKindShorthandPropertyAssignment
+	n.data = n
 }
 
 func (n *ShorthandPropertyAssignment) Kind() SyntaxKind { return SyntaxKindShorthandPropertyAssignment }
 
-func NewShorthandPropertyAssignment() *ShorthandPropertyAssignment {
-	v := &ShorthandPropertyAssignment{}
-	v.reset()
-	return v
+func NewShorthandPropertyAssignment() *Node {
+	n := &ShorthandPropertyAssignment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewShorthandPropertyAssignment() *ShorthandPropertyAssignment {
-	v := &ShorthandPropertyAssignment{}
-	v.reset()
-	return v
+func (f *Factory) NewShorthandPropertyAssignment() *Node {
+	return NewShorthandPropertyAssignment()
 }
 
 type SpreadAssignment struct {
@@ -4487,23 +4670,24 @@ type SpreadAssignment struct {
 }
 
 func (n *Node) AsSpreadAssignment() *SpreadAssignment { return n.data.(*SpreadAssignment) }
+func (n *Node) IsSpreadAssignment() bool              { return n.kind == SyntaxKindSpreadAssignment }
 
-func (n *SpreadAssignment) reset() {
+func (n *SpreadAssignment) set() {
 	*n = SpreadAssignment{}
+	n.kind = SyntaxKindSpreadAssignment
+	n.data = n
 }
 
 func (n *SpreadAssignment) Kind() SyntaxKind { return SyntaxKindSpreadAssignment }
 
-func NewSpreadAssignment() *SpreadAssignment {
-	v := &SpreadAssignment{}
-	v.reset()
-	return v
+func NewSpreadAssignment() *Node {
+	n := &SpreadAssignment{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSpreadAssignment() *SpreadAssignment {
-	v := &SpreadAssignment{}
-	v.reset()
-	return v
+func (f *Factory) NewSpreadAssignment() *Node {
+	return NewSpreadAssignment()
 }
 
 type EnumMember struct {
@@ -4511,23 +4695,24 @@ type EnumMember struct {
 }
 
 func (n *Node) AsEnumMember() *EnumMember { return n.data.(*EnumMember) }
+func (n *Node) IsEnumMember() bool        { return n.kind == SyntaxKindEnumMember }
 
-func (n *EnumMember) reset() {
+func (n *EnumMember) set() {
 	*n = EnumMember{}
+	n.kind = SyntaxKindEnumMember
+	n.data = n
 }
 
 func (n *EnumMember) Kind() SyntaxKind { return SyntaxKindEnumMember }
 
-func NewEnumMember() *EnumMember {
-	v := &EnumMember{}
-	v.reset()
-	return v
+func NewEnumMember() *Node {
+	n := &EnumMember{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewEnumMember() *EnumMember {
-	v := &EnumMember{}
-	v.reset()
-	return v
+func (f *Factory) NewEnumMember() *Node {
+	return NewEnumMember()
 }
 
 type SourceFile struct {
@@ -4535,23 +4720,24 @@ type SourceFile struct {
 }
 
 func (n *Node) AsSourceFile() *SourceFile { return n.data.(*SourceFile) }
+func (n *Node) IsSourceFile() bool        { return n.kind == SyntaxKindSourceFile }
 
-func (n *SourceFile) reset() {
+func (n *SourceFile) set() {
 	*n = SourceFile{}
+	n.kind = SyntaxKindSourceFile
+	n.data = n
 }
 
 func (n *SourceFile) Kind() SyntaxKind { return SyntaxKindSourceFile }
 
-func NewSourceFile() *SourceFile {
-	v := &SourceFile{}
-	v.reset()
-	return v
+func NewSourceFile() *Node {
+	n := &SourceFile{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSourceFile() *SourceFile {
-	v := &SourceFile{}
-	v.reset()
-	return v
+func (f *Factory) NewSourceFile() *Node {
+	return NewSourceFile()
 }
 
 type Bundle struct {
@@ -4559,23 +4745,24 @@ type Bundle struct {
 }
 
 func (n *Node) AsBundle() *Bundle { return n.data.(*Bundle) }
+func (n *Node) IsBundle() bool    { return n.kind == SyntaxKindBundle }
 
-func (n *Bundle) reset() {
+func (n *Bundle) set() {
 	*n = Bundle{}
+	n.kind = SyntaxKindBundle
+	n.data = n
 }
 
 func (n *Bundle) Kind() SyntaxKind { return SyntaxKindBundle }
 
-func NewBundle() *Bundle {
-	v := &Bundle{}
-	v.reset()
-	return v
+func NewBundle() *Node {
+	n := &Bundle{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewBundle() *Bundle {
-	v := &Bundle{}
-	v.reset()
-	return v
+func (f *Factory) NewBundle() *Node {
+	return NewBundle()
 }
 
 type JSDocTypeExpression struct {
@@ -4583,23 +4770,24 @@ type JSDocTypeExpression struct {
 }
 
 func (n *Node) AsJSDocTypeExpression() *JSDocTypeExpression { return n.data.(*JSDocTypeExpression) }
+func (n *Node) IsJSDocTypeExpression() bool                 { return n.kind == SyntaxKindJSDocTypeExpression }
 
-func (n *JSDocTypeExpression) reset() {
+func (n *JSDocTypeExpression) set() {
 	*n = JSDocTypeExpression{}
+	n.kind = SyntaxKindJSDocTypeExpression
+	n.data = n
 }
 
 func (n *JSDocTypeExpression) Kind() SyntaxKind { return SyntaxKindJSDocTypeExpression }
 
-func NewJSDocTypeExpression() *JSDocTypeExpression {
-	v := &JSDocTypeExpression{}
-	v.reset()
-	return v
+func NewJSDocTypeExpression() *Node {
+	n := &JSDocTypeExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocTypeExpression() *JSDocTypeExpression {
-	v := &JSDocTypeExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocTypeExpression() *Node {
+	return NewJSDocTypeExpression()
 }
 
 type JSDocNameReference struct {
@@ -4607,23 +4795,24 @@ type JSDocNameReference struct {
 }
 
 func (n *Node) AsJSDocNameReference() *JSDocNameReference { return n.data.(*JSDocNameReference) }
+func (n *Node) IsJSDocNameReference() bool                { return n.kind == SyntaxKindJSDocNameReference }
 
-func (n *JSDocNameReference) reset() {
+func (n *JSDocNameReference) set() {
 	*n = JSDocNameReference{}
+	n.kind = SyntaxKindJSDocNameReference
+	n.data = n
 }
 
 func (n *JSDocNameReference) Kind() SyntaxKind { return SyntaxKindJSDocNameReference }
 
-func NewJSDocNameReference() *JSDocNameReference {
-	v := &JSDocNameReference{}
-	v.reset()
-	return v
+func NewJSDocNameReference() *Node {
+	n := &JSDocNameReference{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocNameReference() *JSDocNameReference {
-	v := &JSDocNameReference{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocNameReference() *Node {
+	return NewJSDocNameReference()
 }
 
 type JSDocMemberName struct {
@@ -4631,23 +4820,24 @@ type JSDocMemberName struct {
 }
 
 func (n *Node) AsJSDocMemberName() *JSDocMemberName { return n.data.(*JSDocMemberName) }
+func (n *Node) IsJSDocMemberName() bool             { return n.kind == SyntaxKindJSDocMemberName }
 
-func (n *JSDocMemberName) reset() {
+func (n *JSDocMemberName) set() {
 	*n = JSDocMemberName{}
+	n.kind = SyntaxKindJSDocMemberName
+	n.data = n
 }
 
 func (n *JSDocMemberName) Kind() SyntaxKind { return SyntaxKindJSDocMemberName }
 
-func NewJSDocMemberName() *JSDocMemberName {
-	v := &JSDocMemberName{}
-	v.reset()
-	return v
+func NewJSDocMemberName() *Node {
+	n := &JSDocMemberName{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocMemberName() *JSDocMemberName {
-	v := &JSDocMemberName{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocMemberName() *Node {
+	return NewJSDocMemberName()
 }
 
 type JSDocAllType struct {
@@ -4655,23 +4845,24 @@ type JSDocAllType struct {
 }
 
 func (n *Node) AsJSDocAllType() *JSDocAllType { return n.data.(*JSDocAllType) }
+func (n *Node) IsJSDocAllType() bool          { return n.kind == SyntaxKindJSDocAllType }
 
-func (n *JSDocAllType) reset() {
+func (n *JSDocAllType) set() {
 	*n = JSDocAllType{}
+	n.kind = SyntaxKindJSDocAllType
+	n.data = n
 }
 
 func (n *JSDocAllType) Kind() SyntaxKind { return SyntaxKindJSDocAllType }
 
-func NewJSDocAllType() *JSDocAllType {
-	v := &JSDocAllType{}
-	v.reset()
-	return v
+func NewJSDocAllType() *Node {
+	n := &JSDocAllType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocAllType() *JSDocAllType {
-	v := &JSDocAllType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocAllType() *Node {
+	return NewJSDocAllType()
 }
 
 type JSDocUnknownType struct {
@@ -4679,23 +4870,24 @@ type JSDocUnknownType struct {
 }
 
 func (n *Node) AsJSDocUnknownType() *JSDocUnknownType { return n.data.(*JSDocUnknownType) }
+func (n *Node) IsJSDocUnknownType() bool              { return n.kind == SyntaxKindJSDocUnknownType }
 
-func (n *JSDocUnknownType) reset() {
+func (n *JSDocUnknownType) set() {
 	*n = JSDocUnknownType{}
+	n.kind = SyntaxKindJSDocUnknownType
+	n.data = n
 }
 
 func (n *JSDocUnknownType) Kind() SyntaxKind { return SyntaxKindJSDocUnknownType }
 
-func NewJSDocUnknownType() *JSDocUnknownType {
-	v := &JSDocUnknownType{}
-	v.reset()
-	return v
+func NewJSDocUnknownType() *Node {
+	n := &JSDocUnknownType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocUnknownType() *JSDocUnknownType {
-	v := &JSDocUnknownType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocUnknownType() *Node {
+	return NewJSDocUnknownType()
 }
 
 type JSDocNullableType struct {
@@ -4703,23 +4895,24 @@ type JSDocNullableType struct {
 }
 
 func (n *Node) AsJSDocNullableType() *JSDocNullableType { return n.data.(*JSDocNullableType) }
+func (n *Node) IsJSDocNullableType() bool               { return n.kind == SyntaxKindJSDocNullableType }
 
-func (n *JSDocNullableType) reset() {
+func (n *JSDocNullableType) set() {
 	*n = JSDocNullableType{}
+	n.kind = SyntaxKindJSDocNullableType
+	n.data = n
 }
 
 func (n *JSDocNullableType) Kind() SyntaxKind { return SyntaxKindJSDocNullableType }
 
-func NewJSDocNullableType() *JSDocNullableType {
-	v := &JSDocNullableType{}
-	v.reset()
-	return v
+func NewJSDocNullableType() *Node {
+	n := &JSDocNullableType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocNullableType() *JSDocNullableType {
-	v := &JSDocNullableType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocNullableType() *Node {
+	return NewJSDocNullableType()
 }
 
 type JSDocNonNullableType struct {
@@ -4727,23 +4920,24 @@ type JSDocNonNullableType struct {
 }
 
 func (n *Node) AsJSDocNonNullableType() *JSDocNonNullableType { return n.data.(*JSDocNonNullableType) }
+func (n *Node) IsJSDocNonNullableType() bool                  { return n.kind == SyntaxKindJSDocNonNullableType }
 
-func (n *JSDocNonNullableType) reset() {
+func (n *JSDocNonNullableType) set() {
 	*n = JSDocNonNullableType{}
+	n.kind = SyntaxKindJSDocNonNullableType
+	n.data = n
 }
 
 func (n *JSDocNonNullableType) Kind() SyntaxKind { return SyntaxKindJSDocNonNullableType }
 
-func NewJSDocNonNullableType() *JSDocNonNullableType {
-	v := &JSDocNonNullableType{}
-	v.reset()
-	return v
+func NewJSDocNonNullableType() *Node {
+	n := &JSDocNonNullableType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocNonNullableType() *JSDocNonNullableType {
-	v := &JSDocNonNullableType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocNonNullableType() *Node {
+	return NewJSDocNonNullableType()
 }
 
 type JSDocOptionalType struct {
@@ -4751,23 +4945,24 @@ type JSDocOptionalType struct {
 }
 
 func (n *Node) AsJSDocOptionalType() *JSDocOptionalType { return n.data.(*JSDocOptionalType) }
+func (n *Node) IsJSDocOptionalType() bool               { return n.kind == SyntaxKindJSDocOptionalType }
 
-func (n *JSDocOptionalType) reset() {
+func (n *JSDocOptionalType) set() {
 	*n = JSDocOptionalType{}
+	n.kind = SyntaxKindJSDocOptionalType
+	n.data = n
 }
 
 func (n *JSDocOptionalType) Kind() SyntaxKind { return SyntaxKindJSDocOptionalType }
 
-func NewJSDocOptionalType() *JSDocOptionalType {
-	v := &JSDocOptionalType{}
-	v.reset()
-	return v
+func NewJSDocOptionalType() *Node {
+	n := &JSDocOptionalType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocOptionalType() *JSDocOptionalType {
-	v := &JSDocOptionalType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocOptionalType() *Node {
+	return NewJSDocOptionalType()
 }
 
 type JSDocFunctionType struct {
@@ -4775,23 +4970,24 @@ type JSDocFunctionType struct {
 }
 
 func (n *Node) AsJSDocFunctionType() *JSDocFunctionType { return n.data.(*JSDocFunctionType) }
+func (n *Node) IsJSDocFunctionType() bool               { return n.kind == SyntaxKindJSDocFunctionType }
 
-func (n *JSDocFunctionType) reset() {
+func (n *JSDocFunctionType) set() {
 	*n = JSDocFunctionType{}
+	n.kind = SyntaxKindJSDocFunctionType
+	n.data = n
 }
 
 func (n *JSDocFunctionType) Kind() SyntaxKind { return SyntaxKindJSDocFunctionType }
 
-func NewJSDocFunctionType() *JSDocFunctionType {
-	v := &JSDocFunctionType{}
-	v.reset()
-	return v
+func NewJSDocFunctionType() *Node {
+	n := &JSDocFunctionType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocFunctionType() *JSDocFunctionType {
-	v := &JSDocFunctionType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocFunctionType() *Node {
+	return NewJSDocFunctionType()
 }
 
 type JSDocVariadicType struct {
@@ -4799,23 +4995,24 @@ type JSDocVariadicType struct {
 }
 
 func (n *Node) AsJSDocVariadicType() *JSDocVariadicType { return n.data.(*JSDocVariadicType) }
+func (n *Node) IsJSDocVariadicType() bool               { return n.kind == SyntaxKindJSDocVariadicType }
 
-func (n *JSDocVariadicType) reset() {
+func (n *JSDocVariadicType) set() {
 	*n = JSDocVariadicType{}
+	n.kind = SyntaxKindJSDocVariadicType
+	n.data = n
 }
 
 func (n *JSDocVariadicType) Kind() SyntaxKind { return SyntaxKindJSDocVariadicType }
 
-func NewJSDocVariadicType() *JSDocVariadicType {
-	v := &JSDocVariadicType{}
-	v.reset()
-	return v
+func NewJSDocVariadicType() *Node {
+	n := &JSDocVariadicType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocVariadicType() *JSDocVariadicType {
-	v := &JSDocVariadicType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocVariadicType() *Node {
+	return NewJSDocVariadicType()
 }
 
 type JSDocNamepathType struct {
@@ -4823,23 +5020,24 @@ type JSDocNamepathType struct {
 }
 
 func (n *Node) AsJSDocNamepathType() *JSDocNamepathType { return n.data.(*JSDocNamepathType) }
+func (n *Node) IsJSDocNamepathType() bool               { return n.kind == SyntaxKindJSDocNamepathType }
 
-func (n *JSDocNamepathType) reset() {
+func (n *JSDocNamepathType) set() {
 	*n = JSDocNamepathType{}
+	n.kind = SyntaxKindJSDocNamepathType
+	n.data = n
 }
 
 func (n *JSDocNamepathType) Kind() SyntaxKind { return SyntaxKindJSDocNamepathType }
 
-func NewJSDocNamepathType() *JSDocNamepathType {
-	v := &JSDocNamepathType{}
-	v.reset()
-	return v
+func NewJSDocNamepathType() *Node {
+	n := &JSDocNamepathType{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocNamepathType() *JSDocNamepathType {
-	v := &JSDocNamepathType{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocNamepathType() *Node {
+	return NewJSDocNamepathType()
 }
 
 type JSDoc struct {
@@ -4847,23 +5045,24 @@ type JSDoc struct {
 }
 
 func (n *Node) AsJSDoc() *JSDoc { return n.data.(*JSDoc) }
+func (n *Node) IsJSDoc() bool   { return n.kind == SyntaxKindJSDoc }
 
-func (n *JSDoc) reset() {
+func (n *JSDoc) set() {
 	*n = JSDoc{}
+	n.kind = SyntaxKindJSDoc
+	n.data = n
 }
 
 func (n *JSDoc) Kind() SyntaxKind { return SyntaxKindJSDoc }
 
-func NewJSDoc() *JSDoc {
-	v := &JSDoc{}
-	v.reset()
-	return v
+func NewJSDoc() *Node {
+	n := &JSDoc{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDoc() *JSDoc {
-	v := &JSDoc{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDoc() *Node {
+	return NewJSDoc()
 }
 
 type JSDocText struct {
@@ -4871,23 +5070,24 @@ type JSDocText struct {
 }
 
 func (n *Node) AsJSDocText() *JSDocText { return n.data.(*JSDocText) }
+func (n *Node) IsJSDocText() bool       { return n.kind == SyntaxKindJSDocText }
 
-func (n *JSDocText) reset() {
+func (n *JSDocText) set() {
 	*n = JSDocText{}
+	n.kind = SyntaxKindJSDocText
+	n.data = n
 }
 
 func (n *JSDocText) Kind() SyntaxKind { return SyntaxKindJSDocText }
 
-func NewJSDocText() *JSDocText {
-	v := &JSDocText{}
-	v.reset()
-	return v
+func NewJSDocText() *Node {
+	n := &JSDocText{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocText() *JSDocText {
-	v := &JSDocText{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocText() *Node {
+	return NewJSDocText()
 }
 
 type JSDocTypeLiteral struct {
@@ -4895,23 +5095,24 @@ type JSDocTypeLiteral struct {
 }
 
 func (n *Node) AsJSDocTypeLiteral() *JSDocTypeLiteral { return n.data.(*JSDocTypeLiteral) }
+func (n *Node) IsJSDocTypeLiteral() bool              { return n.kind == SyntaxKindJSDocTypeLiteral }
 
-func (n *JSDocTypeLiteral) reset() {
+func (n *JSDocTypeLiteral) set() {
 	*n = JSDocTypeLiteral{}
+	n.kind = SyntaxKindJSDocTypeLiteral
+	n.data = n
 }
 
 func (n *JSDocTypeLiteral) Kind() SyntaxKind { return SyntaxKindJSDocTypeLiteral }
 
-func NewJSDocTypeLiteral() *JSDocTypeLiteral {
-	v := &JSDocTypeLiteral{}
-	v.reset()
-	return v
+func NewJSDocTypeLiteral() *Node {
+	n := &JSDocTypeLiteral{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocTypeLiteral() *JSDocTypeLiteral {
-	v := &JSDocTypeLiteral{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocTypeLiteral() *Node {
+	return NewJSDocTypeLiteral()
 }
 
 type JSDocSignature struct {
@@ -4919,23 +5120,24 @@ type JSDocSignature struct {
 }
 
 func (n *Node) AsJSDocSignature() *JSDocSignature { return n.data.(*JSDocSignature) }
+func (n *Node) IsJSDocSignature() bool            { return n.kind == SyntaxKindJSDocSignature }
 
-func (n *JSDocSignature) reset() {
+func (n *JSDocSignature) set() {
 	*n = JSDocSignature{}
+	n.kind = SyntaxKindJSDocSignature
+	n.data = n
 }
 
 func (n *JSDocSignature) Kind() SyntaxKind { return SyntaxKindJSDocSignature }
 
-func NewJSDocSignature() *JSDocSignature {
-	v := &JSDocSignature{}
-	v.reset()
-	return v
+func NewJSDocSignature() *Node {
+	n := &JSDocSignature{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocSignature() *JSDocSignature {
-	v := &JSDocSignature{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocSignature() *Node {
+	return NewJSDocSignature()
 }
 
 type JSDocLink struct {
@@ -4943,23 +5145,24 @@ type JSDocLink struct {
 }
 
 func (n *Node) AsJSDocLink() *JSDocLink { return n.data.(*JSDocLink) }
+func (n *Node) IsJSDocLink() bool       { return n.kind == SyntaxKindJSDocLink }
 
-func (n *JSDocLink) reset() {
+func (n *JSDocLink) set() {
 	*n = JSDocLink{}
+	n.kind = SyntaxKindJSDocLink
+	n.data = n
 }
 
 func (n *JSDocLink) Kind() SyntaxKind { return SyntaxKindJSDocLink }
 
-func NewJSDocLink() *JSDocLink {
-	v := &JSDocLink{}
-	v.reset()
-	return v
+func NewJSDocLink() *Node {
+	n := &JSDocLink{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocLink() *JSDocLink {
-	v := &JSDocLink{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocLink() *Node {
+	return NewJSDocLink()
 }
 
 type JSDocLinkCode struct {
@@ -4967,23 +5170,24 @@ type JSDocLinkCode struct {
 }
 
 func (n *Node) AsJSDocLinkCode() *JSDocLinkCode { return n.data.(*JSDocLinkCode) }
+func (n *Node) IsJSDocLinkCode() bool           { return n.kind == SyntaxKindJSDocLinkCode }
 
-func (n *JSDocLinkCode) reset() {
+func (n *JSDocLinkCode) set() {
 	*n = JSDocLinkCode{}
+	n.kind = SyntaxKindJSDocLinkCode
+	n.data = n
 }
 
 func (n *JSDocLinkCode) Kind() SyntaxKind { return SyntaxKindJSDocLinkCode }
 
-func NewJSDocLinkCode() *JSDocLinkCode {
-	v := &JSDocLinkCode{}
-	v.reset()
-	return v
+func NewJSDocLinkCode() *Node {
+	n := &JSDocLinkCode{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocLinkCode() *JSDocLinkCode {
-	v := &JSDocLinkCode{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocLinkCode() *Node {
+	return NewJSDocLinkCode()
 }
 
 type JSDocLinkPlain struct {
@@ -4991,23 +5195,24 @@ type JSDocLinkPlain struct {
 }
 
 func (n *Node) AsJSDocLinkPlain() *JSDocLinkPlain { return n.data.(*JSDocLinkPlain) }
+func (n *Node) IsJSDocLinkPlain() bool            { return n.kind == SyntaxKindJSDocLinkPlain }
 
-func (n *JSDocLinkPlain) reset() {
+func (n *JSDocLinkPlain) set() {
 	*n = JSDocLinkPlain{}
+	n.kind = SyntaxKindJSDocLinkPlain
+	n.data = n
 }
 
 func (n *JSDocLinkPlain) Kind() SyntaxKind { return SyntaxKindJSDocLinkPlain }
 
-func NewJSDocLinkPlain() *JSDocLinkPlain {
-	v := &JSDocLinkPlain{}
-	v.reset()
-	return v
+func NewJSDocLinkPlain() *Node {
+	n := &JSDocLinkPlain{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocLinkPlain() *JSDocLinkPlain {
-	v := &JSDocLinkPlain{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocLinkPlain() *Node {
+	return NewJSDocLinkPlain()
 }
 
 type JSDocTag struct {
@@ -5015,23 +5220,24 @@ type JSDocTag struct {
 }
 
 func (n *Node) AsJSDocTag() *JSDocTag { return n.data.(*JSDocTag) }
+func (n *Node) IsJSDocTag() bool      { return n.kind == SyntaxKindJSDocTag }
 
-func (n *JSDocTag) reset() {
+func (n *JSDocTag) set() {
 	*n = JSDocTag{}
+	n.kind = SyntaxKindJSDocTag
+	n.data = n
 }
 
 func (n *JSDocTag) Kind() SyntaxKind { return SyntaxKindJSDocTag }
 
-func NewJSDocTag() *JSDocTag {
-	v := &JSDocTag{}
-	v.reset()
-	return v
+func NewJSDocTag() *Node {
+	n := &JSDocTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocTag() *JSDocTag {
-	v := &JSDocTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocTag() *Node {
+	return NewJSDocTag()
 }
 
 type JSDocAugmentsTag struct {
@@ -5039,23 +5245,24 @@ type JSDocAugmentsTag struct {
 }
 
 func (n *Node) AsJSDocAugmentsTag() *JSDocAugmentsTag { return n.data.(*JSDocAugmentsTag) }
+func (n *Node) IsJSDocAugmentsTag() bool              { return n.kind == SyntaxKindJSDocAugmentsTag }
 
-func (n *JSDocAugmentsTag) reset() {
+func (n *JSDocAugmentsTag) set() {
 	*n = JSDocAugmentsTag{}
+	n.kind = SyntaxKindJSDocAugmentsTag
+	n.data = n
 }
 
 func (n *JSDocAugmentsTag) Kind() SyntaxKind { return SyntaxKindJSDocAugmentsTag }
 
-func NewJSDocAugmentsTag() *JSDocAugmentsTag {
-	v := &JSDocAugmentsTag{}
-	v.reset()
-	return v
+func NewJSDocAugmentsTag() *Node {
+	n := &JSDocAugmentsTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocAugmentsTag() *JSDocAugmentsTag {
-	v := &JSDocAugmentsTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocAugmentsTag() *Node {
+	return NewJSDocAugmentsTag()
 }
 
 type JSDocImplementsTag struct {
@@ -5063,23 +5270,24 @@ type JSDocImplementsTag struct {
 }
 
 func (n *Node) AsJSDocImplementsTag() *JSDocImplementsTag { return n.data.(*JSDocImplementsTag) }
+func (n *Node) IsJSDocImplementsTag() bool                { return n.kind == SyntaxKindJSDocImplementsTag }
 
-func (n *JSDocImplementsTag) reset() {
+func (n *JSDocImplementsTag) set() {
 	*n = JSDocImplementsTag{}
+	n.kind = SyntaxKindJSDocImplementsTag
+	n.data = n
 }
 
 func (n *JSDocImplementsTag) Kind() SyntaxKind { return SyntaxKindJSDocImplementsTag }
 
-func NewJSDocImplementsTag() *JSDocImplementsTag {
-	v := &JSDocImplementsTag{}
-	v.reset()
-	return v
+func NewJSDocImplementsTag() *Node {
+	n := &JSDocImplementsTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocImplementsTag() *JSDocImplementsTag {
-	v := &JSDocImplementsTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocImplementsTag() *Node {
+	return NewJSDocImplementsTag()
 }
 
 type JSDocAuthorTag struct {
@@ -5087,23 +5295,24 @@ type JSDocAuthorTag struct {
 }
 
 func (n *Node) AsJSDocAuthorTag() *JSDocAuthorTag { return n.data.(*JSDocAuthorTag) }
+func (n *Node) IsJSDocAuthorTag() bool            { return n.kind == SyntaxKindJSDocAuthorTag }
 
-func (n *JSDocAuthorTag) reset() {
+func (n *JSDocAuthorTag) set() {
 	*n = JSDocAuthorTag{}
+	n.kind = SyntaxKindJSDocAuthorTag
+	n.data = n
 }
 
 func (n *JSDocAuthorTag) Kind() SyntaxKind { return SyntaxKindJSDocAuthorTag }
 
-func NewJSDocAuthorTag() *JSDocAuthorTag {
-	v := &JSDocAuthorTag{}
-	v.reset()
-	return v
+func NewJSDocAuthorTag() *Node {
+	n := &JSDocAuthorTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocAuthorTag() *JSDocAuthorTag {
-	v := &JSDocAuthorTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocAuthorTag() *Node {
+	return NewJSDocAuthorTag()
 }
 
 type JSDocDeprecatedTag struct {
@@ -5111,23 +5320,24 @@ type JSDocDeprecatedTag struct {
 }
 
 func (n *Node) AsJSDocDeprecatedTag() *JSDocDeprecatedTag { return n.data.(*JSDocDeprecatedTag) }
+func (n *Node) IsJSDocDeprecatedTag() bool                { return n.kind == SyntaxKindJSDocDeprecatedTag }
 
-func (n *JSDocDeprecatedTag) reset() {
+func (n *JSDocDeprecatedTag) set() {
 	*n = JSDocDeprecatedTag{}
+	n.kind = SyntaxKindJSDocDeprecatedTag
+	n.data = n
 }
 
 func (n *JSDocDeprecatedTag) Kind() SyntaxKind { return SyntaxKindJSDocDeprecatedTag }
 
-func NewJSDocDeprecatedTag() *JSDocDeprecatedTag {
-	v := &JSDocDeprecatedTag{}
-	v.reset()
-	return v
+func NewJSDocDeprecatedTag() *Node {
+	n := &JSDocDeprecatedTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocDeprecatedTag() *JSDocDeprecatedTag {
-	v := &JSDocDeprecatedTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocDeprecatedTag() *Node {
+	return NewJSDocDeprecatedTag()
 }
 
 type JSDocImmediateTag struct {
@@ -5135,23 +5345,24 @@ type JSDocImmediateTag struct {
 }
 
 func (n *Node) AsJSDocImmediateTag() *JSDocImmediateTag { return n.data.(*JSDocImmediateTag) }
+func (n *Node) IsJSDocImmediateTag() bool               { return n.kind == SyntaxKindJSDocImmediateTag }
 
-func (n *JSDocImmediateTag) reset() {
+func (n *JSDocImmediateTag) set() {
 	*n = JSDocImmediateTag{}
+	n.kind = SyntaxKindJSDocImmediateTag
+	n.data = n
 }
 
 func (n *JSDocImmediateTag) Kind() SyntaxKind { return SyntaxKindJSDocImmediateTag }
 
-func NewJSDocImmediateTag() *JSDocImmediateTag {
-	v := &JSDocImmediateTag{}
-	v.reset()
-	return v
+func NewJSDocImmediateTag() *Node {
+	n := &JSDocImmediateTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocImmediateTag() *JSDocImmediateTag {
-	v := &JSDocImmediateTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocImmediateTag() *Node {
+	return NewJSDocImmediateTag()
 }
 
 type JSDocClassTag struct {
@@ -5159,23 +5370,24 @@ type JSDocClassTag struct {
 }
 
 func (n *Node) AsJSDocClassTag() *JSDocClassTag { return n.data.(*JSDocClassTag) }
+func (n *Node) IsJSDocClassTag() bool           { return n.kind == SyntaxKindJSDocClassTag }
 
-func (n *JSDocClassTag) reset() {
+func (n *JSDocClassTag) set() {
 	*n = JSDocClassTag{}
+	n.kind = SyntaxKindJSDocClassTag
+	n.data = n
 }
 
 func (n *JSDocClassTag) Kind() SyntaxKind { return SyntaxKindJSDocClassTag }
 
-func NewJSDocClassTag() *JSDocClassTag {
-	v := &JSDocClassTag{}
-	v.reset()
-	return v
+func NewJSDocClassTag() *Node {
+	n := &JSDocClassTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocClassTag() *JSDocClassTag {
-	v := &JSDocClassTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocClassTag() *Node {
+	return NewJSDocClassTag()
 }
 
 type JSDocPublicTag struct {
@@ -5183,23 +5395,24 @@ type JSDocPublicTag struct {
 }
 
 func (n *Node) AsJSDocPublicTag() *JSDocPublicTag { return n.data.(*JSDocPublicTag) }
+func (n *Node) IsJSDocPublicTag() bool            { return n.kind == SyntaxKindJSDocPublicTag }
 
-func (n *JSDocPublicTag) reset() {
+func (n *JSDocPublicTag) set() {
 	*n = JSDocPublicTag{}
+	n.kind = SyntaxKindJSDocPublicTag
+	n.data = n
 }
 
 func (n *JSDocPublicTag) Kind() SyntaxKind { return SyntaxKindJSDocPublicTag }
 
-func NewJSDocPublicTag() *JSDocPublicTag {
-	v := &JSDocPublicTag{}
-	v.reset()
-	return v
+func NewJSDocPublicTag() *Node {
+	n := &JSDocPublicTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocPublicTag() *JSDocPublicTag {
-	v := &JSDocPublicTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocPublicTag() *Node {
+	return NewJSDocPublicTag()
 }
 
 type JSDocPrivateTag struct {
@@ -5207,23 +5420,24 @@ type JSDocPrivateTag struct {
 }
 
 func (n *Node) AsJSDocPrivateTag() *JSDocPrivateTag { return n.data.(*JSDocPrivateTag) }
+func (n *Node) IsJSDocPrivateTag() bool             { return n.kind == SyntaxKindJSDocPrivateTag }
 
-func (n *JSDocPrivateTag) reset() {
+func (n *JSDocPrivateTag) set() {
 	*n = JSDocPrivateTag{}
+	n.kind = SyntaxKindJSDocPrivateTag
+	n.data = n
 }
 
 func (n *JSDocPrivateTag) Kind() SyntaxKind { return SyntaxKindJSDocPrivateTag }
 
-func NewJSDocPrivateTag() *JSDocPrivateTag {
-	v := &JSDocPrivateTag{}
-	v.reset()
-	return v
+func NewJSDocPrivateTag() *Node {
+	n := &JSDocPrivateTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocPrivateTag() *JSDocPrivateTag {
-	v := &JSDocPrivateTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocPrivateTag() *Node {
+	return NewJSDocPrivateTag()
 }
 
 type JSDocProtectedTag struct {
@@ -5231,23 +5445,24 @@ type JSDocProtectedTag struct {
 }
 
 func (n *Node) AsJSDocProtectedTag() *JSDocProtectedTag { return n.data.(*JSDocProtectedTag) }
+func (n *Node) IsJSDocProtectedTag() bool               { return n.kind == SyntaxKindJSDocProtectedTag }
 
-func (n *JSDocProtectedTag) reset() {
+func (n *JSDocProtectedTag) set() {
 	*n = JSDocProtectedTag{}
+	n.kind = SyntaxKindJSDocProtectedTag
+	n.data = n
 }
 
 func (n *JSDocProtectedTag) Kind() SyntaxKind { return SyntaxKindJSDocProtectedTag }
 
-func NewJSDocProtectedTag() *JSDocProtectedTag {
-	v := &JSDocProtectedTag{}
-	v.reset()
-	return v
+func NewJSDocProtectedTag() *Node {
+	n := &JSDocProtectedTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocProtectedTag() *JSDocProtectedTag {
-	v := &JSDocProtectedTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocProtectedTag() *Node {
+	return NewJSDocProtectedTag()
 }
 
 type JSDocReadonlyTag struct {
@@ -5255,23 +5470,24 @@ type JSDocReadonlyTag struct {
 }
 
 func (n *Node) AsJSDocReadonlyTag() *JSDocReadonlyTag { return n.data.(*JSDocReadonlyTag) }
+func (n *Node) IsJSDocReadonlyTag() bool              { return n.kind == SyntaxKindJSDocReadonlyTag }
 
-func (n *JSDocReadonlyTag) reset() {
+func (n *JSDocReadonlyTag) set() {
 	*n = JSDocReadonlyTag{}
+	n.kind = SyntaxKindJSDocReadonlyTag
+	n.data = n
 }
 
 func (n *JSDocReadonlyTag) Kind() SyntaxKind { return SyntaxKindJSDocReadonlyTag }
 
-func NewJSDocReadonlyTag() *JSDocReadonlyTag {
-	v := &JSDocReadonlyTag{}
-	v.reset()
-	return v
+func NewJSDocReadonlyTag() *Node {
+	n := &JSDocReadonlyTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocReadonlyTag() *JSDocReadonlyTag {
-	v := &JSDocReadonlyTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocReadonlyTag() *Node {
+	return NewJSDocReadonlyTag()
 }
 
 type JSDocOverrideTag struct {
@@ -5279,23 +5495,24 @@ type JSDocOverrideTag struct {
 }
 
 func (n *Node) AsJSDocOverrideTag() *JSDocOverrideTag { return n.data.(*JSDocOverrideTag) }
+func (n *Node) IsJSDocOverrideTag() bool              { return n.kind == SyntaxKindJSDocOverrideTag }
 
-func (n *JSDocOverrideTag) reset() {
+func (n *JSDocOverrideTag) set() {
 	*n = JSDocOverrideTag{}
+	n.kind = SyntaxKindJSDocOverrideTag
+	n.data = n
 }
 
 func (n *JSDocOverrideTag) Kind() SyntaxKind { return SyntaxKindJSDocOverrideTag }
 
-func NewJSDocOverrideTag() *JSDocOverrideTag {
-	v := &JSDocOverrideTag{}
-	v.reset()
-	return v
+func NewJSDocOverrideTag() *Node {
+	n := &JSDocOverrideTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocOverrideTag() *JSDocOverrideTag {
-	v := &JSDocOverrideTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocOverrideTag() *Node {
+	return NewJSDocOverrideTag()
 }
 
 type JSDocCallbackTag struct {
@@ -5303,23 +5520,24 @@ type JSDocCallbackTag struct {
 }
 
 func (n *Node) AsJSDocCallbackTag() *JSDocCallbackTag { return n.data.(*JSDocCallbackTag) }
+func (n *Node) IsJSDocCallbackTag() bool              { return n.kind == SyntaxKindJSDocCallbackTag }
 
-func (n *JSDocCallbackTag) reset() {
+func (n *JSDocCallbackTag) set() {
 	*n = JSDocCallbackTag{}
+	n.kind = SyntaxKindJSDocCallbackTag
+	n.data = n
 }
 
 func (n *JSDocCallbackTag) Kind() SyntaxKind { return SyntaxKindJSDocCallbackTag }
 
-func NewJSDocCallbackTag() *JSDocCallbackTag {
-	v := &JSDocCallbackTag{}
-	v.reset()
-	return v
+func NewJSDocCallbackTag() *Node {
+	n := &JSDocCallbackTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocCallbackTag() *JSDocCallbackTag {
-	v := &JSDocCallbackTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocCallbackTag() *Node {
+	return NewJSDocCallbackTag()
 }
 
 type JSDocOverloadTag struct {
@@ -5327,23 +5545,24 @@ type JSDocOverloadTag struct {
 }
 
 func (n *Node) AsJSDocOverloadTag() *JSDocOverloadTag { return n.data.(*JSDocOverloadTag) }
+func (n *Node) IsJSDocOverloadTag() bool              { return n.kind == SyntaxKindJSDocOverloadTag }
 
-func (n *JSDocOverloadTag) reset() {
+func (n *JSDocOverloadTag) set() {
 	*n = JSDocOverloadTag{}
+	n.kind = SyntaxKindJSDocOverloadTag
+	n.data = n
 }
 
 func (n *JSDocOverloadTag) Kind() SyntaxKind { return SyntaxKindJSDocOverloadTag }
 
-func NewJSDocOverloadTag() *JSDocOverloadTag {
-	v := &JSDocOverloadTag{}
-	v.reset()
-	return v
+func NewJSDocOverloadTag() *Node {
+	n := &JSDocOverloadTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocOverloadTag() *JSDocOverloadTag {
-	v := &JSDocOverloadTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocOverloadTag() *Node {
+	return NewJSDocOverloadTag()
 }
 
 type JSDocEnumTag struct {
@@ -5351,23 +5570,24 @@ type JSDocEnumTag struct {
 }
 
 func (n *Node) AsJSDocEnumTag() *JSDocEnumTag { return n.data.(*JSDocEnumTag) }
+func (n *Node) IsJSDocEnumTag() bool          { return n.kind == SyntaxKindJSDocEnumTag }
 
-func (n *JSDocEnumTag) reset() {
+func (n *JSDocEnumTag) set() {
 	*n = JSDocEnumTag{}
+	n.kind = SyntaxKindJSDocEnumTag
+	n.data = n
 }
 
 func (n *JSDocEnumTag) Kind() SyntaxKind { return SyntaxKindJSDocEnumTag }
 
-func NewJSDocEnumTag() *JSDocEnumTag {
-	v := &JSDocEnumTag{}
-	v.reset()
-	return v
+func NewJSDocEnumTag() *Node {
+	n := &JSDocEnumTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocEnumTag() *JSDocEnumTag {
-	v := &JSDocEnumTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocEnumTag() *Node {
+	return NewJSDocEnumTag()
 }
 
 type JSDocParameterTag struct {
@@ -5375,23 +5595,24 @@ type JSDocParameterTag struct {
 }
 
 func (n *Node) AsJSDocParameterTag() *JSDocParameterTag { return n.data.(*JSDocParameterTag) }
+func (n *Node) IsJSDocParameterTag() bool               { return n.kind == SyntaxKindJSDocParameterTag }
 
-func (n *JSDocParameterTag) reset() {
+func (n *JSDocParameterTag) set() {
 	*n = JSDocParameterTag{}
+	n.kind = SyntaxKindJSDocParameterTag
+	n.data = n
 }
 
 func (n *JSDocParameterTag) Kind() SyntaxKind { return SyntaxKindJSDocParameterTag }
 
-func NewJSDocParameterTag() *JSDocParameterTag {
-	v := &JSDocParameterTag{}
-	v.reset()
-	return v
+func NewJSDocParameterTag() *Node {
+	n := &JSDocParameterTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocParameterTag() *JSDocParameterTag {
-	v := &JSDocParameterTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocParameterTag() *Node {
+	return NewJSDocParameterTag()
 }
 
 type JSDocReturnTag struct {
@@ -5399,23 +5620,24 @@ type JSDocReturnTag struct {
 }
 
 func (n *Node) AsJSDocReturnTag() *JSDocReturnTag { return n.data.(*JSDocReturnTag) }
+func (n *Node) IsJSDocReturnTag() bool            { return n.kind == SyntaxKindJSDocReturnTag }
 
-func (n *JSDocReturnTag) reset() {
+func (n *JSDocReturnTag) set() {
 	*n = JSDocReturnTag{}
+	n.kind = SyntaxKindJSDocReturnTag
+	n.data = n
 }
 
 func (n *JSDocReturnTag) Kind() SyntaxKind { return SyntaxKindJSDocReturnTag }
 
-func NewJSDocReturnTag() *JSDocReturnTag {
-	v := &JSDocReturnTag{}
-	v.reset()
-	return v
+func NewJSDocReturnTag() *Node {
+	n := &JSDocReturnTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocReturnTag() *JSDocReturnTag {
-	v := &JSDocReturnTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocReturnTag() *Node {
+	return NewJSDocReturnTag()
 }
 
 type JSDocThisTag struct {
@@ -5423,23 +5645,24 @@ type JSDocThisTag struct {
 }
 
 func (n *Node) AsJSDocThisTag() *JSDocThisTag { return n.data.(*JSDocThisTag) }
+func (n *Node) IsJSDocThisTag() bool          { return n.kind == SyntaxKindJSDocThisTag }
 
-func (n *JSDocThisTag) reset() {
+func (n *JSDocThisTag) set() {
 	*n = JSDocThisTag{}
+	n.kind = SyntaxKindJSDocThisTag
+	n.data = n
 }
 
 func (n *JSDocThisTag) Kind() SyntaxKind { return SyntaxKindJSDocThisTag }
 
-func NewJSDocThisTag() *JSDocThisTag {
-	v := &JSDocThisTag{}
-	v.reset()
-	return v
+func NewJSDocThisTag() *Node {
+	n := &JSDocThisTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocThisTag() *JSDocThisTag {
-	v := &JSDocThisTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocThisTag() *Node {
+	return NewJSDocThisTag()
 }
 
 type JSDocTypeTag struct {
@@ -5447,23 +5670,24 @@ type JSDocTypeTag struct {
 }
 
 func (n *Node) AsJSDocTypeTag() *JSDocTypeTag { return n.data.(*JSDocTypeTag) }
+func (n *Node) IsJSDocTypeTag() bool          { return n.kind == SyntaxKindJSDocTypeTag }
 
-func (n *JSDocTypeTag) reset() {
+func (n *JSDocTypeTag) set() {
 	*n = JSDocTypeTag{}
+	n.kind = SyntaxKindJSDocTypeTag
+	n.data = n
 }
 
 func (n *JSDocTypeTag) Kind() SyntaxKind { return SyntaxKindJSDocTypeTag }
 
-func NewJSDocTypeTag() *JSDocTypeTag {
-	v := &JSDocTypeTag{}
-	v.reset()
-	return v
+func NewJSDocTypeTag() *Node {
+	n := &JSDocTypeTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocTypeTag() *JSDocTypeTag {
-	v := &JSDocTypeTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocTypeTag() *Node {
+	return NewJSDocTypeTag()
 }
 
 type JSDocTemplateTag struct {
@@ -5471,23 +5695,24 @@ type JSDocTemplateTag struct {
 }
 
 func (n *Node) AsJSDocTemplateTag() *JSDocTemplateTag { return n.data.(*JSDocTemplateTag) }
+func (n *Node) IsJSDocTemplateTag() bool              { return n.kind == SyntaxKindJSDocTemplateTag }
 
-func (n *JSDocTemplateTag) reset() {
+func (n *JSDocTemplateTag) set() {
 	*n = JSDocTemplateTag{}
+	n.kind = SyntaxKindJSDocTemplateTag
+	n.data = n
 }
 
 func (n *JSDocTemplateTag) Kind() SyntaxKind { return SyntaxKindJSDocTemplateTag }
 
-func NewJSDocTemplateTag() *JSDocTemplateTag {
-	v := &JSDocTemplateTag{}
-	v.reset()
-	return v
+func NewJSDocTemplateTag() *Node {
+	n := &JSDocTemplateTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocTemplateTag() *JSDocTemplateTag {
-	v := &JSDocTemplateTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocTemplateTag() *Node {
+	return NewJSDocTemplateTag()
 }
 
 type JSDocTypedefTag struct {
@@ -5495,23 +5720,24 @@ type JSDocTypedefTag struct {
 }
 
 func (n *Node) AsJSDocTypedefTag() *JSDocTypedefTag { return n.data.(*JSDocTypedefTag) }
+func (n *Node) IsJSDocTypedefTag() bool             { return n.kind == SyntaxKindJSDocTypedefTag }
 
-func (n *JSDocTypedefTag) reset() {
+func (n *JSDocTypedefTag) set() {
 	*n = JSDocTypedefTag{}
+	n.kind = SyntaxKindJSDocTypedefTag
+	n.data = n
 }
 
 func (n *JSDocTypedefTag) Kind() SyntaxKind { return SyntaxKindJSDocTypedefTag }
 
-func NewJSDocTypedefTag() *JSDocTypedefTag {
-	v := &JSDocTypedefTag{}
-	v.reset()
-	return v
+func NewJSDocTypedefTag() *Node {
+	n := &JSDocTypedefTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocTypedefTag() *JSDocTypedefTag {
-	v := &JSDocTypedefTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocTypedefTag() *Node {
+	return NewJSDocTypedefTag()
 }
 
 type JSDocSeeTag struct {
@@ -5519,23 +5745,24 @@ type JSDocSeeTag struct {
 }
 
 func (n *Node) AsJSDocSeeTag() *JSDocSeeTag { return n.data.(*JSDocSeeTag) }
+func (n *Node) IsJSDocSeeTag() bool         { return n.kind == SyntaxKindJSDocSeeTag }
 
-func (n *JSDocSeeTag) reset() {
+func (n *JSDocSeeTag) set() {
 	*n = JSDocSeeTag{}
+	n.kind = SyntaxKindJSDocSeeTag
+	n.data = n
 }
 
 func (n *JSDocSeeTag) Kind() SyntaxKind { return SyntaxKindJSDocSeeTag }
 
-func NewJSDocSeeTag() *JSDocSeeTag {
-	v := &JSDocSeeTag{}
-	v.reset()
-	return v
+func NewJSDocSeeTag() *Node {
+	n := &JSDocSeeTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocSeeTag() *JSDocSeeTag {
-	v := &JSDocSeeTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocSeeTag() *Node {
+	return NewJSDocSeeTag()
 }
 
 type JSDocPropertyTag struct {
@@ -5543,23 +5770,24 @@ type JSDocPropertyTag struct {
 }
 
 func (n *Node) AsJSDocPropertyTag() *JSDocPropertyTag { return n.data.(*JSDocPropertyTag) }
+func (n *Node) IsJSDocPropertyTag() bool              { return n.kind == SyntaxKindJSDocPropertyTag }
 
-func (n *JSDocPropertyTag) reset() {
+func (n *JSDocPropertyTag) set() {
 	*n = JSDocPropertyTag{}
+	n.kind = SyntaxKindJSDocPropertyTag
+	n.data = n
 }
 
 func (n *JSDocPropertyTag) Kind() SyntaxKind { return SyntaxKindJSDocPropertyTag }
 
-func NewJSDocPropertyTag() *JSDocPropertyTag {
-	v := &JSDocPropertyTag{}
-	v.reset()
-	return v
+func NewJSDocPropertyTag() *Node {
+	n := &JSDocPropertyTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocPropertyTag() *JSDocPropertyTag {
-	v := &JSDocPropertyTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocPropertyTag() *Node {
+	return NewJSDocPropertyTag()
 }
 
 type JSDocThrowsTag struct {
@@ -5567,23 +5795,24 @@ type JSDocThrowsTag struct {
 }
 
 func (n *Node) AsJSDocThrowsTag() *JSDocThrowsTag { return n.data.(*JSDocThrowsTag) }
+func (n *Node) IsJSDocThrowsTag() bool            { return n.kind == SyntaxKindJSDocThrowsTag }
 
-func (n *JSDocThrowsTag) reset() {
+func (n *JSDocThrowsTag) set() {
 	*n = JSDocThrowsTag{}
+	n.kind = SyntaxKindJSDocThrowsTag
+	n.data = n
 }
 
 func (n *JSDocThrowsTag) Kind() SyntaxKind { return SyntaxKindJSDocThrowsTag }
 
-func NewJSDocThrowsTag() *JSDocThrowsTag {
-	v := &JSDocThrowsTag{}
-	v.reset()
-	return v
+func NewJSDocThrowsTag() *Node {
+	n := &JSDocThrowsTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocThrowsTag() *JSDocThrowsTag {
-	v := &JSDocThrowsTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocThrowsTag() *Node {
+	return NewJSDocThrowsTag()
 }
 
 type JSDocSatisfiesTag struct {
@@ -5591,23 +5820,24 @@ type JSDocSatisfiesTag struct {
 }
 
 func (n *Node) AsJSDocSatisfiesTag() *JSDocSatisfiesTag { return n.data.(*JSDocSatisfiesTag) }
+func (n *Node) IsJSDocSatisfiesTag() bool               { return n.kind == SyntaxKindJSDocSatisfiesTag }
 
-func (n *JSDocSatisfiesTag) reset() {
+func (n *JSDocSatisfiesTag) set() {
 	*n = JSDocSatisfiesTag{}
+	n.kind = SyntaxKindJSDocSatisfiesTag
+	n.data = n
 }
 
 func (n *JSDocSatisfiesTag) Kind() SyntaxKind { return SyntaxKindJSDocSatisfiesTag }
 
-func NewJSDocSatisfiesTag() *JSDocSatisfiesTag {
-	v := &JSDocSatisfiesTag{}
-	v.reset()
-	return v
+func NewJSDocSatisfiesTag() *Node {
+	n := &JSDocSatisfiesTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocSatisfiesTag() *JSDocSatisfiesTag {
-	v := &JSDocSatisfiesTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocSatisfiesTag() *Node {
+	return NewJSDocSatisfiesTag()
 }
 
 type JSDocImportTag struct {
@@ -5615,23 +5845,24 @@ type JSDocImportTag struct {
 }
 
 func (n *Node) AsJSDocImportTag() *JSDocImportTag { return n.data.(*JSDocImportTag) }
+func (n *Node) IsJSDocImportTag() bool            { return n.kind == SyntaxKindJSDocImportTag }
 
-func (n *JSDocImportTag) reset() {
+func (n *JSDocImportTag) set() {
 	*n = JSDocImportTag{}
+	n.kind = SyntaxKindJSDocImportTag
+	n.data = n
 }
 
 func (n *JSDocImportTag) Kind() SyntaxKind { return SyntaxKindJSDocImportTag }
 
-func NewJSDocImportTag() *JSDocImportTag {
-	v := &JSDocImportTag{}
-	v.reset()
-	return v
+func NewJSDocImportTag() *Node {
+	n := &JSDocImportTag{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewJSDocImportTag() *JSDocImportTag {
-	v := &JSDocImportTag{}
-	v.reset()
-	return v
+func (f *Factory) NewJSDocImportTag() *Node {
+	return NewJSDocImportTag()
 }
 
 type SyntaxList struct {
@@ -5639,23 +5870,24 @@ type SyntaxList struct {
 }
 
 func (n *Node) AsSyntaxList() *SyntaxList { return n.data.(*SyntaxList) }
+func (n *Node) IsSyntaxList() bool        { return n.kind == SyntaxKindSyntaxList }
 
-func (n *SyntaxList) reset() {
+func (n *SyntaxList) set() {
 	*n = SyntaxList{}
+	n.kind = SyntaxKindSyntaxList
+	n.data = n
 }
 
 func (n *SyntaxList) Kind() SyntaxKind { return SyntaxKindSyntaxList }
 
-func NewSyntaxList() *SyntaxList {
-	v := &SyntaxList{}
-	v.reset()
-	return v
+func NewSyntaxList() *Node {
+	n := &SyntaxList{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSyntaxList() *SyntaxList {
-	v := &SyntaxList{}
-	v.reset()
-	return v
+func (f *Factory) NewSyntaxList() *Node {
+	return NewSyntaxList()
 }
 
 type NotEmittedStatement struct {
@@ -5663,23 +5895,24 @@ type NotEmittedStatement struct {
 }
 
 func (n *Node) AsNotEmittedStatement() *NotEmittedStatement { return n.data.(*NotEmittedStatement) }
+func (n *Node) IsNotEmittedStatement() bool                 { return n.kind == SyntaxKindNotEmittedStatement }
 
-func (n *NotEmittedStatement) reset() {
+func (n *NotEmittedStatement) set() {
 	*n = NotEmittedStatement{}
+	n.kind = SyntaxKindNotEmittedStatement
+	n.data = n
 }
 
 func (n *NotEmittedStatement) Kind() SyntaxKind { return SyntaxKindNotEmittedStatement }
 
-func NewNotEmittedStatement() *NotEmittedStatement {
-	v := &NotEmittedStatement{}
-	v.reset()
-	return v
+func NewNotEmittedStatement() *Node {
+	n := &NotEmittedStatement{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewNotEmittedStatement() *NotEmittedStatement {
-	v := &NotEmittedStatement{}
-	v.reset()
-	return v
+func (f *Factory) NewNotEmittedStatement() *Node {
+	return NewNotEmittedStatement()
 }
 
 type PartiallyEmittedExpression struct {
@@ -5689,23 +5922,26 @@ type PartiallyEmittedExpression struct {
 func (n *Node) AsPartiallyEmittedExpression() *PartiallyEmittedExpression {
 	return n.data.(*PartiallyEmittedExpression)
 }
+func (n *Node) IsPartiallyEmittedExpression() bool {
+	return n.kind == SyntaxKindPartiallyEmittedExpression
+}
 
-func (n *PartiallyEmittedExpression) reset() {
+func (n *PartiallyEmittedExpression) set() {
 	*n = PartiallyEmittedExpression{}
+	n.kind = SyntaxKindPartiallyEmittedExpression
+	n.data = n
 }
 
 func (n *PartiallyEmittedExpression) Kind() SyntaxKind { return SyntaxKindPartiallyEmittedExpression }
 
-func NewPartiallyEmittedExpression() *PartiallyEmittedExpression {
-	v := &PartiallyEmittedExpression{}
-	v.reset()
-	return v
+func NewPartiallyEmittedExpression() *Node {
+	n := &PartiallyEmittedExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewPartiallyEmittedExpression() *PartiallyEmittedExpression {
-	v := &PartiallyEmittedExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewPartiallyEmittedExpression() *Node {
+	return NewPartiallyEmittedExpression()
 }
 
 type CommaListExpression struct {
@@ -5713,23 +5949,24 @@ type CommaListExpression struct {
 }
 
 func (n *Node) AsCommaListExpression() *CommaListExpression { return n.data.(*CommaListExpression) }
+func (n *Node) IsCommaListExpression() bool                 { return n.kind == SyntaxKindCommaListExpression }
 
-func (n *CommaListExpression) reset() {
+func (n *CommaListExpression) set() {
 	*n = CommaListExpression{}
+	n.kind = SyntaxKindCommaListExpression
+	n.data = n
 }
 
 func (n *CommaListExpression) Kind() SyntaxKind { return SyntaxKindCommaListExpression }
 
-func NewCommaListExpression() *CommaListExpression {
-	v := &CommaListExpression{}
-	v.reset()
-	return v
+func NewCommaListExpression() *Node {
+	n := &CommaListExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewCommaListExpression() *CommaListExpression {
-	v := &CommaListExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewCommaListExpression() *Node {
+	return NewCommaListExpression()
 }
 
 type SyntheticReferenceExpression struct {
@@ -5739,25 +5976,28 @@ type SyntheticReferenceExpression struct {
 func (n *Node) AsSyntheticReferenceExpression() *SyntheticReferenceExpression {
 	return n.data.(*SyntheticReferenceExpression)
 }
+func (n *Node) IsSyntheticReferenceExpression() bool {
+	return n.kind == SyntaxKindSyntheticReferenceExpression
+}
 
-func (n *SyntheticReferenceExpression) reset() {
+func (n *SyntheticReferenceExpression) set() {
 	*n = SyntheticReferenceExpression{}
+	n.kind = SyntaxKindSyntheticReferenceExpression
+	n.data = n
 }
 
 func (n *SyntheticReferenceExpression) Kind() SyntaxKind {
 	return SyntaxKindSyntheticReferenceExpression
 }
 
-func NewSyntheticReferenceExpression() *SyntheticReferenceExpression {
-	v := &SyntheticReferenceExpression{}
-	v.reset()
-	return v
+func NewSyntheticReferenceExpression() *Node {
+	n := &SyntheticReferenceExpression{}
+	n.set()
+	return n.AsNode()
 }
 
-func (f *Factory) NewSyntheticReferenceExpression() *SyntheticReferenceExpression {
-	v := &SyntheticReferenceExpression{}
-	v.reset()
-	return v
+func (f *Factory) NewSyntheticReferenceExpression() *Node {
+	return NewSyntheticReferenceExpression()
 }
 
 type AccessExpression = Node // PropertyAccessExpression | ElementAccessExpression
