@@ -769,7 +769,7 @@ func (g *generator) generateNode(n *syntaxKind) {
 	printNewParams()
 	g.println(") {")
 	// TODO: generate optimal assignment
-	g.printf("\t*n = %s{}\n", name)
+	// g.printf("\t*n = %s{}\n", name)
 	if token {
 		g.println("\tn.kind = kind")
 	} else {

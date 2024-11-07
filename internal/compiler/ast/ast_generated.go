@@ -815,7 +815,6 @@ type Token struct {
 func (n *Node) AsToken() *Token { return n.data.(*Token) }
 
 func (n *Token) set(kind SyntaxKind) {
-	*n = Token{}
 	n.kind = kind
 	n.data = n
 }
@@ -840,7 +839,6 @@ func (n *Node) AsNumericLiteral() *NumericLiteral { return n.data.(*NumericLiter
 func (n *Node) IsNumericLiteral() bool            { return n.kind == SyntaxKindNumericLiteral }
 
 func (n *NumericLiteral) set() {
-	*n = NumericLiteral{}
 	n.kind = SyntaxKindNumericLiteral
 	n.data = n
 }
@@ -865,7 +863,6 @@ func (n *Node) AsBigIntLiteral() *BigIntLiteral { return n.data.(*BigIntLiteral)
 func (n *Node) IsBigIntLiteral() bool           { return n.kind == SyntaxKindBigIntLiteral }
 
 func (n *BigIntLiteral) set() {
-	*n = BigIntLiteral{}
 	n.kind = SyntaxKindBigIntLiteral
 	n.data = n
 }
@@ -890,7 +887,6 @@ func (n *Node) AsStringLiteral() *StringLiteral { return n.data.(*StringLiteral)
 func (n *Node) IsStringLiteral() bool           { return n.kind == SyntaxKindStringLiteral }
 
 func (n *StringLiteral) set() {
-	*n = StringLiteral{}
 	n.kind = SyntaxKindStringLiteral
 	n.data = n
 }
@@ -915,7 +911,6 @@ func (n *Node) AsJsxText() *JsxText { return n.data.(*JsxText) }
 func (n *Node) IsJsxText() bool     { return n.kind == SyntaxKindJsxText }
 
 func (n *JsxText) set() {
-	*n = JsxText{}
 	n.kind = SyntaxKindJsxText
 	n.data = n
 }
@@ -942,7 +937,6 @@ func (n *Node) AsRegularExpressionLiteral() *RegularExpressionLiteral {
 func (n *Node) IsRegularExpressionLiteral() bool { return n.kind == SyntaxKindRegularExpressionLiteral }
 
 func (n *RegularExpressionLiteral) set() {
-	*n = RegularExpressionLiteral{}
 	n.kind = SyntaxKindRegularExpressionLiteral
 	n.data = n
 }
@@ -971,7 +965,6 @@ func (n *Node) IsNoSubstitutionTemplateLiteral() bool {
 }
 
 func (n *NoSubstitutionTemplateLiteral) set() {
-	*n = NoSubstitutionTemplateLiteral{}
 	n.kind = SyntaxKindNoSubstitutionTemplateLiteral
 	n.data = n
 }
@@ -998,7 +991,6 @@ func (n *Node) AsTemplateHead() *TemplateHead { return n.data.(*TemplateHead) }
 func (n *Node) IsTemplateHead() bool          { return n.kind == SyntaxKindTemplateHead }
 
 func (n *TemplateHead) set() {
-	*n = TemplateHead{}
 	n.kind = SyntaxKindTemplateHead
 	n.data = n
 }
@@ -1023,7 +1015,6 @@ func (n *Node) AsTemplateMiddle() *TemplateMiddle { return n.data.(*TemplateMidd
 func (n *Node) IsTemplateMiddle() bool            { return n.kind == SyntaxKindTemplateMiddle }
 
 func (n *TemplateMiddle) set() {
-	*n = TemplateMiddle{}
 	n.kind = SyntaxKindTemplateMiddle
 	n.data = n
 }
@@ -1048,7 +1039,6 @@ func (n *Node) AsTemplateTail() *TemplateTail { return n.data.(*TemplateTail) }
 func (n *Node) IsTemplateTail() bool          { return n.kind == SyntaxKindTemplateTail }
 
 func (n *TemplateTail) set() {
-	*n = TemplateTail{}
 	n.kind = SyntaxKindTemplateTail
 	n.data = n
 }
@@ -1073,7 +1063,6 @@ func (n *Node) AsIdentifier() *Identifier { return n.data.(*Identifier) }
 func (n *Node) IsIdentifier() bool        { return n.kind == SyntaxKindIdentifier }
 
 func (n *Identifier) set() {
-	*n = Identifier{}
 	n.kind = SyntaxKindIdentifier
 	n.data = n
 }
@@ -1100,7 +1089,6 @@ func (n *Node) AsPrivateIdentifier() *PrivateIdentifier { return n.data.(*Privat
 func (n *Node) IsPrivateIdentifier() bool               { return n.kind == SyntaxKindPrivateIdentifier }
 
 func (n *PrivateIdentifier) set() {
-	*n = PrivateIdentifier{}
 	n.kind = SyntaxKindPrivateIdentifier
 	n.data = n
 }
@@ -1125,7 +1113,6 @@ func (n *Node) AsQualifiedName() *QualifiedName { return n.data.(*QualifiedName)
 func (n *Node) IsQualifiedName() bool           { return n.kind == SyntaxKindQualifiedName }
 
 func (n *QualifiedName) set() {
-	*n = QualifiedName{}
 	n.kind = SyntaxKindQualifiedName
 	n.data = n
 }
@@ -1150,7 +1137,6 @@ func (n *Node) AsComputedPropertyName() *ComputedPropertyName { return n.data.(*
 func (n *Node) IsComputedPropertyName() bool                  { return n.kind == SyntaxKindComputedPropertyName }
 
 func (n *ComputedPropertyName) set() {
-	*n = ComputedPropertyName{}
 	n.kind = SyntaxKindComputedPropertyName
 	n.data = n
 }
@@ -1175,7 +1161,6 @@ func (n *Node) AsModifierList() *ModifierList { return n.data.(*ModifierList) }
 func (n *Node) IsModifierList() bool          { return n.kind == SyntaxKindModifierList }
 
 func (n *ModifierList) set() {
-	*n = ModifierList{}
 	n.kind = SyntaxKindModifierList
 	n.data = n
 }
@@ -1200,7 +1185,6 @@ func (n *Node) AsTypeParameterList() *TypeParameterList { return n.data.(*TypePa
 func (n *Node) IsTypeParameterList() bool               { return n.kind == SyntaxKindTypeParameterList }
 
 func (n *TypeParameterList) set() {
-	*n = TypeParameterList{}
 	n.kind = SyntaxKindTypeParameterList
 	n.data = n
 }
@@ -1225,7 +1209,6 @@ func (n *Node) AsTypeArgumentList() *TypeArgumentList { return n.data.(*TypeArgu
 func (n *Node) IsTypeArgumentList() bool              { return n.kind == SyntaxKindTypeArgumentList }
 
 func (n *TypeArgumentList) set() {
-	*n = TypeArgumentList{}
 	n.kind = SyntaxKindTypeArgumentList
 	n.data = n
 }
@@ -1250,7 +1233,6 @@ func (n *Node) AsTypeParameter() *TypeParameter { return n.data.(*TypeParameter)
 func (n *Node) IsTypeParameter() bool           { return n.kind == SyntaxKindTypeParameter }
 
 func (n *TypeParameter) set() {
-	*n = TypeParameter{}
 	n.kind = SyntaxKindTypeParameter
 	n.data = n
 }
@@ -1275,7 +1257,6 @@ func (n *Node) AsParameter() *Parameter { return n.data.(*Parameter) }
 func (n *Node) IsParameter() bool       { return n.kind == SyntaxKindParameter }
 
 func (n *Parameter) set() {
-	*n = Parameter{}
 	n.kind = SyntaxKindParameter
 	n.data = n
 }
@@ -1300,7 +1281,6 @@ func (n *Node) AsDecorator() *Decorator { return n.data.(*Decorator) }
 func (n *Node) IsDecorator() bool       { return n.kind == SyntaxKindDecorator }
 
 func (n *Decorator) set() {
-	*n = Decorator{}
 	n.kind = SyntaxKindDecorator
 	n.data = n
 }
@@ -1325,7 +1305,6 @@ func (n *Node) AsPropertySignature() *PropertySignature { return n.data.(*Proper
 func (n *Node) IsPropertySignature() bool               { return n.kind == SyntaxKindPropertySignature }
 
 func (n *PropertySignature) set() {
-	*n = PropertySignature{}
 	n.kind = SyntaxKindPropertySignature
 	n.data = n
 }
@@ -1350,7 +1329,6 @@ func (n *Node) AsPropertyDeclaration() *PropertyDeclaration { return n.data.(*Pr
 func (n *Node) IsPropertyDeclaration() bool                 { return n.kind == SyntaxKindPropertyDeclaration }
 
 func (n *PropertyDeclaration) set() {
-	*n = PropertyDeclaration{}
 	n.kind = SyntaxKindPropertyDeclaration
 	n.data = n
 }
@@ -1375,7 +1353,6 @@ func (n *Node) AsMethodSignature() *MethodSignature { return n.data.(*MethodSign
 func (n *Node) IsMethodSignature() bool             { return n.kind == SyntaxKindMethodSignature }
 
 func (n *MethodSignature) set() {
-	*n = MethodSignature{}
 	n.kind = SyntaxKindMethodSignature
 	n.data = n
 }
@@ -1400,7 +1377,6 @@ func (n *Node) AsMethodDeclaration() *MethodDeclaration { return n.data.(*Method
 func (n *Node) IsMethodDeclaration() bool               { return n.kind == SyntaxKindMethodDeclaration }
 
 func (n *MethodDeclaration) set() {
-	*n = MethodDeclaration{}
 	n.kind = SyntaxKindMethodDeclaration
 	n.data = n
 }
@@ -1429,7 +1405,6 @@ func (n *Node) IsClassStaticBlockDeclaration() bool {
 }
 
 func (n *ClassStaticBlockDeclaration) set() {
-	*n = ClassStaticBlockDeclaration{}
 	n.kind = SyntaxKindClassStaticBlockDeclaration
 	n.data = n
 }
@@ -1454,7 +1429,6 @@ func (n *Node) AsConstructor() *Constructor { return n.data.(*Constructor) }
 func (n *Node) IsConstructor() bool         { return n.kind == SyntaxKindConstructor }
 
 func (n *Constructor) set() {
-	*n = Constructor{}
 	n.kind = SyntaxKindConstructor
 	n.data = n
 }
@@ -1479,7 +1453,6 @@ func (n *Node) AsGetAccessor() *GetAccessor { return n.data.(*GetAccessor) }
 func (n *Node) IsGetAccessor() bool         { return n.kind == SyntaxKindGetAccessor }
 
 func (n *GetAccessor) set() {
-	*n = GetAccessor{}
 	n.kind = SyntaxKindGetAccessor
 	n.data = n
 }
@@ -1504,7 +1477,6 @@ func (n *Node) AsSetAccessor() *SetAccessor { return n.data.(*SetAccessor) }
 func (n *Node) IsSetAccessor() bool         { return n.kind == SyntaxKindSetAccessor }
 
 func (n *SetAccessor) set() {
-	*n = SetAccessor{}
 	n.kind = SyntaxKindSetAccessor
 	n.data = n
 }
@@ -1529,7 +1501,6 @@ func (n *Node) AsCallSignature() *CallSignature { return n.data.(*CallSignature)
 func (n *Node) IsCallSignature() bool           { return n.kind == SyntaxKindCallSignature }
 
 func (n *CallSignature) set() {
-	*n = CallSignature{}
 	n.kind = SyntaxKindCallSignature
 	n.data = n
 }
@@ -1554,7 +1525,6 @@ func (n *Node) AsConstructSignature() *ConstructSignature { return n.data.(*Cons
 func (n *Node) IsConstructSignature() bool                { return n.kind == SyntaxKindConstructSignature }
 
 func (n *ConstructSignature) set() {
-	*n = ConstructSignature{}
 	n.kind = SyntaxKindConstructSignature
 	n.data = n
 }
@@ -1579,7 +1549,6 @@ func (n *Node) AsIndexSignature() *IndexSignature { return n.data.(*IndexSignatu
 func (n *Node) IsIndexSignature() bool            { return n.kind == SyntaxKindIndexSignature }
 
 func (n *IndexSignature) set() {
-	*n = IndexSignature{}
 	n.kind = SyntaxKindIndexSignature
 	n.data = n
 }
@@ -1604,7 +1573,6 @@ func (n *Node) AsTypePredicate() *TypePredicate { return n.data.(*TypePredicate)
 func (n *Node) IsTypePredicate() bool           { return n.kind == SyntaxKindTypePredicate }
 
 func (n *TypePredicate) set() {
-	*n = TypePredicate{}
 	n.kind = SyntaxKindTypePredicate
 	n.data = n
 }
@@ -1629,7 +1597,6 @@ func (n *Node) AsTypeReference() *TypeReference { return n.data.(*TypeReference)
 func (n *Node) IsTypeReference() bool           { return n.kind == SyntaxKindTypeReference }
 
 func (n *TypeReference) set() {
-	*n = TypeReference{}
 	n.kind = SyntaxKindTypeReference
 	n.data = n
 }
@@ -1654,7 +1621,6 @@ func (n *Node) AsFunctionType() *FunctionType { return n.data.(*FunctionType) }
 func (n *Node) IsFunctionType() bool          { return n.kind == SyntaxKindFunctionType }
 
 func (n *FunctionType) set() {
-	*n = FunctionType{}
 	n.kind = SyntaxKindFunctionType
 	n.data = n
 }
@@ -1679,7 +1645,6 @@ func (n *Node) AsConstructorType() *ConstructorType { return n.data.(*Constructo
 func (n *Node) IsConstructorType() bool             { return n.kind == SyntaxKindConstructorType }
 
 func (n *ConstructorType) set() {
-	*n = ConstructorType{}
 	n.kind = SyntaxKindConstructorType
 	n.data = n
 }
@@ -1704,7 +1669,6 @@ func (n *Node) AsTypeQuery() *TypeQuery { return n.data.(*TypeQuery) }
 func (n *Node) IsTypeQuery() bool       { return n.kind == SyntaxKindTypeQuery }
 
 func (n *TypeQuery) set() {
-	*n = TypeQuery{}
 	n.kind = SyntaxKindTypeQuery
 	n.data = n
 }
@@ -1729,7 +1693,6 @@ func (n *Node) AsTypeLiteral() *TypeLiteral { return n.data.(*TypeLiteral) }
 func (n *Node) IsTypeLiteral() bool         { return n.kind == SyntaxKindTypeLiteral }
 
 func (n *TypeLiteral) set() {
-	*n = TypeLiteral{}
 	n.kind = SyntaxKindTypeLiteral
 	n.data = n
 }
@@ -1754,7 +1717,6 @@ func (n *Node) AsArrayType() *ArrayType { return n.data.(*ArrayType) }
 func (n *Node) IsArrayType() bool       { return n.kind == SyntaxKindArrayType }
 
 func (n *ArrayType) set() {
-	*n = ArrayType{}
 	n.kind = SyntaxKindArrayType
 	n.data = n
 }
@@ -1779,7 +1741,6 @@ func (n *Node) AsTupleType() *TupleType { return n.data.(*TupleType) }
 func (n *Node) IsTupleType() bool       { return n.kind == SyntaxKindTupleType }
 
 func (n *TupleType) set() {
-	*n = TupleType{}
 	n.kind = SyntaxKindTupleType
 	n.data = n
 }
@@ -1804,7 +1765,6 @@ func (n *Node) AsOptionalType() *OptionalType { return n.data.(*OptionalType) }
 func (n *Node) IsOptionalType() bool          { return n.kind == SyntaxKindOptionalType }
 
 func (n *OptionalType) set() {
-	*n = OptionalType{}
 	n.kind = SyntaxKindOptionalType
 	n.data = n
 }
@@ -1829,7 +1789,6 @@ func (n *Node) AsRestType() *RestType { return n.data.(*RestType) }
 func (n *Node) IsRestType() bool      { return n.kind == SyntaxKindRestType }
 
 func (n *RestType) set() {
-	*n = RestType{}
 	n.kind = SyntaxKindRestType
 	n.data = n
 }
@@ -1854,7 +1813,6 @@ func (n *Node) AsUnionType() *UnionType { return n.data.(*UnionType) }
 func (n *Node) IsUnionType() bool       { return n.kind == SyntaxKindUnionType }
 
 func (n *UnionType) set() {
-	*n = UnionType{}
 	n.kind = SyntaxKindUnionType
 	n.data = n
 }
@@ -1879,7 +1837,6 @@ func (n *Node) AsIntersectionType() *IntersectionType { return n.data.(*Intersec
 func (n *Node) IsIntersectionType() bool              { return n.kind == SyntaxKindIntersectionType }
 
 func (n *IntersectionType) set() {
-	*n = IntersectionType{}
 	n.kind = SyntaxKindIntersectionType
 	n.data = n
 }
@@ -1904,7 +1861,6 @@ func (n *Node) AsConditionalType() *ConditionalType { return n.data.(*Conditiona
 func (n *Node) IsConditionalType() bool             { return n.kind == SyntaxKindConditionalType }
 
 func (n *ConditionalType) set() {
-	*n = ConditionalType{}
 	n.kind = SyntaxKindConditionalType
 	n.data = n
 }
@@ -1929,7 +1885,6 @@ func (n *Node) AsInferType() *InferType { return n.data.(*InferType) }
 func (n *Node) IsInferType() bool       { return n.kind == SyntaxKindInferType }
 
 func (n *InferType) set() {
-	*n = InferType{}
 	n.kind = SyntaxKindInferType
 	n.data = n
 }
@@ -1954,7 +1909,6 @@ func (n *Node) AsParenthesizedType() *ParenthesizedType { return n.data.(*Parent
 func (n *Node) IsParenthesizedType() bool               { return n.kind == SyntaxKindParenthesizedType }
 
 func (n *ParenthesizedType) set() {
-	*n = ParenthesizedType{}
 	n.kind = SyntaxKindParenthesizedType
 	n.data = n
 }
@@ -1979,7 +1933,6 @@ func (n *Node) AsThisType() *ThisType { return n.data.(*ThisType) }
 func (n *Node) IsThisType() bool      { return n.kind == SyntaxKindThisType }
 
 func (n *ThisType) set() {
-	*n = ThisType{}
 	n.kind = SyntaxKindThisType
 	n.data = n
 }
@@ -2004,7 +1957,6 @@ func (n *Node) AsTypeOperator() *TypeOperator { return n.data.(*TypeOperator) }
 func (n *Node) IsTypeOperator() bool          { return n.kind == SyntaxKindTypeOperator }
 
 func (n *TypeOperator) set() {
-	*n = TypeOperator{}
 	n.kind = SyntaxKindTypeOperator
 	n.data = n
 }
@@ -2029,7 +1981,6 @@ func (n *Node) AsIndexedAccessType() *IndexedAccessType { return n.data.(*Indexe
 func (n *Node) IsIndexedAccessType() bool               { return n.kind == SyntaxKindIndexedAccessType }
 
 func (n *IndexedAccessType) set() {
-	*n = IndexedAccessType{}
 	n.kind = SyntaxKindIndexedAccessType
 	n.data = n
 }
@@ -2054,7 +2005,6 @@ func (n *Node) AsMappedType() *MappedType { return n.data.(*MappedType) }
 func (n *Node) IsMappedType() bool        { return n.kind == SyntaxKindMappedType }
 
 func (n *MappedType) set() {
-	*n = MappedType{}
 	n.kind = SyntaxKindMappedType
 	n.data = n
 }
@@ -2079,7 +2029,6 @@ func (n *Node) AsLiteralType() *LiteralType { return n.data.(*LiteralType) }
 func (n *Node) IsLiteralType() bool         { return n.kind == SyntaxKindLiteralType }
 
 func (n *LiteralType) set() {
-	*n = LiteralType{}
 	n.kind = SyntaxKindLiteralType
 	n.data = n
 }
@@ -2104,7 +2053,6 @@ func (n *Node) AsNamedTupleMember() *NamedTupleMember { return n.data.(*NamedTup
 func (n *Node) IsNamedTupleMember() bool              { return n.kind == SyntaxKindNamedTupleMember }
 
 func (n *NamedTupleMember) set() {
-	*n = NamedTupleMember{}
 	n.kind = SyntaxKindNamedTupleMember
 	n.data = n
 }
@@ -2129,7 +2077,6 @@ func (n *Node) AsTemplateLiteralType() *TemplateLiteralType { return n.data.(*Te
 func (n *Node) IsTemplateLiteralType() bool                 { return n.kind == SyntaxKindTemplateLiteralType }
 
 func (n *TemplateLiteralType) set() {
-	*n = TemplateLiteralType{}
 	n.kind = SyntaxKindTemplateLiteralType
 	n.data = n
 }
@@ -2156,7 +2103,6 @@ func (n *Node) AsTemplateLiteralTypeSpan() *TemplateLiteralTypeSpan {
 func (n *Node) IsTemplateLiteralTypeSpan() bool { return n.kind == SyntaxKindTemplateLiteralTypeSpan }
 
 func (n *TemplateLiteralTypeSpan) set() {
-	*n = TemplateLiteralTypeSpan{}
 	n.kind = SyntaxKindTemplateLiteralTypeSpan
 	n.data = n
 }
@@ -2181,7 +2127,6 @@ func (n *Node) AsImportType() *ImportType { return n.data.(*ImportType) }
 func (n *Node) IsImportType() bool        { return n.kind == SyntaxKindImportType }
 
 func (n *ImportType) set() {
-	*n = ImportType{}
 	n.kind = SyntaxKindImportType
 	n.data = n
 }
@@ -2206,7 +2151,6 @@ func (n *Node) AsObjectBindingPattern() *ObjectBindingPattern { return n.data.(*
 func (n *Node) IsObjectBindingPattern() bool                  { return n.kind == SyntaxKindObjectBindingPattern }
 
 func (n *ObjectBindingPattern) set() {
-	*n = ObjectBindingPattern{}
 	n.kind = SyntaxKindObjectBindingPattern
 	n.data = n
 }
@@ -2231,7 +2175,6 @@ func (n *Node) AsArrayBindingPattern() *ArrayBindingPattern { return n.data.(*Ar
 func (n *Node) IsArrayBindingPattern() bool                 { return n.kind == SyntaxKindArrayBindingPattern }
 
 func (n *ArrayBindingPattern) set() {
-	*n = ArrayBindingPattern{}
 	n.kind = SyntaxKindArrayBindingPattern
 	n.data = n
 }
@@ -2256,7 +2199,6 @@ func (n *Node) AsBindingElement() *BindingElement { return n.data.(*BindingEleme
 func (n *Node) IsBindingElement() bool            { return n.kind == SyntaxKindBindingElement }
 
 func (n *BindingElement) set() {
-	*n = BindingElement{}
 	n.kind = SyntaxKindBindingElement
 	n.data = n
 }
@@ -2283,7 +2225,6 @@ func (n *Node) AsArrayLiteralExpression() *ArrayLiteralExpression {
 func (n *Node) IsArrayLiteralExpression() bool { return n.kind == SyntaxKindArrayLiteralExpression }
 
 func (n *ArrayLiteralExpression) set() {
-	*n = ArrayLiteralExpression{}
 	n.kind = SyntaxKindArrayLiteralExpression
 	n.data = n
 }
@@ -2310,7 +2251,6 @@ func (n *Node) AsObjectLiteralExpression() *ObjectLiteralExpression {
 func (n *Node) IsObjectLiteralExpression() bool { return n.kind == SyntaxKindObjectLiteralExpression }
 
 func (n *ObjectLiteralExpression) set() {
-	*n = ObjectLiteralExpression{}
 	n.kind = SyntaxKindObjectLiteralExpression
 	n.data = n
 }
@@ -2337,7 +2277,6 @@ func (n *Node) AsPropertyAccessExpression() *PropertyAccessExpression {
 func (n *Node) IsPropertyAccessExpression() bool { return n.kind == SyntaxKindPropertyAccessExpression }
 
 func (n *PropertyAccessExpression) set() {
-	*n = PropertyAccessExpression{}
 	n.kind = SyntaxKindPropertyAccessExpression
 	n.data = n
 }
@@ -2364,7 +2303,6 @@ func (n *Node) AsElementAccessExpression() *ElementAccessExpression {
 func (n *Node) IsElementAccessExpression() bool { return n.kind == SyntaxKindElementAccessExpression }
 
 func (n *ElementAccessExpression) set() {
-	*n = ElementAccessExpression{}
 	n.kind = SyntaxKindElementAccessExpression
 	n.data = n
 }
@@ -2389,7 +2327,6 @@ func (n *Node) AsCallExpression() *CallExpression { return n.data.(*CallExpressi
 func (n *Node) IsCallExpression() bool            { return n.kind == SyntaxKindCallExpression }
 
 func (n *CallExpression) set() {
-	*n = CallExpression{}
 	n.kind = SyntaxKindCallExpression
 	n.data = n
 }
@@ -2414,7 +2351,6 @@ func (n *Node) AsNewExpression() *NewExpression { return n.data.(*NewExpression)
 func (n *Node) IsNewExpression() bool           { return n.kind == SyntaxKindNewExpression }
 
 func (n *NewExpression) set() {
-	*n = NewExpression{}
 	n.kind = SyntaxKindNewExpression
 	n.data = n
 }
@@ -2441,7 +2377,6 @@ func (n *Node) AsTaggedTemplateExpression() *TaggedTemplateExpression {
 func (n *Node) IsTaggedTemplateExpression() bool { return n.kind == SyntaxKindTaggedTemplateExpression }
 
 func (n *TaggedTemplateExpression) set() {
-	*n = TaggedTemplateExpression{}
 	n.kind = SyntaxKindTaggedTemplateExpression
 	n.data = n
 }
@@ -2468,7 +2403,6 @@ func (n *Node) AsTypeAssertionExpression() *TypeAssertionExpression {
 func (n *Node) IsTypeAssertionExpression() bool { return n.kind == SyntaxKindTypeAssertionExpression }
 
 func (n *TypeAssertionExpression) set() {
-	*n = TypeAssertionExpression{}
 	n.kind = SyntaxKindTypeAssertionExpression
 	n.data = n
 }
@@ -2495,7 +2429,6 @@ func (n *Node) AsParenthesizedExpression() *ParenthesizedExpression {
 func (n *Node) IsParenthesizedExpression() bool { return n.kind == SyntaxKindParenthesizedExpression }
 
 func (n *ParenthesizedExpression) set() {
-	*n = ParenthesizedExpression{}
 	n.kind = SyntaxKindParenthesizedExpression
 	n.data = n
 }
@@ -2520,7 +2453,6 @@ func (n *Node) AsFunctionExpression() *FunctionExpression { return n.data.(*Func
 func (n *Node) IsFunctionExpression() bool                { return n.kind == SyntaxKindFunctionExpression }
 
 func (n *FunctionExpression) set() {
-	*n = FunctionExpression{}
 	n.kind = SyntaxKindFunctionExpression
 	n.data = n
 }
@@ -2545,7 +2477,6 @@ func (n *Node) AsArrowFunction() *ArrowFunction { return n.data.(*ArrowFunction)
 func (n *Node) IsArrowFunction() bool           { return n.kind == SyntaxKindArrowFunction }
 
 func (n *ArrowFunction) set() {
-	*n = ArrowFunction{}
 	n.kind = SyntaxKindArrowFunction
 	n.data = n
 }
@@ -2570,7 +2501,6 @@ func (n *Node) AsDeleteExpression() *DeleteExpression { return n.data.(*DeleteEx
 func (n *Node) IsDeleteExpression() bool              { return n.kind == SyntaxKindDeleteExpression }
 
 func (n *DeleteExpression) set() {
-	*n = DeleteExpression{}
 	n.kind = SyntaxKindDeleteExpression
 	n.data = n
 }
@@ -2595,7 +2525,6 @@ func (n *Node) AsTypeOfExpression() *TypeOfExpression { return n.data.(*TypeOfEx
 func (n *Node) IsTypeOfExpression() bool              { return n.kind == SyntaxKindTypeOfExpression }
 
 func (n *TypeOfExpression) set() {
-	*n = TypeOfExpression{}
 	n.kind = SyntaxKindTypeOfExpression
 	n.data = n
 }
@@ -2620,7 +2549,6 @@ func (n *Node) AsVoidExpression() *VoidExpression { return n.data.(*VoidExpressi
 func (n *Node) IsVoidExpression() bool            { return n.kind == SyntaxKindVoidExpression }
 
 func (n *VoidExpression) set() {
-	*n = VoidExpression{}
 	n.kind = SyntaxKindVoidExpression
 	n.data = n
 }
@@ -2645,7 +2573,6 @@ func (n *Node) AsAwaitExpression() *AwaitExpression { return n.data.(*AwaitExpre
 func (n *Node) IsAwaitExpression() bool             { return n.kind == SyntaxKindAwaitExpression }
 
 func (n *AwaitExpression) set() {
-	*n = AwaitExpression{}
 	n.kind = SyntaxKindAwaitExpression
 	n.data = n
 }
@@ -2672,7 +2599,6 @@ func (n *Node) AsPrefixUnaryExpression() *PrefixUnaryExpression {
 func (n *Node) IsPrefixUnaryExpression() bool { return n.kind == SyntaxKindPrefixUnaryExpression }
 
 func (n *PrefixUnaryExpression) set() {
-	*n = PrefixUnaryExpression{}
 	n.kind = SyntaxKindPrefixUnaryExpression
 	n.data = n
 }
@@ -2699,7 +2625,6 @@ func (n *Node) AsPostfixUnaryExpression() *PostfixUnaryExpression {
 func (n *Node) IsPostfixUnaryExpression() bool { return n.kind == SyntaxKindPostfixUnaryExpression }
 
 func (n *PostfixUnaryExpression) set() {
-	*n = PostfixUnaryExpression{}
 	n.kind = SyntaxKindPostfixUnaryExpression
 	n.data = n
 }
@@ -2724,7 +2649,6 @@ func (n *Node) AsBinaryExpression() *BinaryExpression { return n.data.(*BinaryEx
 func (n *Node) IsBinaryExpression() bool              { return n.kind == SyntaxKindBinaryExpression }
 
 func (n *BinaryExpression) set() {
-	*n = BinaryExpression{}
 	n.kind = SyntaxKindBinaryExpression
 	n.data = n
 }
@@ -2751,7 +2675,6 @@ func (n *Node) AsConditionalExpression() *ConditionalExpression {
 func (n *Node) IsConditionalExpression() bool { return n.kind == SyntaxKindConditionalExpression }
 
 func (n *ConditionalExpression) set() {
-	*n = ConditionalExpression{}
 	n.kind = SyntaxKindConditionalExpression
 	n.data = n
 }
@@ -2776,7 +2699,6 @@ func (n *Node) AsTemplateExpression() *TemplateExpression { return n.data.(*Temp
 func (n *Node) IsTemplateExpression() bool                { return n.kind == SyntaxKindTemplateExpression }
 
 func (n *TemplateExpression) set() {
-	*n = TemplateExpression{}
 	n.kind = SyntaxKindTemplateExpression
 	n.data = n
 }
@@ -2801,7 +2723,6 @@ func (n *Node) AsYieldExpression() *YieldExpression { return n.data.(*YieldExpre
 func (n *Node) IsYieldExpression() bool             { return n.kind == SyntaxKindYieldExpression }
 
 func (n *YieldExpression) set() {
-	*n = YieldExpression{}
 	n.kind = SyntaxKindYieldExpression
 	n.data = n
 }
@@ -2826,7 +2747,6 @@ func (n *Node) AsSpreadElement() *SpreadElement { return n.data.(*SpreadElement)
 func (n *Node) IsSpreadElement() bool           { return n.kind == SyntaxKindSpreadElement }
 
 func (n *SpreadElement) set() {
-	*n = SpreadElement{}
 	n.kind = SyntaxKindSpreadElement
 	n.data = n
 }
@@ -2851,7 +2771,6 @@ func (n *Node) AsClassExpression() *ClassExpression { return n.data.(*ClassExpre
 func (n *Node) IsClassExpression() bool             { return n.kind == SyntaxKindClassExpression }
 
 func (n *ClassExpression) set() {
-	*n = ClassExpression{}
 	n.kind = SyntaxKindClassExpression
 	n.data = n
 }
@@ -2876,7 +2795,6 @@ func (n *Node) AsOmittedExpression() *OmittedExpression { return n.data.(*Omitte
 func (n *Node) IsOmittedExpression() bool               { return n.kind == SyntaxKindOmittedExpression }
 
 func (n *OmittedExpression) set() {
-	*n = OmittedExpression{}
 	n.kind = SyntaxKindOmittedExpression
 	n.data = n
 }
@@ -2905,7 +2823,6 @@ func (n *Node) IsExpressionWithTypeArguments() bool {
 }
 
 func (n *ExpressionWithTypeArguments) set() {
-	*n = ExpressionWithTypeArguments{}
 	n.kind = SyntaxKindExpressionWithTypeArguments
 	n.data = n
 }
@@ -2930,7 +2847,6 @@ func (n *Node) AsAsExpression() *AsExpression { return n.data.(*AsExpression) }
 func (n *Node) IsAsExpression() bool          { return n.kind == SyntaxKindAsExpression }
 
 func (n *AsExpression) set() {
-	*n = AsExpression{}
 	n.kind = SyntaxKindAsExpression
 	n.data = n
 }
@@ -2955,7 +2871,6 @@ func (n *Node) AsNonNullExpression() *NonNullExpression { return n.data.(*NonNul
 func (n *Node) IsNonNullExpression() bool               { return n.kind == SyntaxKindNonNullExpression }
 
 func (n *NonNullExpression) set() {
-	*n = NonNullExpression{}
 	n.kind = SyntaxKindNonNullExpression
 	n.data = n
 }
@@ -2980,7 +2895,6 @@ func (n *Node) AsMetaProperty() *MetaProperty { return n.data.(*MetaProperty) }
 func (n *Node) IsMetaProperty() bool          { return n.kind == SyntaxKindMetaProperty }
 
 func (n *MetaProperty) set() {
-	*n = MetaProperty{}
 	n.kind = SyntaxKindMetaProperty
 	n.data = n
 }
@@ -3005,7 +2919,6 @@ func (n *Node) AsSyntheticExpression() *SyntheticExpression { return n.data.(*Sy
 func (n *Node) IsSyntheticExpression() bool                 { return n.kind == SyntaxKindSyntheticExpression }
 
 func (n *SyntheticExpression) set() {
-	*n = SyntheticExpression{}
 	n.kind = SyntaxKindSyntheticExpression
 	n.data = n
 }
@@ -3030,7 +2943,6 @@ func (n *Node) AsSatisfiesExpression() *SatisfiesExpression { return n.data.(*Sa
 func (n *Node) IsSatisfiesExpression() bool                 { return n.kind == SyntaxKindSatisfiesExpression }
 
 func (n *SatisfiesExpression) set() {
-	*n = SatisfiesExpression{}
 	n.kind = SyntaxKindSatisfiesExpression
 	n.data = n
 }
@@ -3055,7 +2967,6 @@ func (n *Node) AsTemplateSpan() *TemplateSpan { return n.data.(*TemplateSpan) }
 func (n *Node) IsTemplateSpan() bool          { return n.kind == SyntaxKindTemplateSpan }
 
 func (n *TemplateSpan) set() {
-	*n = TemplateSpan{}
 	n.kind = SyntaxKindTemplateSpan
 	n.data = n
 }
@@ -3082,7 +2993,6 @@ func (n *Node) AsSemicolonClassElement() *SemicolonClassElement {
 func (n *Node) IsSemicolonClassElement() bool { return n.kind == SyntaxKindSemicolonClassElement }
 
 func (n *SemicolonClassElement) set() {
-	*n = SemicolonClassElement{}
 	n.kind = SyntaxKindSemicolonClassElement
 	n.data = n
 }
@@ -3107,7 +3017,6 @@ func (n *Node) AsBlock() *Block { return n.data.(*Block) }
 func (n *Node) IsBlock() bool   { return n.kind == SyntaxKindBlock }
 
 func (n *Block) set() {
-	*n = Block{}
 	n.kind = SyntaxKindBlock
 	n.data = n
 }
@@ -3132,7 +3041,6 @@ func (n *Node) AsEmptyStatement() *EmptyStatement { return n.data.(*EmptyStateme
 func (n *Node) IsEmptyStatement() bool            { return n.kind == SyntaxKindEmptyStatement }
 
 func (n *EmptyStatement) set() {
-	*n = EmptyStatement{}
 	n.kind = SyntaxKindEmptyStatement
 	n.data = n
 }
@@ -3157,7 +3065,6 @@ func (n *Node) AsVariableStatement() *VariableStatement { return n.data.(*Variab
 func (n *Node) IsVariableStatement() bool               { return n.kind == SyntaxKindVariableStatement }
 
 func (n *VariableStatement) set() {
-	*n = VariableStatement{}
 	n.kind = SyntaxKindVariableStatement
 	n.data = n
 }
@@ -3182,7 +3089,6 @@ func (n *Node) AsExpressionStatement() *ExpressionStatement { return n.data.(*Ex
 func (n *Node) IsExpressionStatement() bool                 { return n.kind == SyntaxKindExpressionStatement }
 
 func (n *ExpressionStatement) set() {
-	*n = ExpressionStatement{}
 	n.kind = SyntaxKindExpressionStatement
 	n.data = n
 }
@@ -3207,7 +3113,6 @@ func (n *Node) AsIfStatement() *IfStatement { return n.data.(*IfStatement) }
 func (n *Node) IsIfStatement() bool         { return n.kind == SyntaxKindIfStatement }
 
 func (n *IfStatement) set() {
-	*n = IfStatement{}
 	n.kind = SyntaxKindIfStatement
 	n.data = n
 }
@@ -3232,7 +3137,6 @@ func (n *Node) AsDoStatement() *DoStatement { return n.data.(*DoStatement) }
 func (n *Node) IsDoStatement() bool         { return n.kind == SyntaxKindDoStatement }
 
 func (n *DoStatement) set() {
-	*n = DoStatement{}
 	n.kind = SyntaxKindDoStatement
 	n.data = n
 }
@@ -3257,7 +3161,6 @@ func (n *Node) AsWhileStatement() *WhileStatement { return n.data.(*WhileStateme
 func (n *Node) IsWhileStatement() bool            { return n.kind == SyntaxKindWhileStatement }
 
 func (n *WhileStatement) set() {
-	*n = WhileStatement{}
 	n.kind = SyntaxKindWhileStatement
 	n.data = n
 }
@@ -3282,7 +3185,6 @@ func (n *Node) AsForStatement() *ForStatement { return n.data.(*ForStatement) }
 func (n *Node) IsForStatement() bool          { return n.kind == SyntaxKindForStatement }
 
 func (n *ForStatement) set() {
-	*n = ForStatement{}
 	n.kind = SyntaxKindForStatement
 	n.data = n
 }
@@ -3307,7 +3209,6 @@ func (n *Node) AsForInStatement() *ForInStatement { return n.data.(*ForInStateme
 func (n *Node) IsForInStatement() bool            { return n.kind == SyntaxKindForInStatement }
 
 func (n *ForInStatement) set() {
-	*n = ForInStatement{}
 	n.kind = SyntaxKindForInStatement
 	n.data = n
 }
@@ -3332,7 +3233,6 @@ func (n *Node) AsForOfStatement() *ForOfStatement { return n.data.(*ForOfStateme
 func (n *Node) IsForOfStatement() bool            { return n.kind == SyntaxKindForOfStatement }
 
 func (n *ForOfStatement) set() {
-	*n = ForOfStatement{}
 	n.kind = SyntaxKindForOfStatement
 	n.data = n
 }
@@ -3357,7 +3257,6 @@ func (n *Node) AsContinueStatement() *ContinueStatement { return n.data.(*Contin
 func (n *Node) IsContinueStatement() bool               { return n.kind == SyntaxKindContinueStatement }
 
 func (n *ContinueStatement) set() {
-	*n = ContinueStatement{}
 	n.kind = SyntaxKindContinueStatement
 	n.data = n
 }
@@ -3382,7 +3281,6 @@ func (n *Node) AsBreakStatement() *BreakStatement { return n.data.(*BreakStateme
 func (n *Node) IsBreakStatement() bool            { return n.kind == SyntaxKindBreakStatement }
 
 func (n *BreakStatement) set() {
-	*n = BreakStatement{}
 	n.kind = SyntaxKindBreakStatement
 	n.data = n
 }
@@ -3407,7 +3305,6 @@ func (n *Node) AsReturnStatement() *ReturnStatement { return n.data.(*ReturnStat
 func (n *Node) IsReturnStatement() bool             { return n.kind == SyntaxKindReturnStatement }
 
 func (n *ReturnStatement) set() {
-	*n = ReturnStatement{}
 	n.kind = SyntaxKindReturnStatement
 	n.data = n
 }
@@ -3432,7 +3329,6 @@ func (n *Node) AsWithStatement() *WithStatement { return n.data.(*WithStatement)
 func (n *Node) IsWithStatement() bool           { return n.kind == SyntaxKindWithStatement }
 
 func (n *WithStatement) set() {
-	*n = WithStatement{}
 	n.kind = SyntaxKindWithStatement
 	n.data = n
 }
@@ -3457,7 +3353,6 @@ func (n *Node) AsSwitchStatement() *SwitchStatement { return n.data.(*SwitchStat
 func (n *Node) IsSwitchStatement() bool             { return n.kind == SyntaxKindSwitchStatement }
 
 func (n *SwitchStatement) set() {
-	*n = SwitchStatement{}
 	n.kind = SyntaxKindSwitchStatement
 	n.data = n
 }
@@ -3482,7 +3377,6 @@ func (n *Node) AsLabeledStatement() *LabeledStatement { return n.data.(*LabeledS
 func (n *Node) IsLabeledStatement() bool              { return n.kind == SyntaxKindLabeledStatement }
 
 func (n *LabeledStatement) set() {
-	*n = LabeledStatement{}
 	n.kind = SyntaxKindLabeledStatement
 	n.data = n
 }
@@ -3507,7 +3401,6 @@ func (n *Node) AsThrowStatement() *ThrowStatement { return n.data.(*ThrowStateme
 func (n *Node) IsThrowStatement() bool            { return n.kind == SyntaxKindThrowStatement }
 
 func (n *ThrowStatement) set() {
-	*n = ThrowStatement{}
 	n.kind = SyntaxKindThrowStatement
 	n.data = n
 }
@@ -3532,7 +3425,6 @@ func (n *Node) AsTryStatement() *TryStatement { return n.data.(*TryStatement) }
 func (n *Node) IsTryStatement() bool          { return n.kind == SyntaxKindTryStatement }
 
 func (n *TryStatement) set() {
-	*n = TryStatement{}
 	n.kind = SyntaxKindTryStatement
 	n.data = n
 }
@@ -3557,7 +3449,6 @@ func (n *Node) AsDebuggerStatement() *DebuggerStatement { return n.data.(*Debugg
 func (n *Node) IsDebuggerStatement() bool               { return n.kind == SyntaxKindDebuggerStatement }
 
 func (n *DebuggerStatement) set() {
-	*n = DebuggerStatement{}
 	n.kind = SyntaxKindDebuggerStatement
 	n.data = n
 }
@@ -3582,7 +3473,6 @@ func (n *Node) AsVariableDeclaration() *VariableDeclaration { return n.data.(*Va
 func (n *Node) IsVariableDeclaration() bool                 { return n.kind == SyntaxKindVariableDeclaration }
 
 func (n *VariableDeclaration) set() {
-	*n = VariableDeclaration{}
 	n.kind = SyntaxKindVariableDeclaration
 	n.data = n
 }
@@ -3609,7 +3499,6 @@ func (n *Node) AsVariableDeclarationList() *VariableDeclarationList {
 func (n *Node) IsVariableDeclarationList() bool { return n.kind == SyntaxKindVariableDeclarationList }
 
 func (n *VariableDeclarationList) set() {
-	*n = VariableDeclarationList{}
 	n.kind = SyntaxKindVariableDeclarationList
 	n.data = n
 }
@@ -3634,7 +3523,6 @@ func (n *Node) AsFunctionDeclaration() *FunctionDeclaration { return n.data.(*Fu
 func (n *Node) IsFunctionDeclaration() bool                 { return n.kind == SyntaxKindFunctionDeclaration }
 
 func (n *FunctionDeclaration) set() {
-	*n = FunctionDeclaration{}
 	n.kind = SyntaxKindFunctionDeclaration
 	n.data = n
 }
@@ -3659,7 +3547,6 @@ func (n *Node) AsClassDeclaration() *ClassDeclaration { return n.data.(*ClassDec
 func (n *Node) IsClassDeclaration() bool              { return n.kind == SyntaxKindClassDeclaration }
 
 func (n *ClassDeclaration) set() {
-	*n = ClassDeclaration{}
 	n.kind = SyntaxKindClassDeclaration
 	n.data = n
 }
@@ -3684,7 +3571,6 @@ func (n *Node) AsInterfaceDeclaration() *InterfaceDeclaration { return n.data.(*
 func (n *Node) IsInterfaceDeclaration() bool                  { return n.kind == SyntaxKindInterfaceDeclaration }
 
 func (n *InterfaceDeclaration) set() {
-	*n = InterfaceDeclaration{}
 	n.kind = SyntaxKindInterfaceDeclaration
 	n.data = n
 }
@@ -3709,7 +3595,6 @@ func (n *Node) AsTypeAliasDeclaration() *TypeAliasDeclaration { return n.data.(*
 func (n *Node) IsTypeAliasDeclaration() bool                  { return n.kind == SyntaxKindTypeAliasDeclaration }
 
 func (n *TypeAliasDeclaration) set() {
-	*n = TypeAliasDeclaration{}
 	n.kind = SyntaxKindTypeAliasDeclaration
 	n.data = n
 }
@@ -3734,7 +3619,6 @@ func (n *Node) AsEnumDeclaration() *EnumDeclaration { return n.data.(*EnumDeclar
 func (n *Node) IsEnumDeclaration() bool             { return n.kind == SyntaxKindEnumDeclaration }
 
 func (n *EnumDeclaration) set() {
-	*n = EnumDeclaration{}
 	n.kind = SyntaxKindEnumDeclaration
 	n.data = n
 }
@@ -3759,7 +3643,6 @@ func (n *Node) AsModuleDeclaration() *ModuleDeclaration { return n.data.(*Module
 func (n *Node) IsModuleDeclaration() bool               { return n.kind == SyntaxKindModuleDeclaration }
 
 func (n *ModuleDeclaration) set() {
-	*n = ModuleDeclaration{}
 	n.kind = SyntaxKindModuleDeclaration
 	n.data = n
 }
@@ -3784,7 +3667,6 @@ func (n *Node) AsModuleBlock() *ModuleBlock { return n.data.(*ModuleBlock) }
 func (n *Node) IsModuleBlock() bool         { return n.kind == SyntaxKindModuleBlock }
 
 func (n *ModuleBlock) set() {
-	*n = ModuleBlock{}
 	n.kind = SyntaxKindModuleBlock
 	n.data = n
 }
@@ -3809,7 +3691,6 @@ func (n *Node) AsCaseBlock() *CaseBlock { return n.data.(*CaseBlock) }
 func (n *Node) IsCaseBlock() bool       { return n.kind == SyntaxKindCaseBlock }
 
 func (n *CaseBlock) set() {
-	*n = CaseBlock{}
 	n.kind = SyntaxKindCaseBlock
 	n.data = n
 }
@@ -3838,7 +3719,6 @@ func (n *Node) IsNamespaceExportDeclaration() bool {
 }
 
 func (n *NamespaceExportDeclaration) set() {
-	*n = NamespaceExportDeclaration{}
 	n.kind = SyntaxKindNamespaceExportDeclaration
 	n.data = n
 }
@@ -3865,7 +3745,6 @@ func (n *Node) AsImportEqualsDeclaration() *ImportEqualsDeclaration {
 func (n *Node) IsImportEqualsDeclaration() bool { return n.kind == SyntaxKindImportEqualsDeclaration }
 
 func (n *ImportEqualsDeclaration) set() {
-	*n = ImportEqualsDeclaration{}
 	n.kind = SyntaxKindImportEqualsDeclaration
 	n.data = n
 }
@@ -3890,7 +3769,6 @@ func (n *Node) AsImportDeclaration() *ImportDeclaration { return n.data.(*Import
 func (n *Node) IsImportDeclaration() bool               { return n.kind == SyntaxKindImportDeclaration }
 
 func (n *ImportDeclaration) set() {
-	*n = ImportDeclaration{}
 	n.kind = SyntaxKindImportDeclaration
 	n.data = n
 }
@@ -3915,7 +3793,6 @@ func (n *Node) AsImportClause() *ImportClause { return n.data.(*ImportClause) }
 func (n *Node) IsImportClause() bool          { return n.kind == SyntaxKindImportClause }
 
 func (n *ImportClause) set() {
-	*n = ImportClause{}
 	n.kind = SyntaxKindImportClause
 	n.data = n
 }
@@ -3940,7 +3817,6 @@ func (n *Node) AsNamespaceImport() *NamespaceImport { return n.data.(*NamespaceI
 func (n *Node) IsNamespaceImport() bool             { return n.kind == SyntaxKindNamespaceImport }
 
 func (n *NamespaceImport) set() {
-	*n = NamespaceImport{}
 	n.kind = SyntaxKindNamespaceImport
 	n.data = n
 }
@@ -3965,7 +3841,6 @@ func (n *Node) AsNamedImports() *NamedImports { return n.data.(*NamedImports) }
 func (n *Node) IsNamedImports() bool          { return n.kind == SyntaxKindNamedImports }
 
 func (n *NamedImports) set() {
-	*n = NamedImports{}
 	n.kind = SyntaxKindNamedImports
 	n.data = n
 }
@@ -3990,7 +3865,6 @@ func (n *Node) AsImportSpecifier() *ImportSpecifier { return n.data.(*ImportSpec
 func (n *Node) IsImportSpecifier() bool             { return n.kind == SyntaxKindImportSpecifier }
 
 func (n *ImportSpecifier) set() {
-	*n = ImportSpecifier{}
 	n.kind = SyntaxKindImportSpecifier
 	n.data = n
 }
@@ -4015,7 +3889,6 @@ func (n *Node) AsExportAssignment() *ExportAssignment { return n.data.(*ExportAs
 func (n *Node) IsExportAssignment() bool              { return n.kind == SyntaxKindExportAssignment }
 
 func (n *ExportAssignment) set() {
-	*n = ExportAssignment{}
 	n.kind = SyntaxKindExportAssignment
 	n.data = n
 }
@@ -4040,7 +3913,6 @@ func (n *Node) AsExportDeclaration() *ExportDeclaration { return n.data.(*Export
 func (n *Node) IsExportDeclaration() bool               { return n.kind == SyntaxKindExportDeclaration }
 
 func (n *ExportDeclaration) set() {
-	*n = ExportDeclaration{}
 	n.kind = SyntaxKindExportDeclaration
 	n.data = n
 }
@@ -4065,7 +3937,6 @@ func (n *Node) AsNamedExports() *NamedExports { return n.data.(*NamedExports) }
 func (n *Node) IsNamedExports() bool          { return n.kind == SyntaxKindNamedExports }
 
 func (n *NamedExports) set() {
-	*n = NamedExports{}
 	n.kind = SyntaxKindNamedExports
 	n.data = n
 }
@@ -4090,7 +3961,6 @@ func (n *Node) AsNamespaceExport() *NamespaceExport { return n.data.(*NamespaceE
 func (n *Node) IsNamespaceExport() bool             { return n.kind == SyntaxKindNamespaceExport }
 
 func (n *NamespaceExport) set() {
-	*n = NamespaceExport{}
 	n.kind = SyntaxKindNamespaceExport
 	n.data = n
 }
@@ -4115,7 +3985,6 @@ func (n *Node) AsExportSpecifier() *ExportSpecifier { return n.data.(*ExportSpec
 func (n *Node) IsExportSpecifier() bool             { return n.kind == SyntaxKindExportSpecifier }
 
 func (n *ExportSpecifier) set() {
-	*n = ExportSpecifier{}
 	n.kind = SyntaxKindExportSpecifier
 	n.data = n
 }
@@ -4140,7 +4009,6 @@ func (n *Node) AsMissingDeclaration() *MissingDeclaration { return n.data.(*Miss
 func (n *Node) IsMissingDeclaration() bool                { return n.kind == SyntaxKindMissingDeclaration }
 
 func (n *MissingDeclaration) set() {
-	*n = MissingDeclaration{}
 	n.kind = SyntaxKindMissingDeclaration
 	n.data = n
 }
@@ -4167,7 +4035,6 @@ func (n *Node) AsExternalModuleReference() *ExternalModuleReference {
 func (n *Node) IsExternalModuleReference() bool { return n.kind == SyntaxKindExternalModuleReference }
 
 func (n *ExternalModuleReference) set() {
-	*n = ExternalModuleReference{}
 	n.kind = SyntaxKindExternalModuleReference
 	n.data = n
 }
@@ -4192,7 +4059,6 @@ func (n *Node) AsJsxElement() *JsxElement { return n.data.(*JsxElement) }
 func (n *Node) IsJsxElement() bool        { return n.kind == SyntaxKindJsxElement }
 
 func (n *JsxElement) set() {
-	*n = JsxElement{}
 	n.kind = SyntaxKindJsxElement
 	n.data = n
 }
@@ -4219,7 +4085,6 @@ func (n *Node) AsJsxSelfClosingElement() *JsxSelfClosingElement {
 func (n *Node) IsJsxSelfClosingElement() bool { return n.kind == SyntaxKindJsxSelfClosingElement }
 
 func (n *JsxSelfClosingElement) set() {
-	*n = JsxSelfClosingElement{}
 	n.kind = SyntaxKindJsxSelfClosingElement
 	n.data = n
 }
@@ -4244,7 +4109,6 @@ func (n *Node) AsJsxOpeningElement() *JsxOpeningElement { return n.data.(*JsxOpe
 func (n *Node) IsJsxOpeningElement() bool               { return n.kind == SyntaxKindJsxOpeningElement }
 
 func (n *JsxOpeningElement) set() {
-	*n = JsxOpeningElement{}
 	n.kind = SyntaxKindJsxOpeningElement
 	n.data = n
 }
@@ -4269,7 +4133,6 @@ func (n *Node) AsJsxClosingElement() *JsxClosingElement { return n.data.(*JsxClo
 func (n *Node) IsJsxClosingElement() bool               { return n.kind == SyntaxKindJsxClosingElement }
 
 func (n *JsxClosingElement) set() {
-	*n = JsxClosingElement{}
 	n.kind = SyntaxKindJsxClosingElement
 	n.data = n
 }
@@ -4294,7 +4157,6 @@ func (n *Node) AsJsxFragment() *JsxFragment { return n.data.(*JsxFragment) }
 func (n *Node) IsJsxFragment() bool         { return n.kind == SyntaxKindJsxFragment }
 
 func (n *JsxFragment) set() {
-	*n = JsxFragment{}
 	n.kind = SyntaxKindJsxFragment
 	n.data = n
 }
@@ -4319,7 +4181,6 @@ func (n *Node) AsJsxOpeningFragment() *JsxOpeningFragment { return n.data.(*JsxO
 func (n *Node) IsJsxOpeningFragment() bool                { return n.kind == SyntaxKindJsxOpeningFragment }
 
 func (n *JsxOpeningFragment) set() {
-	*n = JsxOpeningFragment{}
 	n.kind = SyntaxKindJsxOpeningFragment
 	n.data = n
 }
@@ -4344,7 +4205,6 @@ func (n *Node) AsJsxClosingFragment() *JsxClosingFragment { return n.data.(*JsxC
 func (n *Node) IsJsxClosingFragment() bool                { return n.kind == SyntaxKindJsxClosingFragment }
 
 func (n *JsxClosingFragment) set() {
-	*n = JsxClosingFragment{}
 	n.kind = SyntaxKindJsxClosingFragment
 	n.data = n
 }
@@ -4369,7 +4229,6 @@ func (n *Node) AsJsxAttribute() *JsxAttribute { return n.data.(*JsxAttribute) }
 func (n *Node) IsJsxAttribute() bool          { return n.kind == SyntaxKindJsxAttribute }
 
 func (n *JsxAttribute) set() {
-	*n = JsxAttribute{}
 	n.kind = SyntaxKindJsxAttribute
 	n.data = n
 }
@@ -4394,7 +4253,6 @@ func (n *Node) AsJsxAttributes() *JsxAttributes { return n.data.(*JsxAttributes)
 func (n *Node) IsJsxAttributes() bool           { return n.kind == SyntaxKindJsxAttributes }
 
 func (n *JsxAttributes) set() {
-	*n = JsxAttributes{}
 	n.kind = SyntaxKindJsxAttributes
 	n.data = n
 }
@@ -4419,7 +4277,6 @@ func (n *Node) AsJsxSpreadAttribute() *JsxSpreadAttribute { return n.data.(*JsxS
 func (n *Node) IsJsxSpreadAttribute() bool                { return n.kind == SyntaxKindJsxSpreadAttribute }
 
 func (n *JsxSpreadAttribute) set() {
-	*n = JsxSpreadAttribute{}
 	n.kind = SyntaxKindJsxSpreadAttribute
 	n.data = n
 }
@@ -4444,7 +4301,6 @@ func (n *Node) AsJsxExpression() *JsxExpression { return n.data.(*JsxExpression)
 func (n *Node) IsJsxExpression() bool           { return n.kind == SyntaxKindJsxExpression }
 
 func (n *JsxExpression) set() {
-	*n = JsxExpression{}
 	n.kind = SyntaxKindJsxExpression
 	n.data = n
 }
@@ -4469,7 +4325,6 @@ func (n *Node) AsJsxNamespacedName() *JsxNamespacedName { return n.data.(*JsxNam
 func (n *Node) IsJsxNamespacedName() bool               { return n.kind == SyntaxKindJsxNamespacedName }
 
 func (n *JsxNamespacedName) set() {
-	*n = JsxNamespacedName{}
 	n.kind = SyntaxKindJsxNamespacedName
 	n.data = n
 }
@@ -4494,7 +4349,6 @@ func (n *Node) AsCaseClause() *CaseClause { return n.data.(*CaseClause) }
 func (n *Node) IsCaseClause() bool        { return n.kind == SyntaxKindCaseClause }
 
 func (n *CaseClause) set() {
-	*n = CaseClause{}
 	n.kind = SyntaxKindCaseClause
 	n.data = n
 }
@@ -4519,7 +4373,6 @@ func (n *Node) AsDefaultClause() *DefaultClause { return n.data.(*DefaultClause)
 func (n *Node) IsDefaultClause() bool           { return n.kind == SyntaxKindDefaultClause }
 
 func (n *DefaultClause) set() {
-	*n = DefaultClause{}
 	n.kind = SyntaxKindDefaultClause
 	n.data = n
 }
@@ -4544,7 +4397,6 @@ func (n *Node) AsHeritageClause() *HeritageClause { return n.data.(*HeritageClau
 func (n *Node) IsHeritageClause() bool            { return n.kind == SyntaxKindHeritageClause }
 
 func (n *HeritageClause) set() {
-	*n = HeritageClause{}
 	n.kind = SyntaxKindHeritageClause
 	n.data = n
 }
@@ -4569,7 +4421,6 @@ func (n *Node) AsCatchClause() *CatchClause { return n.data.(*CatchClause) }
 func (n *Node) IsCatchClause() bool         { return n.kind == SyntaxKindCatchClause }
 
 func (n *CatchClause) set() {
-	*n = CatchClause{}
 	n.kind = SyntaxKindCatchClause
 	n.data = n
 }
@@ -4594,7 +4445,6 @@ func (n *Node) AsImportAttributes() *ImportAttributes { return n.data.(*ImportAt
 func (n *Node) IsImportAttributes() bool              { return n.kind == SyntaxKindImportAttributes }
 
 func (n *ImportAttributes) set() {
-	*n = ImportAttributes{}
 	n.kind = SyntaxKindImportAttributes
 	n.data = n
 }
@@ -4619,7 +4469,6 @@ func (n *Node) AsImportAttribute() *ImportAttribute { return n.data.(*ImportAttr
 func (n *Node) IsImportAttribute() bool             { return n.kind == SyntaxKindImportAttribute }
 
 func (n *ImportAttribute) set() {
-	*n = ImportAttribute{}
 	n.kind = SyntaxKindImportAttribute
 	n.data = n
 }
@@ -4644,7 +4493,6 @@ func (n *Node) AsPropertyAssignment() *PropertyAssignment { return n.data.(*Prop
 func (n *Node) IsPropertyAssignment() bool                { return n.kind == SyntaxKindPropertyAssignment }
 
 func (n *PropertyAssignment) set() {
-	*n = PropertyAssignment{}
 	n.kind = SyntaxKindPropertyAssignment
 	n.data = n
 }
@@ -4673,7 +4521,6 @@ func (n *Node) IsShorthandPropertyAssignment() bool {
 }
 
 func (n *ShorthandPropertyAssignment) set() {
-	*n = ShorthandPropertyAssignment{}
 	n.kind = SyntaxKindShorthandPropertyAssignment
 	n.data = n
 }
@@ -4698,7 +4545,6 @@ func (n *Node) AsSpreadAssignment() *SpreadAssignment { return n.data.(*SpreadAs
 func (n *Node) IsSpreadAssignment() bool              { return n.kind == SyntaxKindSpreadAssignment }
 
 func (n *SpreadAssignment) set() {
-	*n = SpreadAssignment{}
 	n.kind = SyntaxKindSpreadAssignment
 	n.data = n
 }
@@ -4723,7 +4569,6 @@ func (n *Node) AsEnumMember() *EnumMember { return n.data.(*EnumMember) }
 func (n *Node) IsEnumMember() bool        { return n.kind == SyntaxKindEnumMember }
 
 func (n *EnumMember) set() {
-	*n = EnumMember{}
 	n.kind = SyntaxKindEnumMember
 	n.data = n
 }
@@ -4748,7 +4593,6 @@ func (n *Node) AsSourceFile() *SourceFile { return n.data.(*SourceFile) }
 func (n *Node) IsSourceFile() bool        { return n.kind == SyntaxKindSourceFile }
 
 func (n *SourceFile) set() {
-	*n = SourceFile{}
 	n.kind = SyntaxKindSourceFile
 	n.data = n
 }
@@ -4773,7 +4617,6 @@ func (n *Node) AsBundle() *Bundle { return n.data.(*Bundle) }
 func (n *Node) IsBundle() bool    { return n.kind == SyntaxKindBundle }
 
 func (n *Bundle) set() {
-	*n = Bundle{}
 	n.kind = SyntaxKindBundle
 	n.data = n
 }
@@ -4798,7 +4641,6 @@ func (n *Node) AsJSDocTypeExpression() *JSDocTypeExpression { return n.data.(*JS
 func (n *Node) IsJSDocTypeExpression() bool                 { return n.kind == SyntaxKindJSDocTypeExpression }
 
 func (n *JSDocTypeExpression) set() {
-	*n = JSDocTypeExpression{}
 	n.kind = SyntaxKindJSDocTypeExpression
 	n.data = n
 }
@@ -4823,7 +4665,6 @@ func (n *Node) AsJSDocNameReference() *JSDocNameReference { return n.data.(*JSDo
 func (n *Node) IsJSDocNameReference() bool                { return n.kind == SyntaxKindJSDocNameReference }
 
 func (n *JSDocNameReference) set() {
-	*n = JSDocNameReference{}
 	n.kind = SyntaxKindJSDocNameReference
 	n.data = n
 }
@@ -4848,7 +4689,6 @@ func (n *Node) AsJSDocMemberName() *JSDocMemberName { return n.data.(*JSDocMembe
 func (n *Node) IsJSDocMemberName() bool             { return n.kind == SyntaxKindJSDocMemberName }
 
 func (n *JSDocMemberName) set() {
-	*n = JSDocMemberName{}
 	n.kind = SyntaxKindJSDocMemberName
 	n.data = n
 }
@@ -4873,7 +4713,6 @@ func (n *Node) AsJSDocAllType() *JSDocAllType { return n.data.(*JSDocAllType) }
 func (n *Node) IsJSDocAllType() bool          { return n.kind == SyntaxKindJSDocAllType }
 
 func (n *JSDocAllType) set() {
-	*n = JSDocAllType{}
 	n.kind = SyntaxKindJSDocAllType
 	n.data = n
 }
@@ -4898,7 +4737,6 @@ func (n *Node) AsJSDocUnknownType() *JSDocUnknownType { return n.data.(*JSDocUnk
 func (n *Node) IsJSDocUnknownType() bool              { return n.kind == SyntaxKindJSDocUnknownType }
 
 func (n *JSDocUnknownType) set() {
-	*n = JSDocUnknownType{}
 	n.kind = SyntaxKindJSDocUnknownType
 	n.data = n
 }
@@ -4923,7 +4761,6 @@ func (n *Node) AsJSDocNullableType() *JSDocNullableType { return n.data.(*JSDocN
 func (n *Node) IsJSDocNullableType() bool               { return n.kind == SyntaxKindJSDocNullableType }
 
 func (n *JSDocNullableType) set() {
-	*n = JSDocNullableType{}
 	n.kind = SyntaxKindJSDocNullableType
 	n.data = n
 }
@@ -4948,7 +4785,6 @@ func (n *Node) AsJSDocNonNullableType() *JSDocNonNullableType { return n.data.(*
 func (n *Node) IsJSDocNonNullableType() bool                  { return n.kind == SyntaxKindJSDocNonNullableType }
 
 func (n *JSDocNonNullableType) set() {
-	*n = JSDocNonNullableType{}
 	n.kind = SyntaxKindJSDocNonNullableType
 	n.data = n
 }
@@ -4973,7 +4809,6 @@ func (n *Node) AsJSDocOptionalType() *JSDocOptionalType { return n.data.(*JSDocO
 func (n *Node) IsJSDocOptionalType() bool               { return n.kind == SyntaxKindJSDocOptionalType }
 
 func (n *JSDocOptionalType) set() {
-	*n = JSDocOptionalType{}
 	n.kind = SyntaxKindJSDocOptionalType
 	n.data = n
 }
@@ -4998,7 +4833,6 @@ func (n *Node) AsJSDocFunctionType() *JSDocFunctionType { return n.data.(*JSDocF
 func (n *Node) IsJSDocFunctionType() bool               { return n.kind == SyntaxKindJSDocFunctionType }
 
 func (n *JSDocFunctionType) set() {
-	*n = JSDocFunctionType{}
 	n.kind = SyntaxKindJSDocFunctionType
 	n.data = n
 }
@@ -5023,7 +4857,6 @@ func (n *Node) AsJSDocVariadicType() *JSDocVariadicType { return n.data.(*JSDocV
 func (n *Node) IsJSDocVariadicType() bool               { return n.kind == SyntaxKindJSDocVariadicType }
 
 func (n *JSDocVariadicType) set() {
-	*n = JSDocVariadicType{}
 	n.kind = SyntaxKindJSDocVariadicType
 	n.data = n
 }
@@ -5048,7 +4881,6 @@ func (n *Node) AsJSDocNamepathType() *JSDocNamepathType { return n.data.(*JSDocN
 func (n *Node) IsJSDocNamepathType() bool               { return n.kind == SyntaxKindJSDocNamepathType }
 
 func (n *JSDocNamepathType) set() {
-	*n = JSDocNamepathType{}
 	n.kind = SyntaxKindJSDocNamepathType
 	n.data = n
 }
@@ -5073,7 +4905,6 @@ func (n *Node) AsJSDoc() *JSDoc { return n.data.(*JSDoc) }
 func (n *Node) IsJSDoc() bool   { return n.kind == SyntaxKindJSDoc }
 
 func (n *JSDoc) set() {
-	*n = JSDoc{}
 	n.kind = SyntaxKindJSDoc
 	n.data = n
 }
@@ -5098,7 +4929,6 @@ func (n *Node) AsJSDocText() *JSDocText { return n.data.(*JSDocText) }
 func (n *Node) IsJSDocText() bool       { return n.kind == SyntaxKindJSDocText }
 
 func (n *JSDocText) set() {
-	*n = JSDocText{}
 	n.kind = SyntaxKindJSDocText
 	n.data = n
 }
@@ -5123,7 +4953,6 @@ func (n *Node) AsJSDocTypeLiteral() *JSDocTypeLiteral { return n.data.(*JSDocTyp
 func (n *Node) IsJSDocTypeLiteral() bool              { return n.kind == SyntaxKindJSDocTypeLiteral }
 
 func (n *JSDocTypeLiteral) set() {
-	*n = JSDocTypeLiteral{}
 	n.kind = SyntaxKindJSDocTypeLiteral
 	n.data = n
 }
@@ -5148,7 +4977,6 @@ func (n *Node) AsJSDocSignature() *JSDocSignature { return n.data.(*JSDocSignatu
 func (n *Node) IsJSDocSignature() bool            { return n.kind == SyntaxKindJSDocSignature }
 
 func (n *JSDocSignature) set() {
-	*n = JSDocSignature{}
 	n.kind = SyntaxKindJSDocSignature
 	n.data = n
 }
@@ -5173,7 +5001,6 @@ func (n *Node) AsJSDocLink() *JSDocLink { return n.data.(*JSDocLink) }
 func (n *Node) IsJSDocLink() bool       { return n.kind == SyntaxKindJSDocLink }
 
 func (n *JSDocLink) set() {
-	*n = JSDocLink{}
 	n.kind = SyntaxKindJSDocLink
 	n.data = n
 }
@@ -5198,7 +5025,6 @@ func (n *Node) AsJSDocLinkCode() *JSDocLinkCode { return n.data.(*JSDocLinkCode)
 func (n *Node) IsJSDocLinkCode() bool           { return n.kind == SyntaxKindJSDocLinkCode }
 
 func (n *JSDocLinkCode) set() {
-	*n = JSDocLinkCode{}
 	n.kind = SyntaxKindJSDocLinkCode
 	n.data = n
 }
@@ -5223,7 +5049,6 @@ func (n *Node) AsJSDocLinkPlain() *JSDocLinkPlain { return n.data.(*JSDocLinkPla
 func (n *Node) IsJSDocLinkPlain() bool            { return n.kind == SyntaxKindJSDocLinkPlain }
 
 func (n *JSDocLinkPlain) set() {
-	*n = JSDocLinkPlain{}
 	n.kind = SyntaxKindJSDocLinkPlain
 	n.data = n
 }
@@ -5248,7 +5073,6 @@ func (n *Node) AsJSDocTag() *JSDocTag { return n.data.(*JSDocTag) }
 func (n *Node) IsJSDocTag() bool      { return n.kind == SyntaxKindJSDocTag }
 
 func (n *JSDocTag) set() {
-	*n = JSDocTag{}
 	n.kind = SyntaxKindJSDocTag
 	n.data = n
 }
@@ -5273,7 +5097,6 @@ func (n *Node) AsJSDocAugmentsTag() *JSDocAugmentsTag { return n.data.(*JSDocAug
 func (n *Node) IsJSDocAugmentsTag() bool              { return n.kind == SyntaxKindJSDocAugmentsTag }
 
 func (n *JSDocAugmentsTag) set() {
-	*n = JSDocAugmentsTag{}
 	n.kind = SyntaxKindJSDocAugmentsTag
 	n.data = n
 }
@@ -5298,7 +5121,6 @@ func (n *Node) AsJSDocImplementsTag() *JSDocImplementsTag { return n.data.(*JSDo
 func (n *Node) IsJSDocImplementsTag() bool                { return n.kind == SyntaxKindJSDocImplementsTag }
 
 func (n *JSDocImplementsTag) set() {
-	*n = JSDocImplementsTag{}
 	n.kind = SyntaxKindJSDocImplementsTag
 	n.data = n
 }
@@ -5323,7 +5145,6 @@ func (n *Node) AsJSDocAuthorTag() *JSDocAuthorTag { return n.data.(*JSDocAuthorT
 func (n *Node) IsJSDocAuthorTag() bool            { return n.kind == SyntaxKindJSDocAuthorTag }
 
 func (n *JSDocAuthorTag) set() {
-	*n = JSDocAuthorTag{}
 	n.kind = SyntaxKindJSDocAuthorTag
 	n.data = n
 }
@@ -5348,7 +5169,6 @@ func (n *Node) AsJSDocDeprecatedTag() *JSDocDeprecatedTag { return n.data.(*JSDo
 func (n *Node) IsJSDocDeprecatedTag() bool                { return n.kind == SyntaxKindJSDocDeprecatedTag }
 
 func (n *JSDocDeprecatedTag) set() {
-	*n = JSDocDeprecatedTag{}
 	n.kind = SyntaxKindJSDocDeprecatedTag
 	n.data = n
 }
@@ -5373,7 +5193,6 @@ func (n *Node) AsJSDocImmediateTag() *JSDocImmediateTag { return n.data.(*JSDocI
 func (n *Node) IsJSDocImmediateTag() bool               { return n.kind == SyntaxKindJSDocImmediateTag }
 
 func (n *JSDocImmediateTag) set() {
-	*n = JSDocImmediateTag{}
 	n.kind = SyntaxKindJSDocImmediateTag
 	n.data = n
 }
@@ -5398,7 +5217,6 @@ func (n *Node) AsJSDocClassTag() *JSDocClassTag { return n.data.(*JSDocClassTag)
 func (n *Node) IsJSDocClassTag() bool           { return n.kind == SyntaxKindJSDocClassTag }
 
 func (n *JSDocClassTag) set() {
-	*n = JSDocClassTag{}
 	n.kind = SyntaxKindJSDocClassTag
 	n.data = n
 }
@@ -5423,7 +5241,6 @@ func (n *Node) AsJSDocPublicTag() *JSDocPublicTag { return n.data.(*JSDocPublicT
 func (n *Node) IsJSDocPublicTag() bool            { return n.kind == SyntaxKindJSDocPublicTag }
 
 func (n *JSDocPublicTag) set() {
-	*n = JSDocPublicTag{}
 	n.kind = SyntaxKindJSDocPublicTag
 	n.data = n
 }
@@ -5448,7 +5265,6 @@ func (n *Node) AsJSDocPrivateTag() *JSDocPrivateTag { return n.data.(*JSDocPriva
 func (n *Node) IsJSDocPrivateTag() bool             { return n.kind == SyntaxKindJSDocPrivateTag }
 
 func (n *JSDocPrivateTag) set() {
-	*n = JSDocPrivateTag{}
 	n.kind = SyntaxKindJSDocPrivateTag
 	n.data = n
 }
@@ -5473,7 +5289,6 @@ func (n *Node) AsJSDocProtectedTag() *JSDocProtectedTag { return n.data.(*JSDocP
 func (n *Node) IsJSDocProtectedTag() bool               { return n.kind == SyntaxKindJSDocProtectedTag }
 
 func (n *JSDocProtectedTag) set() {
-	*n = JSDocProtectedTag{}
 	n.kind = SyntaxKindJSDocProtectedTag
 	n.data = n
 }
@@ -5498,7 +5313,6 @@ func (n *Node) AsJSDocReadonlyTag() *JSDocReadonlyTag { return n.data.(*JSDocRea
 func (n *Node) IsJSDocReadonlyTag() bool              { return n.kind == SyntaxKindJSDocReadonlyTag }
 
 func (n *JSDocReadonlyTag) set() {
-	*n = JSDocReadonlyTag{}
 	n.kind = SyntaxKindJSDocReadonlyTag
 	n.data = n
 }
@@ -5523,7 +5337,6 @@ func (n *Node) AsJSDocOverrideTag() *JSDocOverrideTag { return n.data.(*JSDocOve
 func (n *Node) IsJSDocOverrideTag() bool              { return n.kind == SyntaxKindJSDocOverrideTag }
 
 func (n *JSDocOverrideTag) set() {
-	*n = JSDocOverrideTag{}
 	n.kind = SyntaxKindJSDocOverrideTag
 	n.data = n
 }
@@ -5548,7 +5361,6 @@ func (n *Node) AsJSDocCallbackTag() *JSDocCallbackTag { return n.data.(*JSDocCal
 func (n *Node) IsJSDocCallbackTag() bool              { return n.kind == SyntaxKindJSDocCallbackTag }
 
 func (n *JSDocCallbackTag) set() {
-	*n = JSDocCallbackTag{}
 	n.kind = SyntaxKindJSDocCallbackTag
 	n.data = n
 }
@@ -5573,7 +5385,6 @@ func (n *Node) AsJSDocOverloadTag() *JSDocOverloadTag { return n.data.(*JSDocOve
 func (n *Node) IsJSDocOverloadTag() bool              { return n.kind == SyntaxKindJSDocOverloadTag }
 
 func (n *JSDocOverloadTag) set() {
-	*n = JSDocOverloadTag{}
 	n.kind = SyntaxKindJSDocOverloadTag
 	n.data = n
 }
@@ -5598,7 +5409,6 @@ func (n *Node) AsJSDocEnumTag() *JSDocEnumTag { return n.data.(*JSDocEnumTag) }
 func (n *Node) IsJSDocEnumTag() bool          { return n.kind == SyntaxKindJSDocEnumTag }
 
 func (n *JSDocEnumTag) set() {
-	*n = JSDocEnumTag{}
 	n.kind = SyntaxKindJSDocEnumTag
 	n.data = n
 }
@@ -5623,7 +5433,6 @@ func (n *Node) AsJSDocParameterTag() *JSDocParameterTag { return n.data.(*JSDocP
 func (n *Node) IsJSDocParameterTag() bool               { return n.kind == SyntaxKindJSDocParameterTag }
 
 func (n *JSDocParameterTag) set() {
-	*n = JSDocParameterTag{}
 	n.kind = SyntaxKindJSDocParameterTag
 	n.data = n
 }
@@ -5648,7 +5457,6 @@ func (n *Node) AsJSDocReturnTag() *JSDocReturnTag { return n.data.(*JSDocReturnT
 func (n *Node) IsJSDocReturnTag() bool            { return n.kind == SyntaxKindJSDocReturnTag }
 
 func (n *JSDocReturnTag) set() {
-	*n = JSDocReturnTag{}
 	n.kind = SyntaxKindJSDocReturnTag
 	n.data = n
 }
@@ -5673,7 +5481,6 @@ func (n *Node) AsJSDocThisTag() *JSDocThisTag { return n.data.(*JSDocThisTag) }
 func (n *Node) IsJSDocThisTag() bool          { return n.kind == SyntaxKindJSDocThisTag }
 
 func (n *JSDocThisTag) set() {
-	*n = JSDocThisTag{}
 	n.kind = SyntaxKindJSDocThisTag
 	n.data = n
 }
@@ -5698,7 +5505,6 @@ func (n *Node) AsJSDocTypeTag() *JSDocTypeTag { return n.data.(*JSDocTypeTag) }
 func (n *Node) IsJSDocTypeTag() bool          { return n.kind == SyntaxKindJSDocTypeTag }
 
 func (n *JSDocTypeTag) set() {
-	*n = JSDocTypeTag{}
 	n.kind = SyntaxKindJSDocTypeTag
 	n.data = n
 }
@@ -5723,7 +5529,6 @@ func (n *Node) AsJSDocTemplateTag() *JSDocTemplateTag { return n.data.(*JSDocTem
 func (n *Node) IsJSDocTemplateTag() bool              { return n.kind == SyntaxKindJSDocTemplateTag }
 
 func (n *JSDocTemplateTag) set() {
-	*n = JSDocTemplateTag{}
 	n.kind = SyntaxKindJSDocTemplateTag
 	n.data = n
 }
@@ -5748,7 +5553,6 @@ func (n *Node) AsJSDocTypedefTag() *JSDocTypedefTag { return n.data.(*JSDocTyped
 func (n *Node) IsJSDocTypedefTag() bool             { return n.kind == SyntaxKindJSDocTypedefTag }
 
 func (n *JSDocTypedefTag) set() {
-	*n = JSDocTypedefTag{}
 	n.kind = SyntaxKindJSDocTypedefTag
 	n.data = n
 }
@@ -5773,7 +5577,6 @@ func (n *Node) AsJSDocSeeTag() *JSDocSeeTag { return n.data.(*JSDocSeeTag) }
 func (n *Node) IsJSDocSeeTag() bool         { return n.kind == SyntaxKindJSDocSeeTag }
 
 func (n *JSDocSeeTag) set() {
-	*n = JSDocSeeTag{}
 	n.kind = SyntaxKindJSDocSeeTag
 	n.data = n
 }
@@ -5798,7 +5601,6 @@ func (n *Node) AsJSDocPropertyTag() *JSDocPropertyTag { return n.data.(*JSDocPro
 func (n *Node) IsJSDocPropertyTag() bool              { return n.kind == SyntaxKindJSDocPropertyTag }
 
 func (n *JSDocPropertyTag) set() {
-	*n = JSDocPropertyTag{}
 	n.kind = SyntaxKindJSDocPropertyTag
 	n.data = n
 }
@@ -5823,7 +5625,6 @@ func (n *Node) AsJSDocThrowsTag() *JSDocThrowsTag { return n.data.(*JSDocThrowsT
 func (n *Node) IsJSDocThrowsTag() bool            { return n.kind == SyntaxKindJSDocThrowsTag }
 
 func (n *JSDocThrowsTag) set() {
-	*n = JSDocThrowsTag{}
 	n.kind = SyntaxKindJSDocThrowsTag
 	n.data = n
 }
@@ -5848,7 +5649,6 @@ func (n *Node) AsJSDocSatisfiesTag() *JSDocSatisfiesTag { return n.data.(*JSDocS
 func (n *Node) IsJSDocSatisfiesTag() bool               { return n.kind == SyntaxKindJSDocSatisfiesTag }
 
 func (n *JSDocSatisfiesTag) set() {
-	*n = JSDocSatisfiesTag{}
 	n.kind = SyntaxKindJSDocSatisfiesTag
 	n.data = n
 }
@@ -5873,7 +5673,6 @@ func (n *Node) AsJSDocImportTag() *JSDocImportTag { return n.data.(*JSDocImportT
 func (n *Node) IsJSDocImportTag() bool            { return n.kind == SyntaxKindJSDocImportTag }
 
 func (n *JSDocImportTag) set() {
-	*n = JSDocImportTag{}
 	n.kind = SyntaxKindJSDocImportTag
 	n.data = n
 }
@@ -5898,7 +5697,6 @@ func (n *Node) AsSyntaxList() *SyntaxList { return n.data.(*SyntaxList) }
 func (n *Node) IsSyntaxList() bool        { return n.kind == SyntaxKindSyntaxList }
 
 func (n *SyntaxList) set() {
-	*n = SyntaxList{}
 	n.kind = SyntaxKindSyntaxList
 	n.data = n
 }
@@ -5923,7 +5721,6 @@ func (n *Node) AsNotEmittedStatement() *NotEmittedStatement { return n.data.(*No
 func (n *Node) IsNotEmittedStatement() bool                 { return n.kind == SyntaxKindNotEmittedStatement }
 
 func (n *NotEmittedStatement) set() {
-	*n = NotEmittedStatement{}
 	n.kind = SyntaxKindNotEmittedStatement
 	n.data = n
 }
@@ -5952,7 +5749,6 @@ func (n *Node) IsPartiallyEmittedExpression() bool {
 }
 
 func (n *PartiallyEmittedExpression) set() {
-	*n = PartiallyEmittedExpression{}
 	n.kind = SyntaxKindPartiallyEmittedExpression
 	n.data = n
 }
@@ -5977,7 +5773,6 @@ func (n *Node) AsCommaListExpression() *CommaListExpression { return n.data.(*Co
 func (n *Node) IsCommaListExpression() bool                 { return n.kind == SyntaxKindCommaListExpression }
 
 func (n *CommaListExpression) set() {
-	*n = CommaListExpression{}
 	n.kind = SyntaxKindCommaListExpression
 	n.data = n
 }
@@ -6006,7 +5801,6 @@ func (n *Node) IsSyntheticReferenceExpression() bool {
 }
 
 func (n *SyntheticReferenceExpression) set() {
-	*n = SyntheticReferenceExpression{}
 	n.kind = SyntaxKindSyntheticReferenceExpression
 	n.data = n
 }
