@@ -22,8 +22,8 @@ func run() (exitCode int) {
 
 	var buf bytes.Buffer
 	g := &generator{w: &buf}
-	g.doDeclare()
-	g.doGenerate()
+	g.declare()
+	g.generate()
 
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
@@ -67,7 +67,7 @@ func (g *generator) printf(format string, args ...any) {
 	fmt.Fprintf(g.w, format, args...)
 }
 
-func (g *generator) doDeclare() {
+func (g *generator) declare() {
 	firstToken := g.declareToken("Unknown")
 	g.declareToken("EndOfFile")
 	g.declareToken("ConflictMarkerTrivia")
@@ -585,7 +585,7 @@ func (n *syntaxKind) Name() string { return n.name }
 
 // Code generation
 
-func (g *generator) doGenerate() {
+func (g *generator) generate() {
 	g.println("package ast")
 	g.println()
 	g.println("import \"fmt\"")
