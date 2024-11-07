@@ -70,6 +70,33 @@ func (g *generator) printf(format string, args ...any) {
 }
 
 func (g *generator) declare() {
+	// Bases
+
+	// Mixins (not in NodeBase chain)
+	// - DeclarationBasename
+	// - ExportableBasename
+	// - ModifiersBasename
+	// - LocalsContainerBasename
+	// - FunctionLikeBase, contains LocalsContainerBase
+	// - BodyBasename
+	// - FunctionLikeWithBodyBase = FunctionLikeBase + BodyBase
+	// - FlowNodeBasename
+	// - TypeElementBase?
+	// - ClassElementBase?
+	// - NamedMemberBase = DeclarationBase + ModifiersBase + fields
+	// - LiteralLikeBase
+	// - ObjectLiteralElementBase?
+	// - TemplateLiteralLikeBase = LiteralLikeBase + fields
+
+	// Nodes
+	// - StatementBase = NodeBase + FlowNodeBase
+	// - ClassLikeBase = DeclarationBase + ExportableBase + ModifiersBase + fields
+	// - AccessorDeclarationBase = NodeBase + NamedMemberBase + FunctionLikeWithBodyBase + FlowNodeBase + TypeElementBase + ClassElementBase + ObjectLiteralElementBase
+	// - ExpressionBase = NodeBase
+	// - TypeNodeBase = NodeBase
+	// - UnionOrIntersectionTypeNodeBase = TypeNodeBase
+	// - FunctionOrConstructorTypeNodeBase = TypeNodeBase + DeclarationBase + ModifiersBase + FunctionLikeBase
+
 	firstToken := g.declareToken("Unknown")
 	g.firstToken = firstToken
 	g.declareToken("EndOfFile")
@@ -585,6 +612,21 @@ type syntaxKind struct {
 var _ genType = (*syntaxKind)(nil)
 
 func (n *syntaxKind) Name() string { return n.name }
+
+type embeddable struct {
+	name string
+	opts *embedOpts
+}
+
+type embedOpts struct {
+	embedded []*embeddable
+	fields   []field
+}
+
+func (g *generator) newEmbeddable(name string, opts *embedOpts) *embeddable {
+	// TODO: register
+	return &embeddable{name: name, opts: opts}
+}
 
 // Code generation
 
