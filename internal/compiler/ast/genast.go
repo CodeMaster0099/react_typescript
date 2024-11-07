@@ -53,6 +53,8 @@ type generator struct {
 	syntaxKinds []*syntaxKind
 	unions      []*nodeUnion
 	markers     []*marker
+
+	firstToken *syntaxKind
 }
 
 func (g *generator) print(args ...any) {
@@ -69,6 +71,7 @@ func (g *generator) printf(format string, args ...any) {
 
 func (g *generator) declare() {
 	firstToken := g.declareToken("Unknown")
+	g.firstToken = firstToken
 	g.declareToken("EndOfFile")
 	g.declareToken("ConflictMarkerTrivia")
 	g.declareToken("NonTextFileMarkerTrivia")
@@ -677,8 +680,13 @@ func (g *generator) generate() {
 
 	g.println("type Factory struct { // TODO")
 	for _, n := range g.syntaxKinds {
-		if n.opts != nil && n.opts.poolAllocate {
-			g.printf("\t_%sPool pool[%s]\n", n.name, n.name)
+		token := n == g.firstToken
+		if token || n.opts != nil && n.opts.poolAllocate {
+			name := n.name
+			if token {
+				name = "Token"
+			}
+			g.printf("\tpool%s pool[%s]\n", name, name)
 		}
 	}
 	g.println("}")
@@ -722,46 +730,64 @@ func (g *generator) generateNodeUnion(u *nodeUnion) {
 }
 
 func (g *generator) generateNode(n *syntaxKind) {
-	if n.opts == nil {
-		return // not a real node; no code
+	token := n == g.firstToken
+	name := n.name
+	if token {
+		name = "Token"
+	} else if n.opts == nil {
+		return
 	}
 
 	g.println()
-	g.printf("type %s struct {\n", n.name)
+	g.printf("type %s struct {\n", name)
 	g.println("\tNodeBase")
 	// TODO: children
 	g.println("}")
 	g.println()
 
-	g.printf("func (n *Node) As%s() *%s { return n.data.(*%s) }\n", n.name, n.name, n.name)
-	g.printf("func (n *Node) Is%s() bool { return n.kind == SyntaxKind%s }\n", n.name, n.name)
+	g.printf("func (n *Node) As%s() *%s { return n.data.(*%s) }\n", name, name, name)
+	if !token {
+		g.printf("func (n *Node) Is%s() bool { return n.kind == SyntaxKind%s }\n", name, name)
+	}
 	g.println()
 
 	printNewParams := func() {
 		// TODO
+		if token {
+			g.print("kind SyntaxKind")
+		}
 	}
 	printNewArgs := func() {
 		// TODO
+		if token {
+			g.print("kind")
+		}
 	}
 
 	// TODO: accept and set children
-	g.printf("func (n *%s) set(", n.name)
+	g.printf("func (n *%s) set(", name)
 	printNewParams()
 	g.println(") {")
 	// TODO: generate optimal assignment
-	g.printf("\t*n = %s{}\n", n.name)
-	g.println("\tn.kind = SyntaxKind" + n.name)
+	g.printf("\t*n = %s{}\n", name)
+	if token {
+		g.println("\tn.kind = kind")
+	} else {
+		g.println("\tn.kind = SyntaxKind" + name)
+	}
 	g.println("\tn.data = n")
 	g.println("}")
 	g.println()
 
-	g.printf("func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", n.name, n.name)
-	g.println()
+	if !token {
+		g.printf("func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", name, name)
+		g.println()
+	}
 
-	g.printf("func New%s(", n.name)
+	g.printf("func New%s(", name)
 	printNewParams()
 	g.println(") *Node {")
-	g.printf("\tn := &%s{}\n", n.name)
+	g.printf("\tn := &%s{}\n", name)
 	g.printf("\tn.set(")
 	printNewArgs()
 	g.println(")")
@@ -771,15 +797,17 @@ func (g *generator) generateNode(n *syntaxKind) {
 
 	// TODO: params
 	// TODO: return *Node, call a helper func that converts to *Node and sets kind
-	g.printf("func (f *Factory) New%s() *Node {\n", n.name)
-	if n.opts.poolAllocate {
-		g.printf("\tn := f._%sPool.allocate()\n", n.name)
+	g.printf("func (f *Factory) New%s(", name)
+	printNewParams()
+	g.println(") *Node {")
+	if token || n.opts != nil && n.opts.poolAllocate {
+		g.printf("\tn := f.pool%s.allocate()\n", name)
 		g.printf("\tn.set(")
 		printNewArgs()
 		g.println(")")
 		g.println("\treturn n.AsNode()")
 	} else {
-		g.printf("\treturn New%s(", n.name)
+		g.printf("\treturn New%s(", name)
 		printNewArgs()
 		g.println(")")
 	}

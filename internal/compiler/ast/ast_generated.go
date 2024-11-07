@@ -804,7 +804,32 @@ type NodeBase struct {
 }
 
 type Factory struct { // TODO
-	_IdentifierPool pool[Identifier]
+	poolToken      pool[Token]
+	poolIdentifier pool[Identifier]
+}
+
+type Token struct {
+	NodeBase
+}
+
+func (n *Node) AsToken() *Token { return n.data.(*Token) }
+
+func (n *Token) set(kind SyntaxKind) {
+	*n = Token{}
+	n.kind = kind
+	n.data = n
+}
+
+func NewToken(kind SyntaxKind) *Node {
+	n := &Token{}
+	n.set(kind)
+	return n.AsNode()
+}
+
+func (f *Factory) NewToken(kind SyntaxKind) *Node {
+	n := f.poolToken.allocate()
+	n.set(kind)
+	return n.AsNode()
 }
 
 type NumericLiteral struct {
@@ -1062,7 +1087,7 @@ func NewIdentifier() *Node {
 }
 
 func (f *Factory) NewIdentifier() *Node {
-	n := f._IdentifierPool.allocate()
+	n := f.poolIdentifier.allocate()
 	n.set()
 	return n.AsNode()
 }
