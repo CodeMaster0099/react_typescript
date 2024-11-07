@@ -21,9 +21,9 @@ func run() (exitCode int) {
 	flag.Parse()
 
 	var buf bytes.Buffer
-	g := &generator{}
+	g := &generator{w: &buf}
 	g.doDeclare()
-	g.generate(&buf)
+	g.doGenerate()
 
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
@@ -45,6 +45,26 @@ func run() (exitCode int) {
 
 	f.Write(formatted)
 	return exitCode
+}
+
+type generator struct {
+	w io.Writer
+
+	syntaxKinds []*syntaxKind
+	unions      []*nodeUnion
+	markers     []*marker
+}
+
+func (g *generator) print(args ...any) {
+	fmt.Fprint(g.w, args...)
+}
+
+func (g *generator) println(args ...any) {
+	fmt.Fprintln(g.w, args...)
+}
+
+func (g *generator) printf(format string, args ...any) {
+	fmt.Fprintf(g.w, format, args...)
 }
 
 func (g *generator) doDeclare() {
@@ -486,12 +506,6 @@ func (g *generator) doDeclare() {
 	g.newNodeUnion("AccessExpression", propertyAccessExpression, elementAccessExpression)
 }
 
-type generator struct {
-	syntaxKinds []*syntaxKind
-	unions      []*nodeUnion
-	markers     []*marker
-}
-
 type marker struct {
 	name  string
 	start *syntaxKind
@@ -571,157 +585,157 @@ func (n *syntaxKind) Name() string { return n.name }
 
 // Code generation
 
-func (g *generator) generate(w io.Writer) {
-	fmt.Fprintln(w, "package ast")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "import \"fmt\"")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "type SyntaxKind int16")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "const (")
+func (g *generator) doGenerate() {
+	g.println("package ast")
+	g.println()
+	g.println("import \"fmt\"")
+	g.println()
+	g.println("type SyntaxKind int16")
+	g.println()
+	g.println("const (")
 
 	for i, n := range g.syntaxKinds {
 		if i == 0 {
-			fmt.Fprintf(w, "\tSyntaxKind%s SyntaxKind = iota\n", n.name)
+			g.printf("\tSyntaxKind%s SyntaxKind = iota\n", n.name)
 		} else {
-			fmt.Fprintf(w, "\tSyntaxKind%s\n", n.name)
+			g.printf("\tSyntaxKind%s\n", n.name)
 		}
 	}
 
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "\tSyntaxKindCount")
-	fmt.Fprintln(w)
+	g.println()
+	g.println("\tSyntaxKindCount")
+	g.println()
 
-	for _, g := range g.markers {
-		fmt.Fprintf(w, "\t%sStart = SyntaxKind%s\n", g.name, g.start.name)
-		fmt.Fprintf(w, "\t%sEnd = SyntaxKind%s\n", g.name, g.end.name)
+	for _, marker := range g.markers {
+		g.printf("\t%sStart = SyntaxKind%s\n", marker.name, marker.start.name)
+		g.printf("\t%sEnd = SyntaxKind%s\n", marker.name, marker.end.name)
 	}
 
-	fmt.Fprintln(w, ")")
-	fmt.Fprintln(w)
+	g.println(")")
+	g.println()
 
-	fmt.Fprintln(w, "var syntaxKindNames = [SyntaxKindCount+1]string{")
+	g.println("var syntaxKindNames = [SyntaxKindCount+1]string{")
 	for _, n := range g.syntaxKinds {
-		fmt.Fprintf(w, "\tSyntaxKind%s: %q,\n", n.name, n.name)
+		g.printf("\tSyntaxKind%s: %q,\n", n.name, n.name)
 	}
-	fmt.Fprintln(w, "\tSyntaxKindCount: \"SyntaxKindCount\",")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.println("\tSyntaxKindCount: \"SyntaxKindCount\",")
+	g.println("}")
+	g.println()
 
-	fmt.Fprintln(w, "func (k SyntaxKind) String() string {")
-	fmt.Fprintln(w, "\tif k < 0 || k >= SyntaxKindCount {")
-	fmt.Fprintf(w, "%s", "\t\treturn fmt.Sprintf(\"SyntaxKind(%d)\", k)")
-	fmt.Fprintln(w, "\t}")
-	fmt.Fprintln(w, "\treturn syntaxKindNames[k]")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.println("func (k SyntaxKind) String() string {")
+	g.println("\tif k < 0 || k >= SyntaxKindCount {")
+	g.printf("%s", "\t\treturn fmt.Sprintf(\"SyntaxKind(%d)\", k)")
+	g.println("\t}")
+	g.println("\treturn syntaxKindNames[k]")
+	g.println("}")
+	g.println()
 
-	fmt.Fprintln(w, "type NodeFlags uint32")
-	fmt.Fprintln(w, "type NodeID uint32")
-	fmt.Fprintln(w)
+	g.println("type NodeFlags uint32")
+	g.println("type NodeID uint32")
+	g.println()
 
-	fmt.Fprintln(w, "type TextRange struct {")
-	fmt.Fprintln(w, "\tpos int32")
-	fmt.Fprintln(w, "\tend int32")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "func NewTextRange(pos, end int32) TextRange { return TextRange{pos: pos, end: end} }")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "func (r TextRange) Pos() int32 { return r.pos }")
-	fmt.Fprintln(w, "func (r TextRange) End() int32 { return r.end }")
-	fmt.Fprintln(w, "func (r TextRange) Len() int32 { return r.end - r.pos }")
-	fmt.Fprintln(w, "func (r TextRange) ContainsInclusive(pos int32) bool { return r.pos <= pos && pos <= r.end }")
-	fmt.Fprintln(w)
-
-	// TODO
-	fmt.Fprintln(w, "type NodeData interface{")
-	fmt.Fprintln(w, "\tAsNode() *Node")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
-
-	fmt.Fprintln(w, "type Node struct {")
-	fmt.Fprintln(w, "\tkind SyntaxKind")
-	fmt.Fprintln(w, "\tflags  NodeFlags")
-	fmt.Fprintln(w, "\tloc TextRange")
-	fmt.Fprintln(w, "\tid NodeID")
-	fmt.Fprintln(w, "\tparent *Node")
-	fmt.Fprintln(w, "\tdata NodeData")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
-
-	fmt.Fprintln(w, "func (n *Node) Pos() int32 { return n.loc.Pos() }")
+	g.println("type TextRange struct {")
+	g.println("\tpos int32")
+	g.println("\tend int32")
+	g.println("}")
+	g.println()
+	g.println("func NewTextRange(pos, end int32) TextRange { return TextRange{pos: pos, end: end} }")
+	g.println()
+	g.println("func (r TextRange) Pos() int32 { return r.pos }")
+	g.println("func (r TextRange) End() int32 { return r.end }")
+	g.println("func (r TextRange) Len() int32 { return r.end - r.pos }")
+	g.println("func (r TextRange) ContainsInclusive(pos int32) bool { return r.pos <= pos && pos <= r.end }")
+	g.println()
 
 	// TODO
-	fmt.Fprintln(w, "type NodeDefault struct {\nNode\n}")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "func (n *NodeDefault) AsNode() *Node { return &n.Node }")
-	fmt.Fprintln(w)
+	g.println("type NodeData interface{")
+	g.println("\tAsNode() *Node")
+	g.println("}")
+	g.println()
+
+	g.println("type Node struct {")
+	g.println("\tkind SyntaxKind")
+	g.println("\tflags  NodeFlags")
+	g.println("\tloc TextRange")
+	g.println("\tid NodeID")
+	g.println("\tparent *Node")
+	g.println("\tdata NodeData")
+	g.println("}")
+	g.println()
+
+	g.println("func (n *Node) Pos() int32 { return n.loc.Pos() }")
 
 	// TODO
-	fmt.Fprintln(w, "type NodeBase struct {\nNodeDefault\n} ")
-	fmt.Fprintln(w)
+	g.println("type NodeDefault struct {\nNode\n}")
+	g.println()
+	g.println("func (n *NodeDefault) AsNode() *Node { return &n.Node }")
+	g.println()
 
-	fmt.Fprintln(w, "type Factory struct { // TODO")
+	// TODO
+	g.println("type NodeBase struct {\nNodeDefault\n} ")
+	g.println()
+
+	g.println("type Factory struct { // TODO")
 	for _, n := range g.syntaxKinds {
 		if n.opts != nil && n.opts.poolAllocate {
-			fmt.Fprintf(w, "\t_%sPool pool[%s]\n", n.name, n.name)
+			g.printf("\t_%sPool pool[%s]\n", n.name, n.name)
 		}
 	}
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.println("}")
+	g.println()
 
 	for _, n := range g.syntaxKinds {
-		g.generateNode(w, n)
+		g.generateNode(n)
 	}
 
 	for _, u := range g.unions {
-		g.generateNodeUnion(w, u)
+		g.generateNodeUnion(u)
 	}
 }
 
-func (g *generator) generateNodeUnion(w io.Writer, u *nodeUnion) {
-	fmt.Fprintf(w, "type %s = Node // ", u.name)
+func (g *generator) generateNodeUnion(u *nodeUnion) {
+	g.printf("type %s = Node // ", u.name)
 	for i, t := range u.types {
 		if i > 0 {
-			fmt.Fprint(w, " | ")
+			g.print(" | ")
 		}
-		fmt.Fprintf(w, "%s", t.name)
+		g.printf("%s", t.name)
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintln(w)
+	g.println()
+	g.println()
 
-	fmt.Fprintf(w, "var is%sTable = [SyntaxKindCount]bool{\n", u.name)
+	g.printf("var is%sTable = [SyntaxKindCount]bool{\n", u.name)
 	for _, t := range u.types {
-		fmt.Fprintf(w, "\tSyntaxKind%s: true,\n", t.name)
+		g.printf("\tSyntaxKind%s: true,\n", t.name)
 	}
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.println("}")
+	g.println()
 
-	fmt.Fprintf(w, "func is%sKind(kind SyntaxKind) bool { return is%sTable[kind] }\n", u.name, u.name)
-	fmt.Fprintf(w, "func is%s(n *Node) bool { return is%sTable[n.kind] }\n", u.name, u.name)
-	fmt.Fprintf(w, "func assertIs%s(n *Node) {\n", u.name)
-	fmt.Fprintf(w, "if !is%s(n) {\n", u.name)
-	fmt.Fprintf(w, "panic(\"expected %s, got \" + n.kind.String())\n", u.name)
-	fmt.Fprintf(w, "}\n")
-	fmt.Fprintf(w, "}\n")
-	fmt.Fprintln(w)
+	g.printf("func is%sKind(kind SyntaxKind) bool { return is%sTable[kind] }\n", u.name, u.name)
+	g.printf("func is%s(n *Node) bool { return is%sTable[n.kind] }\n", u.name, u.name)
+	g.printf("func assertIs%s(n *Node) {\n", u.name)
+	g.printf("if !is%s(n) {\n", u.name)
+	g.printf("panic(\"expected %s, got \" + n.kind.String())\n", u.name)
+	g.printf("}\n")
+	g.printf("}\n")
+	g.println()
 }
 
-func (g *generator) generateNode(w io.Writer, n *syntaxKind) {
+func (g *generator) generateNode(n *syntaxKind) {
 	if n.opts == nil {
 		return // not a real node; no code
 	}
 
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "type %s struct {\n", n.name)
-	fmt.Fprintln(w, "\tNodeBase")
+	g.println()
+	g.printf("type %s struct {\n", n.name)
+	g.println("\tNodeBase")
 	// TODO: children
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.println("}")
+	g.println()
 
-	fmt.Fprintf(w, "func (n *Node) As%s() *%s { return n.data.(*%s) }\n", n.name, n.name, n.name)
-	fmt.Fprintf(w, "func (n *Node) Is%s() bool { return n.kind == SyntaxKind%s }\n", n.name, n.name)
-	fmt.Fprintln(w)
+	g.printf("func (n *Node) As%s() *%s { return n.data.(*%s) }\n", n.name, n.name, n.name)
+	g.printf("func (n *Node) Is%s() bool { return n.kind == SyntaxKind%s }\n", n.name, n.name)
+	g.println()
 
 	printNewParams := func() {
 		// TODO
@@ -731,45 +745,45 @@ func (g *generator) generateNode(w io.Writer, n *syntaxKind) {
 	}
 
 	// TODO: accept and set children
-	fmt.Fprintf(w, "func (n *%s) set(", n.name)
+	g.printf("func (n *%s) set(", n.name)
 	printNewParams()
-	fmt.Fprintln(w, ") {")
+	g.println(") {")
 	// TODO: generate optimal assignment
-	fmt.Fprintf(w, "\t*n = %s{}\n", n.name)
-	fmt.Fprintln(w, "\tn.kind = SyntaxKind"+n.name)
-	fmt.Fprintln(w, "\tn.data = n")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.printf("\t*n = %s{}\n", n.name)
+	g.println("\tn.kind = SyntaxKind" + n.name)
+	g.println("\tn.data = n")
+	g.println("}")
+	g.println()
 
-	fmt.Fprintf(w, "func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", n.name, n.name)
-	fmt.Fprintln(w)
+	g.printf("func (n *%s) Kind() SyntaxKind { return SyntaxKind%s }\n", n.name, n.name)
+	g.println()
 
-	fmt.Fprintf(w, "func New%s(", n.name)
+	g.printf("func New%s(", n.name)
 	printNewParams()
-	fmt.Fprintln(w, ") *Node {")
-	fmt.Fprintf(w, "\tn := &%s{}\n", n.name)
-	fmt.Fprintf(w, "\tn.set(")
+	g.println(") *Node {")
+	g.printf("\tn := &%s{}\n", n.name)
+	g.printf("\tn.set(")
 	printNewArgs()
-	fmt.Fprintln(w, ")")
-	fmt.Fprintln(w, "\treturn n.AsNode()")
-	fmt.Fprintln(w, "}")
-	fmt.Fprintln(w)
+	g.println(")")
+	g.println("\treturn n.AsNode()")
+	g.println("}")
+	g.println()
 
 	// TODO: params
 	// TODO: return *Node, call a helper func that converts to *Node and sets kind
-	fmt.Fprintf(w, "func (f *Factory) New%s() *Node {\n", n.name)
+	g.printf("func (f *Factory) New%s() *Node {\n", n.name)
 	if n.opts.poolAllocate {
-		fmt.Fprintf(w, "\tn := f._%sPool.allocate()\n", n.name)
-		fmt.Fprintf(w, "\tn.set(")
+		g.printf("\tn := f._%sPool.allocate()\n", n.name)
+		g.printf("\tn.set(")
 		printNewArgs()
-		fmt.Fprintln(w, ")")
-		fmt.Fprintln(w, "\treturn n.AsNode()")
+		g.println(")")
+		g.println("\treturn n.AsNode()")
 	} else {
-		fmt.Fprintf(w, "\treturn New%s(", n.name)
+		g.printf("\treturn New%s(", n.name)
 		printNewArgs()
-		fmt.Fprintln(w, ")")
+		g.println(")")
 	}
-	fmt.Fprintln(w, "}")
+	g.println("}")
 
-	fmt.Fprintln(w)
+	g.println()
 }
