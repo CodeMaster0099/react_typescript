@@ -21,7 +21,9 @@ func run() (exitCode int) {
 	flag.Parse()
 
 	var buf bytes.Buffer
-	declare(&buf)
+	g := &generator{}
+	g.doDeclare()
+	g.generate(&buf)
 
 	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
@@ -45,444 +47,531 @@ func run() (exitCode int) {
 	return exitCode
 }
 
-func declare(w io.Writer) {
-	var g generator
+func (g *generator) doDeclare() {
+	firstToken := g.declareToken("Unknown")
+	g.declareToken("EndOfFile")
+	g.declareToken("ConflictMarkerTrivia")
+	g.declareToken("NonTextFileMarkerTrivia")
 
-	firstToken := g.declareKindOnly("Unknown")
-	g.declareKindOnly("EndOfFile")
-	g.declareKindOnly("ConflictMarkerTrivia")
-	g.declareKindOnly("NonTextFileMarkerTrivia")
-
-	firstLiteralToken := g.declare("NumericLiteral", &declOptions{})
-	g.declare("BigIntLiteral", &declOptions{})
-	g.declare("StringLiteral", &declOptions{})
-	g.declare("JsxText", &declOptions{})
-	g.declareKindOnly("JsxTextAllWhiteSpaces")
-	g.declare("RegularExpressionLiteral", &declOptions{})
-	lastLiteralToken := g.declare("NoSubstitutionTemplateLiteral", &declOptions{})
+	firstLiteralToken := g.declareNode("NumericLiteral", &nodeOpts{})
+	g.declareNode("BigIntLiteral", &nodeOpts{})
+	g.declareNode("StringLiteral", &nodeOpts{})
+	g.declareNode("JsxText", &nodeOpts{})
+	g.declareToken("JsxTextAllWhiteSpaces")
+	g.declareNode("RegularExpressionLiteral", &nodeOpts{})
+	lastLiteralToken := g.declareNode("NoSubstitutionTemplateLiteral", &nodeOpts{})
 
 	// Pseudo-literals
 	firstTemplateToken := lastLiteralToken
-	g.declare("TemplateHead", &declOptions{})
-	g.declare("TemplateMiddle", &declOptions{})
-	lastTemplateToken := g.declare("TemplateTail", &declOptions{})
+	g.declareNode("TemplateHead", &nodeOpts{})
+	g.declareNode("TemplateMiddle", &nodeOpts{})
+	lastTemplateToken := g.declareNode("TemplateTail", &nodeOpts{})
 
-	firstPunctuation := g.declareKindOnly("OpenBraceToken")
-	g.declareKindOnly("CloseBraceToken")
-	g.declareKindOnly("OpenParenToken")
-	g.declareKindOnly("CloseParenToken")
-	g.declareKindOnly("OpenBracketToken")
-	g.declareKindOnly("CloseBracketToken")
-	g.declareKindOnly("DotToken")
-	g.declareKindOnly("DotDotDotToken")
-	g.declareKindOnly("SemicolonToken")
-	g.declareKindOnly("CommaToken")
-	g.declareKindOnly("QuestionDotToken")
-	firstBinaryOperator := g.declareKindOnly("LessThanToken")
-	g.declareKindOnly("LessThanSlashToken")
-	g.declareKindOnly("GreaterThanToken")
-	g.declareKindOnly("LessThanEqualsToken")
-	g.declareKindOnly("GreaterThanEqualsToken")
-	g.declareKindOnly("EqualsEqualsToken")
-	g.declareKindOnly("ExclamationEqualsToken")
-	g.declareKindOnly("EqualsEqualsEqualsToken")
-	g.declareKindOnly("ExclamationEqualsEqualsToken")
-	g.declareKindOnly("EqualsGreaterThanToken")
-	g.declareKindOnly("PlusToken")
-	g.declareKindOnly("MinusToken")
-	g.declareKindOnly("AsteriskToken")
-	g.declareKindOnly("AsteriskAsteriskToken")
-	g.declareKindOnly("SlashToken")
-	g.declareKindOnly("PercentToken")
-	g.declareKindOnly("PlusPlusToken")
-	g.declareKindOnly("MinusMinusToken")
-	g.declareKindOnly("LessThanLessThanToken")
-	g.declareKindOnly("GreaterThanGreaterThanToken")
-	g.declareKindOnly("GreaterThanGreaterThanGreaterThanToken")
-	g.declareKindOnly("AmpersandToken")
-	g.declareKindOnly("BarToken")
-	g.declareKindOnly("CaretToken")
-	g.declareKindOnly("ExclamationToken")
-	g.declareKindOnly("TildeToken")
-	g.declareKindOnly("AmpersandAmpersandToken")
-	g.declareKindOnly("BarBarToken")
-	g.declareKindOnly("QuestionToken")
-	g.declareKindOnly("ColonToken")
-	g.declareKindOnly("AtToken")
-	g.declareKindOnly("QuestionQuestionToken")
-	g.declareKindOnly("BacktickToken")
-	g.declareKindOnly("HashToken")
-	firstAssignment := g.declareKindOnly("EqualsToken")
-	firstCompoundAssignment := g.declareKindOnly("PlusEqualsToken")
-	g.declareKindOnly("MinusEqualsToken")
-	g.declareKindOnly("AsteriskEqualsToken")
-	g.declareKindOnly("AsteriskAsteriskEqualsToken")
-	g.declareKindOnly("SlashEqualsToken")
-	g.declareKindOnly("PercentEqualsToken")
-	g.declareKindOnly("LessThanLessThanEqualsToken")
-	g.declareKindOnly("GreaterThanGreaterThanEqualsToken")
-	g.declareKindOnly("GreaterThanGreaterThanGreaterThanEqualsToken")
-	g.declareKindOnly("AmpersandEqualsToken")
-	g.declareKindOnly("BarEqualsToken")
-	g.declareKindOnly("BarBarEqualsToken")
-	g.declareKindOnly("AmpersandAmpersandEqualsToken")
-	g.declareKindOnly("QuestionQuestionEqualsToken")
-	lastPunctuation := g.declareKindOnly("CaretEqualsToken")
+	firstPunctuation := g.declareToken("OpenBraceToken")
+	g.declareToken("CloseBraceToken")
+	g.declareToken("OpenParenToken")
+	g.declareToken("CloseParenToken")
+	g.declareToken("OpenBracketToken")
+	g.declareToken("CloseBracketToken")
+	g.declareToken("DotToken")
+	g.declareToken("DotDotDotToken")
+	g.declareToken("SemicolonToken")
+	g.declareToken("CommaToken")
+	g.declareToken("QuestionDotToken")
+	firstBinaryOperator := g.declareToken("LessThanToken")
+	g.declareToken("LessThanSlashToken")
+	g.declareToken("GreaterThanToken")
+	g.declareToken("LessThanEqualsToken")
+	g.declareToken("GreaterThanEqualsToken")
+	g.declareToken("EqualsEqualsToken")
+	g.declareToken("ExclamationEqualsToken")
+	g.declareToken("EqualsEqualsEqualsToken")
+	g.declareToken("ExclamationEqualsEqualsToken")
+	g.declareToken("EqualsGreaterThanToken")
+	g.declareToken("PlusToken")
+	g.declareToken("MinusToken")
+	g.declareToken("AsteriskToken")
+	g.declareToken("AsteriskAsteriskToken")
+	g.declareToken("SlashToken")
+	g.declareToken("PercentToken")
+	g.declareToken("PlusPlusToken")
+	g.declareToken("MinusMinusToken")
+	g.declareToken("LessThanLessThanToken")
+	g.declareToken("GreaterThanGreaterThanToken")
+	g.declareToken("GreaterThanGreaterThanGreaterThanToken")
+	g.declareToken("AmpersandToken")
+	g.declareToken("BarToken")
+	g.declareToken("CaretToken")
+	g.declareToken("ExclamationToken")
+	g.declareToken("TildeToken")
+	g.declareToken("AmpersandAmpersandToken")
+	g.declareToken("BarBarToken")
+	g.declareToken("QuestionToken")
+	g.declareToken("ColonToken")
+	g.declareToken("AtToken")
+	g.declareToken("QuestionQuestionToken")
+	g.declareToken("BacktickToken")
+	g.declareToken("HashToken")
+	firstAssignment := g.declareToken("EqualsToken")
+	firstCompoundAssignment := g.declareToken("PlusEqualsToken")
+	g.declareToken("MinusEqualsToken")
+	g.declareToken("AsteriskEqualsToken")
+	g.declareToken("AsteriskAsteriskEqualsToken")
+	g.declareToken("SlashEqualsToken")
+	g.declareToken("PercentEqualsToken")
+	g.declareToken("LessThanLessThanEqualsToken")
+	g.declareToken("GreaterThanGreaterThanEqualsToken")
+	g.declareToken("GreaterThanGreaterThanGreaterThanEqualsToken")
+	g.declareToken("AmpersandEqualsToken")
+	g.declareToken("BarEqualsToken")
+	g.declareToken("BarBarEqualsToken")
+	g.declareToken("AmpersandAmpersandEqualsToken")
+	g.declareToken("QuestionQuestionEqualsToken")
+	lastPunctuation := g.declareToken("CaretEqualsToken")
 	lastAssignment := lastPunctuation
 	lastCompoundAssignment := lastPunctuation
 	lastBinaryOperator := lastPunctuation
 
-	g.declare("Identifier", &declOptions{
+	g.declareNode("Identifier", &nodeOpts{
 		poolAllocate: true,
 	})
-	g.declare("PrivateIdentifier", &declOptions{})
-	g.declareKindOnly("JSDocCommentTextToken") // TODO: why is this here??
+	g.declareNode("PrivateIdentifier", &nodeOpts{})
+	g.declareToken("JSDocCommentTextToken") // TODO: why is this here??
 
-	firstReservedWord := g.declareKindOnly("BreakKeyword")
+	firstReservedWord := g.declareToken("BreakKeyword")
 	// Reserved words
 	firstKeyword := firstReservedWord
-	g.declareKindOnly("CaseKeyword")
-	g.declareKindOnly("CatchKeyword")
-	g.declareKindOnly("ClassKeyword")
-	g.declareKindOnly("ConstKeyword")
-	g.declareKindOnly("ContinueKeyword")
-	g.declareKindOnly("DebuggerKeyword")
-	g.declareKindOnly("DefaultKeyword")
-	g.declareKindOnly("DeleteKeyword")
-	g.declareKindOnly("DoKeyword")
-	g.declareKindOnly("ElseKeyword")
-	g.declareKindOnly("EnumKeyword")
-	g.declareKindOnly("ExportKeyword")
-	g.declareKindOnly("ExtendsKeyword")
-	g.declareKindOnly("FalseKeyword")
-	g.declareKindOnly("FinallyKeyword")
-	g.declareKindOnly("ForKeyword")
-	g.declareKindOnly("FunctionKeyword")
-	g.declareKindOnly("IfKeyword")
-	g.declareKindOnly("ImportKeyword")
-	g.declareKindOnly("InKeyword")
-	g.declareKindOnly("InstanceOfKeyword")
-	g.declareKindOnly("NewKeyword")
-	g.declareKindOnly("NullKeyword")
-	g.declareKindOnly("ReturnKeyword")
-	g.declareKindOnly("SuperKeyword")
-	g.declareKindOnly("SwitchKeyword")
-	g.declareKindOnly("ThisKeyword")
-	g.declareKindOnly("ThrowKeyword")
-	g.declareKindOnly("TrueKeyword")
-	g.declareKindOnly("TryKeyword")
-	g.declareKindOnly("TypeOfKeyword")
-	g.declareKindOnly("VarKeyword")
-	g.declareKindOnly("VoidKeyword")
-	g.declareKindOnly("WhileKeyword")
-	lastReservedWord := g.declareKindOnly("WithKeyword")
+	g.declareToken("CaseKeyword")
+	g.declareToken("CatchKeyword")
+	g.declareToken("ClassKeyword")
+	g.declareToken("ConstKeyword")
+	g.declareToken("ContinueKeyword")
+	g.declareToken("DebuggerKeyword")
+	g.declareToken("DefaultKeyword")
+	g.declareToken("DeleteKeyword")
+	g.declareToken("DoKeyword")
+	g.declareToken("ElseKeyword")
+	g.declareToken("EnumKeyword")
+	g.declareToken("ExportKeyword")
+	g.declareToken("ExtendsKeyword")
+	g.declareToken("FalseKeyword")
+	g.declareToken("FinallyKeyword")
+	g.declareToken("ForKeyword")
+	g.declareToken("FunctionKeyword")
+	g.declareToken("IfKeyword")
+	g.declareToken("ImportKeyword")
+	g.declareToken("InKeyword")
+	g.declareToken("InstanceOfKeyword")
+	g.declareToken("NewKeyword")
+	g.declareToken("NullKeyword")
+	g.declareToken("ReturnKeyword")
+	g.declareToken("SuperKeyword")
+	g.declareToken("SwitchKeyword")
+	g.declareToken("ThisKeyword")
+	g.declareToken("ThrowKeyword")
+	g.declareToken("TrueKeyword")
+	g.declareToken("TryKeyword")
+	g.declareToken("TypeOfKeyword")
+	g.declareToken("VarKeyword")
+	g.declareToken("VoidKeyword")
+	g.declareToken("WhileKeyword")
+	lastReservedWord := g.declareToken("WithKeyword")
 
 	// Strict mode reserved words
-	firstFutureReservedWord := g.declareKindOnly("ImplementsKeyword")
-	g.declareKindOnly("InterfaceKeyword")
-	g.declareKindOnly("LetKeyword")
-	g.declareKindOnly("PackageKeyword")
-	g.declareKindOnly("PrivateKeyword")
-	g.declareKindOnly("ProtectedKeyword")
-	g.declareKindOnly("PublicKeyword")
-	g.declareKindOnly("StaticKeyword")
-	lastFutureReservedWord := g.declareKindOnly("YieldKeyword")
+	firstFutureReservedWord := g.declareToken("ImplementsKeyword")
+	g.declareToken("InterfaceKeyword")
+	g.declareToken("LetKeyword")
+	g.declareToken("PackageKeyword")
+	g.declareToken("PrivateKeyword")
+	g.declareToken("ProtectedKeyword")
+	g.declareToken("PublicKeyword")
+	g.declareToken("StaticKeyword")
+	lastFutureReservedWord := g.declareToken("YieldKeyword")
 
 	// Contextual keywords
-	firstContextualKeyword := g.declareKindOnly("AbstractKeyword")
-	g.declareKindOnly("AccessorKeyword")
-	g.declareKindOnly("AsKeyword")
-	g.declareKindOnly("AssertsKeyword")
-	g.declareKindOnly("AssertKeyword")
-	g.declareKindOnly("AnyKeyword")
-	g.declareKindOnly("AsyncKeyword")
-	g.declareKindOnly("AwaitKeyword")
-	g.declareKindOnly("BooleanKeyword")
-	g.declareKindOnly("ConstructorKeyword")
-	g.declareKindOnly("DeclareKeyword")
-	g.declareKindOnly("GetKeyword")
-	g.declareKindOnly("ImmediateKeyword")
-	g.declareKindOnly("InferKeyword")
-	g.declareKindOnly("IntrinsicKeyword")
-	g.declareKindOnly("IsKeyword")
-	g.declareKindOnly("KeyOfKeyword")
-	g.declareKindOnly("ModuleKeyword")
-	g.declareKindOnly("NamespaceKeyword")
-	g.declareKindOnly("NeverKeyword")
-	g.declareKindOnly("OutKeyword")
-	g.declareKindOnly("ReadonlyKeyword")
-	g.declareKindOnly("RequireKeyword")
-	g.declareKindOnly("NumberKeyword")
-	g.declareKindOnly("ObjectKeyword")
-	g.declareKindOnly("SatisfiesKeyword")
-	g.declareKindOnly("SetKeyword")
-	g.declareKindOnly("StringKeyword")
-	g.declareKindOnly("SymbolKeyword")
-	g.declareKindOnly("TypeKeyword")
-	g.declareKindOnly("UndefinedKeyword")
-	g.declareKindOnly("UniqueKeyword")
-	g.declareKindOnly("UnknownKeyword")
-	g.declareKindOnly("UsingKeyword")
-	g.declareKindOnly("FromKeyword")
-	g.declareKindOnly("GlobalKeyword")
-	g.declareKindOnly("BigIntKeyword")
-	g.declareKindOnly("OverrideKeyword")
-	lastKeyword := g.declareKindOnly("OfKeyword")
+	firstContextualKeyword := g.declareToken("AbstractKeyword")
+	g.declareToken("AccessorKeyword")
+	g.declareToken("AsKeyword")
+	g.declareToken("AssertsKeyword")
+	g.declareToken("AssertKeyword")
+	g.declareToken("AnyKeyword")
+	g.declareToken("AsyncKeyword")
+	g.declareToken("AwaitKeyword")
+	g.declareToken("BooleanKeyword")
+	g.declareToken("ConstructorKeyword")
+	g.declareToken("DeclareKeyword")
+	g.declareToken("GetKeyword")
+	g.declareToken("ImmediateKeyword")
+	g.declareToken("InferKeyword")
+	g.declareToken("IntrinsicKeyword")
+	g.declareToken("IsKeyword")
+	g.declareToken("KeyOfKeyword")
+	g.declareToken("ModuleKeyword")
+	g.declareToken("NamespaceKeyword")
+	g.declareToken("NeverKeyword")
+	g.declareToken("OutKeyword")
+	g.declareToken("ReadonlyKeyword")
+	g.declareToken("RequireKeyword")
+	g.declareToken("NumberKeyword")
+	g.declareToken("ObjectKeyword")
+	g.declareToken("SatisfiesKeyword")
+	g.declareToken("SetKeyword")
+	g.declareToken("StringKeyword")
+	g.declareToken("SymbolKeyword")
+	g.declareToken("TypeKeyword")
+	g.declareToken("UndefinedKeyword")
+	g.declareToken("UniqueKeyword")
+	g.declareToken("UnknownKeyword")
+	g.declareToken("UsingKeyword")
+	g.declareToken("FromKeyword")
+	g.declareToken("GlobalKeyword")
+	g.declareToken("BigIntKeyword")
+	g.declareToken("OverrideKeyword")
+	lastKeyword := g.declareToken("OfKeyword")
 	lastToken := lastKeyword
 	lastContextualKeyword := lastKeyword
 
 	// Parse tree nodes
 	// Names
-	firstNode := g.declare("QualifiedName", &declOptions{})
-	g.declare("ComputedPropertyName", &declOptions{})
+	firstNode := g.declareNode("QualifiedName", &nodeOpts{})
+	g.declareNode("ComputedPropertyName", &nodeOpts{})
 
 	// Lists
-	g.declare("ModifierList", &declOptions{})
-	g.declare("TypeParameterList", &declOptions{})
-	g.declare("TypeArgumentList", &declOptions{})
+	g.declareNode("ModifierList", &nodeOpts{})
+	g.declareNode("TypeParameterList", &nodeOpts{})
+	g.declareNode("TypeArgumentList", &nodeOpts{})
 
 	// Signature elements
-	g.declare("TypeParameter", &declOptions{})
-	g.declare("Parameter", &declOptions{})
-	g.declare("Decorator", &declOptions{})
+	g.declareNode("TypeParameter", &nodeOpts{})
+	g.declareNode("Parameter", &nodeOpts{})
+	g.declareNode("Decorator", &nodeOpts{})
 
 	// TypeMember
-	g.declare("PropertySignature", &declOptions{})
-	g.declare("PropertyDeclaration", &declOptions{})
-	g.declare("MethodSignature", &declOptions{})
-	g.declare("MethodDeclaration", &declOptions{})
-	g.declare("ClassStaticBlockDeclaration", &declOptions{})
-	g.declare("Constructor", &declOptions{})
-	g.declare("GetAccessor", &declOptions{})
-	g.declare("SetAccessor", &declOptions{})
-	g.declare("CallSignature", &declOptions{})
-	g.declare("ConstructSignature", &declOptions{})
-	g.declare("IndexSignature", &declOptions{})
+	g.declareNode("PropertySignature", &nodeOpts{})
+	g.declareNode("PropertyDeclaration", &nodeOpts{})
+	g.declareNode("MethodSignature", &nodeOpts{})
+	g.declareNode("MethodDeclaration", &nodeOpts{})
+	g.declareNode("ClassStaticBlockDeclaration", &nodeOpts{})
+	g.declareNode("Constructor", &nodeOpts{})
+	g.declareNode("GetAccessor", &nodeOpts{})
+	g.declareNode("SetAccessor", &nodeOpts{})
+	g.declareNode("CallSignature", &nodeOpts{})
+	g.declareNode("ConstructSignature", &nodeOpts{})
+	g.declareNode("IndexSignature", &nodeOpts{})
 
 	// Type
-	firstTypeNode := g.declare("TypePredicate", &declOptions{})
-	g.declare("TypeReference", &declOptions{})
-	g.declare("FunctionType", &declOptions{})
-	g.declare("ConstructorType", &declOptions{})
-	g.declare("TypeQuery", &declOptions{})
-	g.declare("TypeLiteral", &declOptions{})
-	g.declare("ArrayType", &declOptions{})
-	g.declare("TupleType", &declOptions{})
-	g.declare("OptionalType", &declOptions{})
-	g.declare("RestType", &declOptions{})
-	g.declare("UnionType", &declOptions{})
-	g.declare("IntersectionType", &declOptions{})
-	g.declare("ConditionalType", &declOptions{})
-	g.declare("InferType", &declOptions{})
-	g.declare("ParenthesizedType", &declOptions{})
-	g.declare("ThisType", &declOptions{})
-	g.declare("TypeOperator", &declOptions{})
-	g.declare("IndexedAccessType", &declOptions{})
-	g.declare("MappedType", &declOptions{})
-	g.declare("LiteralType", &declOptions{})
-	g.declare("NamedTupleMember", &declOptions{})
-	g.declare("TemplateLiteralType", &declOptions{})
-	g.declare("TemplateLiteralTypeSpan", &declOptions{})
-	lastTypeNode := g.declare("ImportType", &declOptions{})
+	firstTypeNode := g.declareNode("TypePredicate", &nodeOpts{})
+	g.declareNode("TypeReference", &nodeOpts{})
+	g.declareNode("FunctionType", &nodeOpts{})
+	g.declareNode("ConstructorType", &nodeOpts{})
+	g.declareNode("TypeQuery", &nodeOpts{})
+	g.declareNode("TypeLiteral", &nodeOpts{})
+	g.declareNode("ArrayType", &nodeOpts{})
+	g.declareNode("TupleType", &nodeOpts{})
+	g.declareNode("OptionalType", &nodeOpts{})
+	g.declareNode("RestType", &nodeOpts{})
+	g.declareNode("UnionType", &nodeOpts{})
+	g.declareNode("IntersectionType", &nodeOpts{})
+	g.declareNode("ConditionalType", &nodeOpts{})
+	g.declareNode("InferType", &nodeOpts{})
+	g.declareNode("ParenthesizedType", &nodeOpts{})
+	g.declareNode("ThisType", &nodeOpts{})
+	g.declareNode("TypeOperator", &nodeOpts{})
+	g.declareNode("IndexedAccessType", &nodeOpts{})
+	g.declareNode("MappedType", &nodeOpts{})
+	g.declareNode("LiteralType", &nodeOpts{})
+	g.declareNode("NamedTupleMember", &nodeOpts{})
+	g.declareNode("TemplateLiteralType", &nodeOpts{})
+	g.declareNode("TemplateLiteralTypeSpan", &nodeOpts{})
+	lastTypeNode := g.declareNode("ImportType", &nodeOpts{})
 
 	// Binding patterns
-	g.declare("ObjectBindingPattern", &declOptions{})
-	g.declare("ArrayBindingPattern", &declOptions{})
-	g.declare("BindingElement", &declOptions{})
+	g.declareNode("ObjectBindingPattern", &nodeOpts{})
+	g.declareNode("ArrayBindingPattern", &nodeOpts{})
+	g.declareNode("BindingElement", &nodeOpts{})
 
 	// Expression
-	g.declare("ArrayLiteralExpression", &declOptions{})
-	g.declare("ObjectLiteralExpression", &declOptions{})
-	propertyAccessExpression := g.declare("PropertyAccessExpression", &declOptions{})
-	elementAccessExpression := g.declare("ElementAccessExpression", &declOptions{})
-	g.declare("CallExpression", &declOptions{})
-	g.declare("NewExpression", &declOptions{})
-	g.declare("TaggedTemplateExpression", &declOptions{})
-	g.declare("TypeAssertionExpression", &declOptions{})
-	g.declare("ParenthesizedExpression", &declOptions{})
-	g.declare("FunctionExpression", &declOptions{})
-	g.declare("ArrowFunction", &declOptions{})
-	g.declare("DeleteExpression", &declOptions{})
-	g.declare("TypeOfExpression", &declOptions{})
-	g.declare("VoidExpression", &declOptions{})
-	g.declare("AwaitExpression", &declOptions{})
-	g.declare("PrefixUnaryExpression", &declOptions{})
-	g.declare("PostfixUnaryExpression", &declOptions{})
-	g.declare("BinaryExpression", &declOptions{})
-	g.declare("ConditionalExpression", &declOptions{})
-	g.declare("TemplateExpression", &declOptions{})
-	g.declare("YieldExpression", &declOptions{})
-	g.declare("SpreadElement", &declOptions{})
-	g.declare("ClassExpression", &declOptions{})
-	g.declare("OmittedExpression", &declOptions{})
-	g.declare("ExpressionWithTypeArguments", &declOptions{})
-	g.declare("AsExpression", &declOptions{})
-	g.declare("NonNullExpression", &declOptions{})
-	g.declare("MetaProperty", &declOptions{})
-	g.declare("SyntheticExpression", &declOptions{})
-	g.declare("SatisfiesExpression", &declOptions{})
+	g.declareNode("ArrayLiteralExpression", &nodeOpts{})
+	g.declareNode("ObjectLiteralExpression", &nodeOpts{})
+	propertyAccessExpression := g.declareNode("PropertyAccessExpression", &nodeOpts{})
+	elementAccessExpression := g.declareNode("ElementAccessExpression", &nodeOpts{})
+	g.declareNode("CallExpression", &nodeOpts{})
+	g.declareNode("NewExpression", &nodeOpts{})
+	g.declareNode("TaggedTemplateExpression", &nodeOpts{})
+	g.declareNode("TypeAssertionExpression", &nodeOpts{})
+	g.declareNode("ParenthesizedExpression", &nodeOpts{})
+	g.declareNode("FunctionExpression", &nodeOpts{})
+	g.declareNode("ArrowFunction", &nodeOpts{})
+	g.declareNode("DeleteExpression", &nodeOpts{})
+	g.declareNode("TypeOfExpression", &nodeOpts{})
+	g.declareNode("VoidExpression", &nodeOpts{})
+	g.declareNode("AwaitExpression", &nodeOpts{})
+	g.declareNode("PrefixUnaryExpression", &nodeOpts{})
+	g.declareNode("PostfixUnaryExpression", &nodeOpts{})
+	g.declareNode("BinaryExpression", &nodeOpts{})
+	g.declareNode("ConditionalExpression", &nodeOpts{})
+	g.declareNode("TemplateExpression", &nodeOpts{})
+	g.declareNode("YieldExpression", &nodeOpts{})
+	g.declareNode("SpreadElement", &nodeOpts{})
+	g.declareNode("ClassExpression", &nodeOpts{})
+	g.declareNode("OmittedExpression", &nodeOpts{})
+	g.declareNode("ExpressionWithTypeArguments", &nodeOpts{})
+	g.declareNode("AsExpression", &nodeOpts{})
+	g.declareNode("NonNullExpression", &nodeOpts{})
+	g.declareNode("MetaProperty", &nodeOpts{})
+	g.declareNode("SyntheticExpression", &nodeOpts{})
+	g.declareNode("SatisfiesExpression", &nodeOpts{})
 
 	// Misc
-	g.declare("TemplateSpan", &declOptions{})
-	g.declare("SemicolonClassElement", &declOptions{})
+	g.declareNode("TemplateSpan", &nodeOpts{})
+	g.declareNode("SemicolonClassElement", &nodeOpts{})
 
 	// Element
-	g.declare("Block", &declOptions{})
-	g.declare("EmptyStatement", &declOptions{})
-	g.declare("VariableStatement", &declOptions{})
-	g.declare("ExpressionStatement", &declOptions{})
-	g.declare("IfStatement", &declOptions{})
-	g.declare("DoStatement", &declOptions{})
-	g.declare("WhileStatement", &declOptions{})
-	g.declare("ForStatement", &declOptions{})
-	g.declare("ForInStatement", &declOptions{})
-	g.declare("ForOfStatement", &declOptions{})
-	g.declare("ContinueStatement", &declOptions{})
-	g.declare("BreakStatement", &declOptions{})
-	g.declare("ReturnStatement", &declOptions{})
-	g.declare("WithStatement", &declOptions{})
-	g.declare("SwitchStatement", &declOptions{})
-	g.declare("LabeledStatement", &declOptions{})
-	g.declare("ThrowStatement", &declOptions{})
-	g.declare("TryStatement", &declOptions{})
-	g.declare("DebuggerStatement", &declOptions{})
-	g.declare("VariableDeclaration", &declOptions{})
-	g.declare("VariableDeclarationList", &declOptions{})
-	g.declare("FunctionDeclaration", &declOptions{})
-	g.declare("ClassDeclaration", &declOptions{})
-	g.declare("InterfaceDeclaration", &declOptions{})
-	g.declare("TypeAliasDeclaration", &declOptions{})
-	g.declare("EnumDeclaration", &declOptions{})
-	g.declare("ModuleDeclaration", &declOptions{})
-	g.declare("ModuleBlock", &declOptions{})
-	g.declare("CaseBlock", &declOptions{})
-	g.declare("NamespaceExportDeclaration", &declOptions{})
-	g.declare("ImportEqualsDeclaration", &declOptions{})
-	g.declare("ImportDeclaration", &declOptions{})
-	g.declare("ImportClause", &declOptions{})
-	g.declare("NamespaceImport", &declOptions{})
-	g.declare("NamedImports", &declOptions{})
-	g.declare("ImportSpecifier", &declOptions{})
-	g.declare("ExportAssignment", &declOptions{})
-	g.declare("ExportDeclaration", &declOptions{})
-	g.declare("NamedExports", &declOptions{})
-	g.declare("NamespaceExport", &declOptions{})
-	g.declare("ExportSpecifier", &declOptions{})
-	g.declare("MissingDeclaration", &declOptions{})
+	g.declareNode("Block", &nodeOpts{})
+	g.declareNode("EmptyStatement", &nodeOpts{})
+	g.declareNode("VariableStatement", &nodeOpts{})
+	g.declareNode("ExpressionStatement", &nodeOpts{})
+	g.declareNode("IfStatement", &nodeOpts{})
+	g.declareNode("DoStatement", &nodeOpts{})
+	g.declareNode("WhileStatement", &nodeOpts{})
+	g.declareNode("ForStatement", &nodeOpts{})
+	g.declareNode("ForInStatement", &nodeOpts{})
+	g.declareNode("ForOfStatement", &nodeOpts{})
+	g.declareNode("ContinueStatement", &nodeOpts{})
+	g.declareNode("BreakStatement", &nodeOpts{})
+	g.declareNode("ReturnStatement", &nodeOpts{})
+	g.declareNode("WithStatement", &nodeOpts{})
+	g.declareNode("SwitchStatement", &nodeOpts{})
+	g.declareNode("LabeledStatement", &nodeOpts{})
+	g.declareNode("ThrowStatement", &nodeOpts{})
+	g.declareNode("TryStatement", &nodeOpts{})
+	g.declareNode("DebuggerStatement", &nodeOpts{})
+	g.declareNode("VariableDeclaration", &nodeOpts{})
+	g.declareNode("VariableDeclarationList", &nodeOpts{})
+	g.declareNode("FunctionDeclaration", &nodeOpts{})
+	g.declareNode("ClassDeclaration", &nodeOpts{})
+	g.declareNode("InterfaceDeclaration", &nodeOpts{})
+	g.declareNode("TypeAliasDeclaration", &nodeOpts{})
+	g.declareNode("EnumDeclaration", &nodeOpts{})
+	g.declareNode("ModuleDeclaration", &nodeOpts{})
+	g.declareNode("ModuleBlock", &nodeOpts{})
+	g.declareNode("CaseBlock", &nodeOpts{})
+	g.declareNode("NamespaceExportDeclaration", &nodeOpts{})
+	g.declareNode("ImportEqualsDeclaration", &nodeOpts{})
+	g.declareNode("ImportDeclaration", &nodeOpts{})
+	g.declareNode("ImportClause", &nodeOpts{})
+	g.declareNode("NamespaceImport", &nodeOpts{})
+	g.declareNode("NamedImports", &nodeOpts{})
+	g.declareNode("ImportSpecifier", &nodeOpts{})
+	g.declareNode("ExportAssignment", &nodeOpts{})
+	g.declareNode("ExportDeclaration", &nodeOpts{})
+	g.declareNode("NamedExports", &nodeOpts{})
+	g.declareNode("NamespaceExport", &nodeOpts{})
+	g.declareNode("ExportSpecifier", &nodeOpts{})
+	g.declareNode("MissingDeclaration", &nodeOpts{})
 
 	// Module references
-	g.declare("ExternalModuleReference", &declOptions{})
+	g.declareNode("ExternalModuleReference", &nodeOpts{})
 
 	// JSX
-	g.declare("JsxElement", &declOptions{})
-	g.declare("JsxSelfClosingElement", &declOptions{})
-	g.declare("JsxOpeningElement", &declOptions{})
-	g.declare("JsxClosingElement", &declOptions{})
-	g.declare("JsxFragment", &declOptions{})
-	g.declare("JsxOpeningFragment", &declOptions{})
-	g.declare("JsxClosingFragment", &declOptions{})
-	g.declare("JsxAttribute", &declOptions{})
-	g.declare("JsxAttributes", &declOptions{})
-	g.declare("JsxSpreadAttribute", &declOptions{})
-	g.declare("JsxExpression", &declOptions{})
-	g.declare("JsxNamespacedName", &declOptions{})
+	g.declareNode("JsxElement", &nodeOpts{})
+	g.declareNode("JsxSelfClosingElement", &nodeOpts{})
+	g.declareNode("JsxOpeningElement", &nodeOpts{})
+	g.declareNode("JsxClosingElement", &nodeOpts{})
+	g.declareNode("JsxFragment", &nodeOpts{})
+	g.declareNode("JsxOpeningFragment", &nodeOpts{})
+	g.declareNode("JsxClosingFragment", &nodeOpts{})
+	g.declareNode("JsxAttribute", &nodeOpts{})
+	g.declareNode("JsxAttributes", &nodeOpts{})
+	g.declareNode("JsxSpreadAttribute", &nodeOpts{})
+	g.declareNode("JsxExpression", &nodeOpts{})
+	g.declareNode("JsxNamespacedName", &nodeOpts{})
 
 	// Clauses
-	g.declare("CaseClause", &declOptions{})
-	g.declare("DefaultClause", &declOptions{})
-	g.declare("HeritageClause", &declOptions{})
-	g.declare("CatchClause", &declOptions{})
+	g.declareNode("CaseClause", &nodeOpts{})
+	g.declareNode("DefaultClause", &nodeOpts{})
+	g.declareNode("HeritageClause", &nodeOpts{})
+	g.declareNode("CatchClause", &nodeOpts{})
 
 	// Import attributes
-	g.declare("ImportAttributes", &declOptions{})
-	g.declare("ImportAttribute", &declOptions{})
+	g.declareNode("ImportAttributes", &nodeOpts{})
+	g.declareNode("ImportAttribute", &nodeOpts{})
 
 	// Property assignments
-	g.declare("PropertyAssignment", &declOptions{})
-	g.declare("ShorthandPropertyAssignment", &declOptions{})
-	g.declare("SpreadAssignment", &declOptions{})
+	g.declareNode("PropertyAssignment", &nodeOpts{})
+	g.declareNode("ShorthandPropertyAssignment", &nodeOpts{})
+	g.declareNode("SpreadAssignment", &nodeOpts{})
 
 	// Enum
-	g.declare("EnumMember", &declOptions{})
+	g.declareNode("EnumMember", &nodeOpts{})
 
 	// Top-level nodes
-	g.declare("SourceFile", &declOptions{})
-	g.declare("Bundle", &declOptions{})
+	g.declareNode("SourceFile", &nodeOpts{})
+	g.declareNode("Bundle", &nodeOpts{})
 
 	// JSDoc nodes
-	firstJSDocNode := g.declare("JSDocTypeExpression", &declOptions{})
-	g.declare("JSDocNameReference", &declOptions{})
-	g.declare("JSDocMemberName", &declOptions{})  // C#p
-	g.declare("JSDocAllType", &declOptions{})     // The * type
-	g.declare("JSDocUnknownType", &declOptions{}) // The ? type
-	g.declare("JSDocNullableType", &declOptions{})
-	g.declare("JSDocNonNullableType", &declOptions{})
-	g.declare("JSDocOptionalType", &declOptions{})
-	g.declare("JSDocFunctionType", &declOptions{})
-	g.declare("JSDocVariadicType", &declOptions{})
-	g.declare("JSDocNamepathType", &declOptions{}) // https://jsdoc.app/about-namepaths.html
-	g.declare("JSDoc", &declOptions{})
-	g.declare("JSDocText", &declOptions{})
-	g.declare("JSDocTypeLiteral", &declOptions{})
-	g.declare("JSDocSignature", &declOptions{})
-	g.declare("JSDocLink", &declOptions{})
-	g.declare("JSDocLinkCode", &declOptions{})
-	g.declare("JSDocLinkPlain", &declOptions{})
-	firstJSDocTagNode := g.declare("JSDocTag", &declOptions{})
-	g.declare("JSDocAugmentsTag", &declOptions{})
-	g.declare("JSDocImplementsTag", &declOptions{})
-	g.declare("JSDocAuthorTag", &declOptions{})
-	g.declare("JSDocDeprecatedTag", &declOptions{})
-	g.declare("JSDocImmediateTag", &declOptions{})
-	g.declare("JSDocClassTag", &declOptions{})
-	g.declare("JSDocPublicTag", &declOptions{})
-	g.declare("JSDocPrivateTag", &declOptions{})
-	g.declare("JSDocProtectedTag", &declOptions{})
-	g.declare("JSDocReadonlyTag", &declOptions{})
-	g.declare("JSDocOverrideTag", &declOptions{})
-	g.declare("JSDocCallbackTag", &declOptions{})
-	g.declare("JSDocOverloadTag", &declOptions{})
-	g.declare("JSDocEnumTag", &declOptions{})
-	g.declare("JSDocParameterTag", &declOptions{})
-	g.declare("JSDocReturnTag", &declOptions{})
-	g.declare("JSDocThisTag", &declOptions{})
-	g.declare("JSDocTypeTag", &declOptions{})
-	g.declare("JSDocTemplateTag", &declOptions{})
-	g.declare("JSDocTypedefTag", &declOptions{})
-	g.declare("JSDocSeeTag", &declOptions{})
-	g.declare("JSDocPropertyTag", &declOptions{})
-	g.declare("JSDocThrowsTag", &declOptions{})
-	g.declare("JSDocSatisfiesTag", &declOptions{})
-	lastJSDocNode := g.declare("JSDocImportTag", &declOptions{})
+	firstJSDocNode := g.declareNode("JSDocTypeExpression", &nodeOpts{})
+	g.declareNode("JSDocNameReference", &nodeOpts{})
+	g.declareNode("JSDocMemberName", &nodeOpts{})  // C#p
+	g.declareNode("JSDocAllType", &nodeOpts{})     // The * type
+	g.declareNode("JSDocUnknownType", &nodeOpts{}) // The ? type
+	g.declareNode("JSDocNullableType", &nodeOpts{})
+	g.declareNode("JSDocNonNullableType", &nodeOpts{})
+	g.declareNode("JSDocOptionalType", &nodeOpts{})
+	g.declareNode("JSDocFunctionType", &nodeOpts{})
+	g.declareNode("JSDocVariadicType", &nodeOpts{})
+	g.declareNode("JSDocNamepathType", &nodeOpts{}) // https://jsdoc.app/about-namepaths.html
+	g.declareNode("JSDoc", &nodeOpts{})
+	g.declareNode("JSDocText", &nodeOpts{})
+	g.declareNode("JSDocTypeLiteral", &nodeOpts{})
+	g.declareNode("JSDocSignature", &nodeOpts{})
+	g.declareNode("JSDocLink", &nodeOpts{})
+	g.declareNode("JSDocLinkCode", &nodeOpts{})
+	g.declareNode("JSDocLinkPlain", &nodeOpts{})
+	firstJSDocTagNode := g.declareNode("JSDocTag", &nodeOpts{})
+	g.declareNode("JSDocAugmentsTag", &nodeOpts{})
+	g.declareNode("JSDocImplementsTag", &nodeOpts{})
+	g.declareNode("JSDocAuthorTag", &nodeOpts{})
+	g.declareNode("JSDocDeprecatedTag", &nodeOpts{})
+	g.declareNode("JSDocImmediateTag", &nodeOpts{})
+	g.declareNode("JSDocClassTag", &nodeOpts{})
+	g.declareNode("JSDocPublicTag", &nodeOpts{})
+	g.declareNode("JSDocPrivateTag", &nodeOpts{})
+	g.declareNode("JSDocProtectedTag", &nodeOpts{})
+	g.declareNode("JSDocReadonlyTag", &nodeOpts{})
+	g.declareNode("JSDocOverrideTag", &nodeOpts{})
+	g.declareNode("JSDocCallbackTag", &nodeOpts{})
+	g.declareNode("JSDocOverloadTag", &nodeOpts{})
+	g.declareNode("JSDocEnumTag", &nodeOpts{})
+	g.declareNode("JSDocParameterTag", &nodeOpts{})
+	g.declareNode("JSDocReturnTag", &nodeOpts{})
+	g.declareNode("JSDocThisTag", &nodeOpts{})
+	g.declareNode("JSDocTypeTag", &nodeOpts{})
+	g.declareNode("JSDocTemplateTag", &nodeOpts{})
+	g.declareNode("JSDocTypedefTag", &nodeOpts{})
+	g.declareNode("JSDocSeeTag", &nodeOpts{})
+	g.declareNode("JSDocPropertyTag", &nodeOpts{})
+	g.declareNode("JSDocThrowsTag", &nodeOpts{})
+	g.declareNode("JSDocSatisfiesTag", &nodeOpts{})
+	lastJSDocNode := g.declareNode("JSDocImportTag", &nodeOpts{})
 	lastJSDocTagNode := lastJSDocNode
 
 	// Synthesized list
-	g.declare("SyntaxList", &declOptions{})
+	g.declareNode("SyntaxList", &nodeOpts{})
 
 	// Transformation nodes
-	g.declare("NotEmittedStatement", &declOptions{})
-	g.declare("PartiallyEmittedExpression", &declOptions{})
-	g.declare("CommaListExpression", &declOptions{})
-	g.declare("SyntheticReferenceExpression", &declOptions{})
+	g.declareNode("NotEmittedStatement", &nodeOpts{})
+	g.declareNode("PartiallyEmittedExpression", &nodeOpts{})
+	g.declareNode("CommaListExpression", &nodeOpts{})
+	g.declareNode("SyntheticReferenceExpression", &nodeOpts{})
 
 	// Markers
 
-	g.createGroup("Assignment", firstAssignment, lastAssignment)
-	g.createGroup("CompoundAssignment", firstCompoundAssignment, lastCompoundAssignment)
-	g.createGroup("ReservedWord", firstReservedWord, lastReservedWord)
-	g.createGroup("Keyword", firstKeyword, lastKeyword)
-	g.createGroup("FutureReservedWord", firstFutureReservedWord, lastFutureReservedWord)
-	g.createGroup("TypeNode", firstTypeNode, lastTypeNode)
-	g.createGroup("Punctuation", firstPunctuation, lastPunctuation)
-	g.createGroup("Token", firstToken, lastToken)
-	g.createGroup("LiteralToken", firstLiteralToken, lastLiteralToken)
-	g.createGroup("TemplateToken", firstTemplateToken, lastTemplateToken)
-	g.createGroup("BinaryOperator", firstBinaryOperator, lastBinaryOperator)
-	g.createGroup("Node", firstNode, g.nodes[len(g.nodes)-1])
-	g.createGroup("JSDocNode", firstJSDocNode, lastJSDocNode)
-	g.createGroup("JSDocTagNode", firstJSDocTagNode, lastJSDocTagNode)
-	g.createGroup("ContextualKeyword", firstContextualKeyword, lastContextualKeyword)
+	g.newMarker("Assignment", firstAssignment, lastAssignment)
+	g.newMarker("CompoundAssignment", firstCompoundAssignment, lastCompoundAssignment)
+	g.newMarker("ReservedWord", firstReservedWord, lastReservedWord)
+	g.newMarker("Keyword", firstKeyword, lastKeyword)
+	g.newMarker("FutureReservedWord", firstFutureReservedWord, lastFutureReservedWord)
+	g.newMarker("TypeNode", firstTypeNode, lastTypeNode)
+	g.newMarker("Punctuation", firstPunctuation, lastPunctuation)
+	g.newMarker("Token", firstToken, lastToken)
+	g.newMarker("LiteralToken", firstLiteralToken, lastLiteralToken)
+	g.newMarker("TemplateToken", firstTemplateToken, lastTemplateToken)
+	g.newMarker("BinaryOperator", firstBinaryOperator, lastBinaryOperator)
+	g.newMarker("Node", firstNode, g.syntaxKinds[len(g.syntaxKinds)-1])
+	g.newMarker("JSDocNode", firstJSDocNode, lastJSDocNode)
+	g.newMarker("JSDocTagNode", firstJSDocTagNode, lastJSDocTagNode)
+	g.newMarker("ContextualKeyword", firstContextualKeyword, lastContextualKeyword)
 
+	g.newNodeUnion("AccessExpression", propertyAccessExpression, elementAccessExpression)
+}
+
+type generator struct {
+	syntaxKinds []*syntaxKind
+	unions      []*nodeUnion
+	markers     []*marker
+}
+
+type marker struct {
+	name  string
+	start *syntaxKind
+	end   *syntaxKind
+}
+
+func (g *generator) newMarker(name string, start, end *syntaxKind) {
+	g.markers = append(g.markers, &marker{name: name, start: start, end: end})
+}
+
+type nodeOpts struct {
+	poolAllocate bool
+
+	embedded any
+
+	children []field
+}
+
+type field struct {
+	name string
+	typ  genType
+}
+
+func (g *generator) declareToken(name string) *syntaxKind {
+	return g.declareNode(name, nil)
+}
+
+func (g *generator) declareNode(name string, opts *nodeOpts) *syntaxKind {
+	n := &syntaxKind{
+		name: name,
+		opts: opts,
+	}
+	g.syntaxKinds = append(g.syntaxKinds, n)
+	return n
+}
+
+type genType interface {
+	Name() string
+}
+
+type goType struct {
+	name string
+}
+
+func (t *goType) Name() string { return t.name }
+
+var (
+	stringType = &goType{name: "string"}
+	anyType    = &goType{name: "any"}
+	boolType   = &goType{name: "bool"}
+)
+
+type nodeUnion struct {
+	name  string
+	types []*syntaxKind
+}
+
+var _ genType = (*nodeUnion)(nil)
+
+func (u *nodeUnion) Name() string { return u.name }
+
+func (g *generator) newNodeUnion(name string, types ...*syntaxKind) *nodeUnion {
+	u := &nodeUnion{name: name, types: types}
+	g.unions = append(g.unions, u)
+	return u
+}
+
+type syntaxKind struct {
+	name   string
+	opts   *nodeOpts // nil if a token
+	fields []field
+}
+
+var _ genType = (*syntaxKind)(nil)
+
+func (n *syntaxKind) Name() string { return n.name }
+
+// Code generation
+
+func (g *generator) generate(w io.Writer) {
 	fmt.Fprintln(w, "package ast")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "import \"fmt\"")
@@ -491,7 +580,7 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "const (")
 
-	for i, n := range g.nodes {
+	for i, n := range g.syntaxKinds {
 		if i == 0 {
 			fmt.Fprintf(w, "\tSyntaxKind%s SyntaxKind = iota\n", n.name)
 		} else {
@@ -503,7 +592,7 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w, "\tSyntaxKindCount")
 	fmt.Fprintln(w)
 
-	for _, g := range g.groups {
+	for _, g := range g.markers {
 		fmt.Fprintf(w, "\t%sStart = SyntaxKind%s\n", g.name, g.start.name)
 		fmt.Fprintf(w, "\t%sEnd = SyntaxKind%s\n", g.name, g.end.name)
 	}
@@ -512,7 +601,7 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "var syntaxKindNames = [SyntaxKindCount+1]string{")
-	for _, n := range g.nodes {
+	for _, n := range g.syntaxKinds {
 		fmt.Fprintf(w, "\tSyntaxKind%s: %q,\n", n.name, n.name)
 	}
 	fmt.Fprintln(w, "\tSyntaxKindCount: \"SyntaxKindCount\",")
@@ -573,7 +662,7 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w)
 
 	fmt.Fprintln(w, "type Factory struct { // TODO")
-	for _, n := range g.nodes {
+	for _, n := range g.syntaxKinds {
 		if n.opts != nil && n.opts.poolAllocate {
 			fmt.Fprintf(w, "\t_%sPool pool[%s]\n", n.name, n.name)
 		}
@@ -581,83 +670,13 @@ func declare(w io.Writer) {
 	fmt.Fprintln(w, "}")
 	fmt.Fprintln(w)
 
-	for _, n := range g.nodes {
-		n.Generate(w)
+	for _, n := range g.syntaxKinds {
+		g.generateNode(w, n)
 	}
 
-	accessExpression := newNodeUnion("AccessExpression", propertyAccessExpression, elementAccessExpression)
-	g.generateNodeUnion(w, accessExpression)
-}
-
-type generator struct {
-	nodes       []*syntaxKind
-	nodesByName map[string]*syntaxKind
-	groups      []*group
-}
-
-type group struct {
-	name  string
-	start *syntaxKind
-	end   *syntaxKind
-}
-
-func (g *generator) createGroup(name string, start, end *syntaxKind) {
-	g.groups = append(g.groups, &group{name: name, start: start, end: end})
-}
-
-type declOptions struct {
-	poolAllocate bool
-
-	embedded any
-
-	children []field
-}
-
-func (g *generator) declareKindOnly(name string) *syntaxKind {
-	return g.declare(name, nil)
-}
-
-func (g *generator) declare(name string, opts *declOptions) *syntaxKind {
-	if g.nodesByName == nil {
-		g.nodesByName = make(map[string]*syntaxKind)
+	for _, u := range g.unions {
+		g.generateNodeUnion(w, u)
 	}
-
-	n := &syntaxKind{
-		name: name,
-		opts: opts,
-	}
-	g.nodes = append(g.nodes, n)
-	g.nodesByName[name] = n
-	return n
-}
-
-type genType interface {
-	Name() string
-}
-
-type goType struct {
-	name string
-}
-
-func (t *goType) Name() string { return t.name }
-
-var (
-	stringType = &goType{name: "string"}
-	anyType    = &goType{name: "any"}
-	boolType   = &goType{name: "bool"}
-)
-
-type nodeUnion struct {
-	name  string
-	types []*syntaxKind
-}
-
-var _ genType = (*nodeUnion)(nil)
-
-func (u *nodeUnion) Name() string { return u.name }
-
-func newNodeUnion(name string, types ...*syntaxKind) *nodeUnion {
-	return &nodeUnion{name: name, types: types}
 }
 
 func (g *generator) generateNodeUnion(w io.Writer, u *nodeUnion) {
@@ -688,22 +707,7 @@ func (g *generator) generateNodeUnion(w io.Writer, u *nodeUnion) {
 	fmt.Fprintln(w)
 }
 
-type syntaxKind struct {
-	name   string
-	opts   *declOptions
-	fields []field
-}
-
-var _ genType = (*syntaxKind)(nil)
-
-type field struct {
-	name string
-	typ  genType
-}
-
-func (n *syntaxKind) Name() string { return n.name }
-
-func (n *syntaxKind) Generate(w io.Writer) {
+func (g *generator) generateNode(w io.Writer, n *syntaxKind) {
 	if n.opts == nil {
 		return // not a real node; no code
 	}
