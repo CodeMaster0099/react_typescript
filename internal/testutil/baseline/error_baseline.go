@@ -29,10 +29,11 @@ var formatOpts = &compiler.DiagnosticsFormattingOptions{
 	NewLine: harnessNewLine,
 }
 
+// !!! Move this somewhere else for reuse in runners
 type TestFile struct {
-	unitName    string
-	content     string
-	fileOptions map[string]string
+	UnitName    string
+	Content     string
+	FileOptions map[string]string
 }
 
 var diagnosticsLocationPrefix = regexp.MustCompile(`(?im)^(lib.*\.d\.ts)\(\d+,\d+\)`)
@@ -159,19 +160,19 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 
 	// 'merge' the lines of each input file with any errors associated with it
 	dupeCase := map[string]int{}
-	nonEmptyFiles := core.Filter(inputFiles, func(f *TestFile) bool { return len(f.content) > 0 })
+	nonEmptyFiles := core.Filter(inputFiles, func(f *TestFile) bool { return len(f.Content) > 0 })
 	for _, inputFile := range nonEmptyFiles {
 		// Filter down to the errors in the file
 		fileErrors := core.Filter(diagnostics, func(e *ast.Diagnostic) bool {
 			return e.File() != nil &&
-				tspath.ComparePaths(removeTestPathPrefixes(e.File().FileName(), false), removeTestPathPrefixes(inputFile.unitName, false), tspath.ComparePathsOptions{}) == core.ComparisonEqual
+				tspath.ComparePaths(removeTestPathPrefixes(e.File().FileName(), false), removeTestPathPrefixes(inputFile.UnitName, false), tspath.ComparePathsOptions{}) == core.ComparisonEqual
 		})
 
 		// Header
 		fmt.Fprintf(&outputLines,
 			"%s==== %s (%d errors) ====",
 			newLine(),
-			removeTestPathPrefixes(inputFile.unitName, false),
+			removeTestPathPrefixes(inputFile.UnitName, false),
 			len(fileErrors),
 		)
 
@@ -179,15 +180,15 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 		markedErrorCount := 0
 		// For each line, emit the line followed by any error squiggles matching this line
 
-		lineStarts := stringutil.ComputeLineStarts(inputFile.content)
-		lines := lineDelimiter.Split(inputFile.content, -1)
+		lineStarts := stringutil.ComputeLineStarts(inputFile.Content)
+		lines := lineDelimiter.Split(inputFile.Content, -1)
 
 		for lineIndex, line := range lines {
 			thisLineStart := int(lineStarts[lineIndex])
 			var nextLineStart int
 			// On the last line of the file, fake the next line start number so that we handle errors on the last character of the file correctly
 			if lineIndex == len(lines)-1 {
-				nextLineStart = len(inputFile.content)
+				nextLineStart = len(inputFile.Content)
 			} else {
 				nextLineStart = int(lineStarts[lineIndex+1])
 			}
@@ -221,9 +222,9 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 		}
 
 		// Verify we didn't miss any errors in this file
-		assert.Check(t, cmp.Equal(markedErrorCount, len(fileErrors)), "count of errors in "+inputFile.unitName)
-		_, isDupe := dupeCase[sanitizeTestFilePath(inputFile.unitName)]
-		checkDuplicatedFileName(inputFile.unitName, dupeCase)
+		assert.Check(t, cmp.Equal(markedErrorCount, len(fileErrors)), "count of errors in "+inputFile.UnitName)
+		_, isDupe := dupeCase[sanitizeTestFilePath(inputFile.UnitName)]
+		checkDuplicatedFileName(inputFile.UnitName, dupeCase)
 		result = append(result, outputLines.String())
 		if isDupe {
 			// Case-duplicated files on a case-insensitive build will have errors reported in both the dupe and the original

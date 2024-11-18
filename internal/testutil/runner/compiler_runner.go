@@ -8,9 +8,20 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/microsoft/typescript-go/internal/compiler"
+	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/testutil/baseline"
+	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
-var compilerBaselineRegex = regexp.MustCompile(`\.tsx?$`)
+var (
+	compilerBaselineRegex = regexp.MustCompile(`\.tsx?$`)
+	requireRegex          = regexp.MustCompile(`require\(`)
+	referencesRegex       = regexp.MustCompile(`reference\spath`)
+)
+
+var srcFolder = "/.src" // !!! Move this to vfs or equivalent of `vfsUtils.ts`
 
 type CompilerTestType int
 
@@ -20,24 +31,24 @@ const (
 )
 
 type CompilerBaselineRunner struct {
-	testFiles []string
-	basePath  string
-	testType  CompilerTestType // >> TODO: will we need this?
+	testFiles    []string
+	basePath     string
+	testSuitName string
 }
 
 var _ runner = (*CompilerBaselineRunner)(nil)
 
-// >> TODO: make testType an enum
 func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunner {
-	var basePath string
+	var testSuitName string
 	if testType == Regression {
-		basePath = "tests/cases/compiler"
+		testSuitName = "compiler"
 	} else {
-		basePath = "tests/cases/conformance"
+		testSuitName = "conformance"
 	}
+	basePath := fmt.Sprintf("tests/cases/%s", testSuitName)
 	return &CompilerBaselineRunner{
-		basePath: basePath,
-		testType: testType,
+		basePath:     basePath,
+		testSuitName: testSuitName,
 	}
 }
 
@@ -57,22 +68,33 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	t.Parallel()
 	files := r.EnumerateTestFiles()
 	for _, filename := range files {
-		// >> TODO: use name based on test type
-		t.Run(fmt.Sprintf("Compiler tests for %s", filename), func(t *testing.T) {
-			runTest(t, filename)
-		})
+		r.runTest(t, filename)
 	}
 }
 
 var compilerVaryBy []string
 
-func runTest(t *testing.T, filename string) {
+func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	t.Parallel()
 	test := getCompilerFileBasedTest(filename)
-	// >> TODO
+	if len(test.configurations) > 0 {
+		for _, config := range test.configurations {
+			description := "" // !!!
+			t.Run(fmt.Sprint("%s tests for %s%s", r.testSuitName, filename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
+		}
+	} else {
+		t.Run(fmt.Sprint("%s tests for %s", r.testSuitName, filename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
+	}
 }
 
-func runSingleConfigTest()
+func runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config fileBasedTestConfiguration) {
+	t.Parallel()
+	payload := makeUnitsFromTest(test.content, test.filename)
+	compilerTest := NewCompilerTest(test.filename, &payload, config)
+
+	compilerTest.VerifyDiagnostics(t)
+	// !!! Verify all baselines
+}
 
 // >> TODO: move functions below to utils or somewhere else
 // >> TODO: should this be alias or newtype?
@@ -90,8 +112,7 @@ func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
 		panic("Could not read test file: " + err.Error())
 	}
 	content := string(bytes)
-	// settings := TestCaseParser.extractCompilerSettings(content) // !!!
-	var settings map[string]string
+	settings := extractCompilerSettings(content)
 	configurations := getFileBasedTestConfigurations(settings, compilerVaryBy)
 	return &compilerFileBasedTest{
 		filename:       filename,
@@ -185,13 +206,6 @@ func getAllValuesForOption(option string) []string {
 	return nil
 }
 
-// Leave setting values as strings, for now, then normalize later?
-// however we'll need to deduplicate them, and there's a chance diff strings map to same setting value.
-// Also need to validate the values?
-
-// // >> TODO: this should not return a string, but let's pretend for now
-// func getValueOfSetting(setting string, value string) string {}
-
 func computeFileBasedTestConfigurationVariations(variationCount int, optionEntries [][]string) []fileBasedTestConfiguration {
 	configurations := make([]fileBasedTestConfiguration, 0, variationCount)
 	computeFileBasedTestConfigurationVariationsWorker(&configurations, optionEntries, 0, make(map[string]string))
@@ -214,5 +228,121 @@ func computeFileBasedTestConfigurationVariationsWorker(
 		// set or overwrite the variation, then compute the next variation
 		variationState[optionKey] = entry
 		computeFileBasedTestConfigurationVariationsWorker(configurations, optionEntries, index+1, variationState)
+	}
+}
+
+type compilerTest struct {
+	filename       string
+	basename       string
+	configuredName string // name with configuration description, e.g. `file`
+	options        core.CompilerOptions
+	result         any // !!! compile files result
+	tsConfigFiles  []*baseline.TestFile
+	toBeCompiled   []*baseline.TestFile // equivalent to the files that will be passed on the command line
+	otherFiles     []*baseline.TestFile // equivalent to other files on the file system not directly passed to the compiler (ie things that are referenced by other files)
+	hasNonDtsFiles bool
+}
+
+type testCaseContentWithConfig struct {
+	testCaseContent
+	configuration fileBasedTestConfiguration
+}
+
+func NewCompilerTest(filename string, testContent *testCaseContent, configuration fileBasedTestConfiguration) *compilerTest {
+	absoluteRootDir := srcFolder
+	basename := tspath.GetBaseFileName(filename)
+	configuredName := basename
+	if configuration != nil {
+		// Compute name with configuration description, e.g. `filename(target=esnext).ts`
+		var configNameBuilder strings.Builder
+		keys := slices.Sorted(maps.Keys(configuration))
+		for i, key := range keys {
+			if i > 0 {
+				configNameBuilder.WriteRune(',')
+			}
+			fmt.Fprintf(&configNameBuilder, "%s=%s", strings.ToLower(key), strings.ToLower(configuration[key]))
+		}
+		configName := configNameBuilder.String()
+		if len(configName) > 0 {
+			extname := tspath.GetAnyExtensionFromPath(basename, nil, false)
+			extensionlessBasename := basename[:len(basename)-len(extname)]
+			configuredName = fmt.Sprintf("%s(%s)%s", extensionlessBasename, configName, extname)
+		}
+	}
+
+	testCaseContentWithConfig := testCaseContentWithConfig{
+		testCaseContent: *testContent,
+		configuration:   configuration,
+	}
+
+	units := testCaseContentWithConfig.testUnitData
+	var toBeCompiled []*baseline.TestFile
+	var otherFiles []*baseline.TestFile
+	var tsConfigOptions *core.CompilerOptions
+	hasNonDtsFiles := core.Some(units, func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, compiler.ExtensionDts) })
+	harnessConfig := testCaseContentWithConfig.configuration
+	// var tsConfigFiles []*baseline.TestFile // !!!
+	if testCaseContentWithConfig.tsConfig != nil {
+		// !!!
+	} else {
+		baseUrl, ok := harnessConfig["baseUrl"]
+		if ok && !tspath.IsRootedDiskPath(baseUrl) {
+			harnessConfig["baseUrl"] = tspath.GetNormalizedAbsolutePath(baseUrl, absoluteRootDir)
+		}
+
+		lastUnit := units[len(units)-1]
+		// We need to assemble the list of input files for the compiler and other related files on the 'filesystem' (ie in a multi-file test)
+		// If the last file in a test uses require or a triple slash reference we'll assume all other files will be brought in via references,
+		// otherwise, assume all files are just meant to be in the same compilation session without explicit references to one another.
+
+		if testCaseContentWithConfig.configuration["noImplicitReferences"] != "" ||
+			requireRegex.MatchString(lastUnit.content) ||
+			referencesRegex.MatchString(lastUnit.content) {
+			toBeCompiled = append(toBeCompiled, createHarnessTestFile(lastUnit))
+			for _, unit := range units[:len(units)-1] {
+				otherFiles = append(otherFiles, createHarnessTestFile(unit))
+			}
+		} else {
+			toBeCompiled = core.Map(units, createHarnessTestFile)
+		}
+	}
+
+	if tsConfigOptions != nil && tsConfigOptions.ConfigFilePath != "" {
+		// tsConfigOptions.configFile!.fileName = tsConfigOptions.configFilePath; // !!!
+	}
+
+	result := compileFiles(
+		toBeCompiled,
+		otherFiles,
+		harnessConfig,
+		tsConfigOptions,
+		harnessConfig["currentDirectory"],
+		testCaseContentWithConfig.symlinks,
+	)
+
+	return &compilerTest{
+		filename:       filename,
+		basename:       basename,
+		configuredName: configuredName,
+		// options: result.options, // !!!
+		result: result,
+		// tsConfigFiles: tsConfigFiles, // !!!
+		toBeCompiled:   toBeCompiled,
+		otherFiles:     otherFiles,
+		hasNonDtsFiles: hasNonDtsFiles,
+	}
+}
+
+func (c *compilerTest) VerifyDiagnostics(t *testing.T) {
+	// pretty := c.options.pretty
+	pretty := false                                   // !!! Add `pretty` to compiler options
+	baseline.DoErrorBaseline(t, "", nil, nil, pretty) // !!!
+}
+
+func createHarnessTestFile(unit *testUnit) *baseline.TestFile {
+	return &baseline.TestFile{
+		UnitName:    unit.name,
+		Content:     unit.content,
+		FileOptions: unit.fileOptions,
 	}
 }
