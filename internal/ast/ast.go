@@ -288,6 +288,9 @@ func (n *Node) AsIfStatement() *IfStatement {
 func (n *Node) AsWhileStatement() *WhileStatement {
 	return n.Data.(*WhileStatement)
 }
+func (n *Node) AsDecorator() *Decorator {
+	return n.Data.(*Decorator)
+}
 func (n *Node) AsDoStatement() *DoStatement {
 	return n.Data.(*DoStatement)
 }
@@ -435,6 +438,9 @@ func (n *Node) AsTypeAliasDeclaration() *TypeAliasDeclaration {
 func (n *Node) AsJsxAttribute() *JsxAttribute {
 	return n.Data.(*JsxAttribute)
 }
+func (n *Node) AsJsxAttributes() *JsxAttributes {
+	return n.Data.(*JsxAttributes)
+}
 func (n *Node) AsParenthesizedTypeNode() *ParenthesizedTypeNode {
 	return n.Data.(*ParenthesizedTypeNode)
 }
@@ -476,6 +482,9 @@ func (n *Node) AsLabeledStatement() *LabeledStatement {
 }
 func (n *Node) AsNamespaceExportDeclaration() *NamespaceExportDeclaration {
 	return n.Data.(*NamespaceExportDeclaration)
+}
+func (n *Node) AsNamedImports() *NamedImports {
+	return n.Data.(*NamedImports)
 }
 func (n *Node) AsNamedExports() *NamedExports {
 	return n.Data.(*NamedExports)
@@ -1048,6 +1057,14 @@ func (node *ForInOrOfStatement) ForEachChild(v Visitor) bool {
 
 func IsForInOrOfStatement(node *Node) bool {
 	return node.Kind == KindForInStatement || node.Kind == KindForOfStatement
+}
+
+func IsForInStatement(node *Node) bool {
+	return node.Kind == KindForInStatement
+}
+
+func IsForOfStatement(node *Node) bool {
+	return node.Kind == KindForOfStatement
 }
 
 // BreakStatement
@@ -2520,6 +2537,10 @@ func (f *NodeFactory) NewOmittedExpression() *Node {
 	return f.NewNode(KindOmittedExpression, &OmittedExpression{})
 }
 
+func IsOmittedExpression(node *Node) bool {
+	return node.Kind == KindOmittedExpression
+}
+
 // KeywordExpression
 
 type KeywordExpression struct {
@@ -3731,6 +3752,10 @@ func (f *NodeFactory) NewTypeLiteralNode(members *NodeList) *Node {
 
 func (node *TypeLiteralNode) ForEachChild(v Visitor) bool {
 	return visitNodeList(v, node.Members)
+}
+
+func IsTypeLiteralNode(node *Node) bool {
+	return node.Kind == KindTypeLiteral
 }
 
 // TupleTypeNode

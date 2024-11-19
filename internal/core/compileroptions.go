@@ -13,6 +13,8 @@ type CompilerOptions struct {
 	ESModuleInterop                    Tristate             `json:"esModuleInterop"`
 	ExactOptionalPropertyTypes         Tristate             `json:"exactOptionalPropertyTypes"`
 	IsolatedModules                    Tristate             `json:"isolatedModules"`
+	Jsx                                JsxEmit              `json:"jsx"`
+	LegacyDecorators                   Tristate             `json:"legacyDecorators"`
 	ModuleKind                         ModuleKind           `json:"module"`
 	ModuleResolution                   ModuleResolutionKind `json:"moduleResolution"`
 	ModuleSuffixes                     []string             `json:"moduleSuffixes"`
@@ -43,6 +45,17 @@ type CompilerOptions struct {
 	NoDtsResolution Tristate `json:"noDtsResolution"`
 	PathsBasePath   string   `json:"pathsBasePath"`
 }
+
+type JsxEmit int32
+
+const (
+	JsxEmitNone        JsxEmit = 0
+	JsxEmitPreserve    JsxEmit = 1
+	JsxEmitReact       JsxEmit = 2
+	JsxEmitReactNative JsxEmit = 3
+	JsxEmitReactJSX    JsxEmit = 4
+	JsxEmitReactJSXDev JsxEmit = 5
+)
 
 type ModuleKind int32
 

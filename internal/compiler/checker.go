@@ -109,6 +109,18 @@ type CachedSignatureKey struct {
 
 type InferenceContext struct{}
 
+type DeclarationMeaning uint32
+
+const (
+	DeclarationMeaningGetAccessor = 1 << iota
+	DeclarationMeaningSetAccessor
+	DeclarationMeaningPropertyAssignment
+	DeclarationMeaningMethod
+	DeclarationMeaningPrivateStatic
+	DeclarationMeaningGetOrSetAccessor           = DeclarationMeaningGetAccessor | DeclarationMeaningSetAccessor
+	DeclarationMeaningPropertyAssignmentOrMethod = DeclarationMeaningPropertyAssignment | DeclarationMeaningMethod
+)
+
 // IntrinsicTypeKind
 
 type IntrinsicTypeKind int32
@@ -1385,6 +1397,18 @@ func (c *Checker) lookupSymbolForPrivateIdentifierDeclaration(propName string, l
 		}
 	}
 	return nil
+}
+
+func (c *Checker) getSymbolForPrivateIdentifierExpression(privId *ast.Node) *ast.Symbol {
+	if !isExpressionNode(privId) {
+		return nil
+	}
+
+	links := c.typeNodeLinks.get(privId)
+	if links.resolvedSymbol == nil {
+		links.resolvedSymbol = c.lookupSymbolForPrivateIdentifierDeclaration(privId.AsPrivateIdentifier().Text, privId)
+	}
+	return links.resolvedSymbol
 }
 
 func (c *Checker) getPrivateIdentifierPropertyOfType(leftType *Type, lexicallyScopedIdentifier *ast.Symbol) *ast.Symbol {
@@ -2735,15 +2759,6 @@ func (c *Checker) isDeprecatedSymbol(symbol *ast.Symbol) bool {
 		}
 	}
 	return symbol.ValueDeclaration != nil && c.isDeprecatedDeclaration(symbol.ValueDeclaration) || len(symbol.Declarations) != 0 && core.Every(symbol.Declarations, c.isDeprecatedDeclaration)
-}
-
-func (c *Checker) grammarErrorOnNode(node *ast.Node, message *diagnostics.Message, args ...any) bool {
-	sourceFile := ast.GetSourceFileOfNode(node)
-	if !c.hasParseDiagnostics(sourceFile) {
-		c.diagnostics.add(NewDiagnosticForNode(node, message, args...))
-		return true
-	}
-	return false
 }
 
 func (c *Checker) hasParseDiagnostics(sourceFile *ast.SourceFile) bool {
@@ -5440,6 +5455,18 @@ func (c *Checker) getCombinedNodeFlagsCached(node *ast.Node) ast.NodeFlags {
 	c.lastGetCombinedNodeFlagsNode = node
 	c.lastGetCombinedNodeFlagsResult = getCombinedNodeFlags(node)
 	return c.lastGetCombinedNodeFlagsResult
+}
+
+func (c *Checker) getEffectivePropertyNameForPropertyNameNode(node *ast.PropertyName) *string {
+	name := getPropertyNameForPropertyNameNode(node)
+	switch {
+	case name == InternalSymbolNameMissing, len(name) == 0:
+		return &name
+	case ast.IsComputedPropertyName(node):
+		return c.tryGetNameFromType(c.getTypeOfExpression(node.Expression()))
+	default:
+		return nil
+	}
 }
 
 func (c *Checker) getCombinedModifierFlagsCached(node *ast.Node) ast.ModifierFlags {

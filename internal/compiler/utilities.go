@@ -339,6 +339,15 @@ func getBinaryOperatorPrecedence(kind ast.Kind) OperatorPrecedence {
 	return OperatorPrecedenceInvalid
 }
 
+func isIntrinsicJsxName(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+
+	ch := name[0]
+	return (ch >= 'a' && ch <= 'z') || strings.ContainsRune(name, '-')
+}
+
 func formatMessage(message *diagnostics.Message, args ...any) string {
 	text := message.Message()
 	if len(args) != 0 {
@@ -598,6 +607,14 @@ func isPartOfTypeQuery(node *ast.Node) bool {
 
 func hasSyntacticModifier(node *ast.Node, flags ast.ModifierFlags) bool {
 	return node.ModifierFlags()&flags != 0
+}
+
+func hasAbstractModifier(node *ast.Node) bool {
+	return hasSyntacticModifier(node, ast.ModifierFlagsAbstract)
+}
+
+func hasAmbientModifier(node *ast.Node) bool {
+	return hasSyntacticModifier(node, ast.ModifierFlagsAmbient)
 }
 
 func hasAccessorModifier(node *ast.Node) bool {
@@ -919,6 +936,10 @@ func isStaticPrivateIdentifierProperty(s *ast.Symbol) bool {
 
 func isPrivateIdentifierClassElementDeclaration(node *ast.Node) bool {
 	return (ast.IsPropertyDeclaration(node) || isMethodOrAccessor(node)) && ast.IsPrivateIdentifier(node.Name())
+}
+
+func isModifier(node *ast.Node) bool {
+	return isModifierKind(node.Kind)
 }
 
 func isMethodOrAccessor(node *ast.Node) bool {
@@ -1360,6 +1381,11 @@ func getEmitModuleResolutionKind(options *core.CompilerOptions) core.ModuleResol
 	default:
 		panic("Unhandled case in getEmitModuleResolutionKind")
 	}
+}
+
+func getJSXTransformEnabled(options *core.CompilerOptions) bool {
+	jsx := options.Jsx
+	return jsx == core.JsxEmitReact || jsx == core.JsxEmitReactJSX || jsx == core.JsxEmitReactJSXDev
 }
 
 func getESModuleInterop(options *core.CompilerOptions) bool {
@@ -2177,6 +2203,39 @@ func isPartOfPossiblyValidTypeOrAbstractComputedPropertyName(node *ast.Node) boo
 	return ast.NodeKindIs(node.Parent.Parent, ast.KindInterfaceDeclaration, ast.KindTypeLiteral)
 }
 
+func nodeCanBeDecorated(useLegacyDecorators bool, node *ast.Node, parent *ast.Node, grandparent *ast.Node) bool {
+	// private names cannot be used with decorators yet
+	if useLegacyDecorators && node.Name() != nil && ast.IsPrivateIdentifier(node.Name()) {
+		return false
+	}
+
+	switch node.Kind {
+	case ast.KindClassDeclaration:
+		// class declarations are valid targets
+		return true
+	case ast.KindClassExpression:
+		// class expressions are valid targets for native decorators
+		return !useLegacyDecorators
+	case ast.KindPropertyDeclaration:
+		// property declarations are valid if their parent is a class declaration.
+		return parent != nil && (ast.IsClassDeclaration(parent) || !useLegacyDecorators && ast.IsClassExpression(parent) && !hasAbstractModifier(node) && !hasAmbientModifier(node))
+	case ast.KindGetAccessor,
+		ast.KindSetAccessor,
+		ast.KindMethodDeclaration:
+		// if this method has a body and its parent is a class declaration, this is a valid target.
+		return node.BodyData() != nil && parent != nil && (ast.IsClassDeclaration(parent) || !useLegacyDecorators && ast.IsClassExpression(parent))
+	case ast.KindParameter:
+		// TODO(rbuckton): Parameter decorator support for ES decorators must wait until it is standardized
+		if !useLegacyDecorators {
+			return false
+		}
+		// if the parameter's parent has a body and its grandparent is a class declaration, this is a valid target.
+		return parent != nil && parent.BodyData() != nil && (parent.BodyData()).Body != nil && (parent.Kind == ast.KindConstructor || parent.Kind == ast.KindMethodDeclaration || parent.Kind == ast.KindSetAccessor) && getThisParameter(parent) != node && grandparent != nil && grandparent.Kind == ast.KindClassDeclaration
+	}
+
+	return false
+}
+
 func isExpressionNode(node *ast.Node) bool {
 	switch node.Kind {
 	case ast.KindSuperKeyword, ast.KindNullKeyword, ast.KindTrueKeyword, ast.KindFalseKeyword, ast.KindRegularExpressionLiteral,
@@ -2519,6 +2578,19 @@ func entityNameToString(name *ast.Node) string {
 		return entityNameToString(name.AsJsxNamespacedName().Namespace) + ":" + entityNameToString(name.AsJsxNamespacedName().Name())
 	}
 	panic("Unhandled case in entityNameToString")
+}
+
+func getSpanOfTokenAtPosition(sourceFile *ast.SourceFile, pos int) core.TextRange {
+	scanner := NewScanner()
+	scanner.languageVersion = sourceFile.LanguageVersion
+	scanner.skipTrivia = true
+	scanner.languageVariant = sourceFile.LanguageVariant
+	scanner.text = sourceFile.Text
+	scanner.onError = nil
+	scanner.pos = pos
+	scanner.Scan()
+	start := scanner.TokenStart()
+	return core.NewTextRange(start, scanner.TokenEnd())
 }
 
 func getContainingQualifiedNameNode(node *ast.Node) *ast.Node {
