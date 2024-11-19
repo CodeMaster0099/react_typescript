@@ -8,6 +8,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
 func (c *Checker) grammarErrorOnFirstToken(node *ast.Node, message *diagnostics.Message, args ...any) bool {
@@ -809,7 +810,7 @@ func (c *Checker) checkGrammarArrowFunction(node *ast.Node, file *ast.SourceFile
 		if len(typeParamNodes) == 0 ||
 			len(typeParamNodes) == 1 && typeParamNodes[0].AsTypeParameter().Constraint == nil ||
 			typeParameters.HasTrailingComma() {
-			if fileExtensionIsOneOf(file.FileName(), []string{ExtensionMts, ExtensionCts}) {
+			if tspath.FileExtensionIsOneOf(file.FileName(), []string{tspath.ExtensionMts, tspath.ExtensionCts}) {
 				// TODO: should we return early here?
 				c.grammarErrorOnNode(typeParameters.Nodes[0], diagnostics.This_syntax_is_reserved_in_files_with_the_mts_or_cts_extension_Add_a_trailing_comma_or_explicit_constraint)
 			}
@@ -1203,7 +1204,7 @@ func (c *Checker) checkGrammarJsxName(node *ast.JsxTagNameExpression) bool {
 		return c.grammarErrorOnNode(node.Expression(), diagnostics.JSX_property_access_expressions_cannot_include_JSX_namespace_names)
 	}
 
-	if ast.IsJsxNamespacedName(node) && getJSXTransformEnabled(c.compilerOptions) && !isIntrinsicJsxName(node.AsJsxNamespacedName().Namespace.Text()) {
+	if ast.IsJsxNamespacedName(node) && c.compilerOptions.GetJSXTransformEnabled() && !isIntrinsicJsxName(node.AsJsxNamespacedName().Namespace.Text()) {
 		return c.grammarErrorOnNode(node, diagnostics.React_components_cannot_include_JSX_namespace_names)
 	}
 
