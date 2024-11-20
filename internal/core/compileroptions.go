@@ -1,7 +1,5 @@
 package core
 
-import "github.com/microsoft/typescript-go/internal/core"
-
 //go:generate go run golang.org/x/tools/cmd/stringer -type=ModuleKind,ScriptTarget -output=compileroptions_stringer_generated.go
 
 type CompilerOptions struct {
