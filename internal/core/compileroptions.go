@@ -129,7 +129,7 @@ func (options *CompilerOptions) GetAllowJs() bool {
 
 func (options *CompilerOptions) GetJSXTransformEnabled() bool {
 	jsx := options.Jsx
-	return jsx == core.JsxEmitReact || jsx == core.JsxEmitReactJSX || jsx == core.JsxEmitReactJSXDev
+	return jsx == JsxEmitReact || jsx == JsxEmitReactJSX || jsx == JsxEmitReactJSXDev
 }
 
 type ModuleKind int32
