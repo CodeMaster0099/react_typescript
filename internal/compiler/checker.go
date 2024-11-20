@@ -5470,6 +5470,21 @@ func (c *Checker) getEffectivePropertyNameForPropertyNameNode(node *ast.Property
 	}
 }
 
+func (c *Checker) tryGetNameFromType(t *Type) *string {
+	switch {
+	case t.flags&TypeFlagsUniqueESSymbol != 0:
+		return &(t.AsUniqueESSymbolType()).name
+	case t.flags&TypeFlagsStringLiteral != 0:
+		s := t.AsLiteralType().value.(string)
+		return &s
+	case t.flags&TypeFlagsStringLiteral != 0:
+		s := numberToString(t.AsLiteralType().value.(float64))
+		return &s
+	default:
+		return nil
+	}
+}
+
 func (c *Checker) getCombinedModifierFlagsCached(node *ast.Node) ast.ModifierFlags {
 	// we hold onto the last node and result to speed up repeated lookups against the same node.
 	if c.lastGetCombinedModifierFlagsNode == node {
