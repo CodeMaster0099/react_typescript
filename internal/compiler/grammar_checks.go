@@ -514,13 +514,13 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 				lastAsync = modifier
 			case ast.KindInKeyword,
 				ast.KindOutKeyword:
-				var inOutFlag /* TODO(TS-TO-GO) inferred type ModifierFlags.In | ModifierFlags.Out */ any
+				var inOutFlag ast.ModifierFlags
 				if modifier.Kind == ast.KindInKeyword {
 					inOutFlag = ast.ModifierFlagsIn
 				} else {
 					inOutFlag = ast.ModifierFlagsOut
 				}
-				var inOutText /* TODO(TS-TO-GO) inferred type "in" | "out" */ any
+				var inOutText string
 				if modifier.Kind == ast.KindInKeyword {
 					inOutText = "in"
 				} else {
@@ -1436,6 +1436,11 @@ func (c *Checker) checkGrammarForInvalidDynamicName(node *ast.DeclarationName, m
 	}
 
 	return false
+}
+
+// Indicates whether a declaration name is a dynamic name that cannot be late-bound.
+func (c *Checker) isNonBindableDynamicName(node *ast.DeclarationName) bool {
+	return isDynamicName(node) && !c.isLateBindableName(node)
 }
 
 func (c *Checker) checkGrammarMethod(node *ast.Node /*Union[MethodDeclaration, MethodSignature]*/) bool {
