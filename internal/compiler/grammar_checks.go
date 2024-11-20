@@ -1138,11 +1138,10 @@ func (c *Checker) checkGrammarObjectLiteralExpression(node *ast.ObjectLiteralExp
 		}
 
 		if !inDestructuring {
-			maybeEffectiveName := c.getEffectivePropertyNameForPropertyNameNode(name)
-			if maybeEffectiveName == nil {
+			effectiveName, ok := c.getEffectivePropertyNameForPropertyNameNode(name)
+			if !ok {
 				continue
 			}
-			effectiveName := *maybeEffectiveName
 
 			existingKind := seen[effectiveName]
 			if existingKind != 0 {

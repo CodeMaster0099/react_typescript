@@ -5556,30 +5556,30 @@ func (c *Checker) getCombinedNodeFlagsCached(node *ast.Node) ast.NodeFlags {
 	return c.lastGetCombinedNodeFlagsResult
 }
 
-func (c *Checker) getEffectivePropertyNameForPropertyNameNode(node *ast.PropertyName) *string {
+func (c *Checker) getEffectivePropertyNameForPropertyNameNode(node *ast.PropertyName) (effectiveName string, ok bool) {
 	name := getPropertyNameForPropertyNameNode(node)
 	switch {
-	case name == InternalSymbolNameMissing, len(name) == 0:
-		return &name
+	case name != InternalSymbolNameMissing, len(name) != 0:
+		return name, true
 	case ast.IsComputedPropertyName(node):
 		return c.tryGetNameFromType(c.getTypeOfExpression(node.Expression()))
 	default:
-		return nil
+		return effectiveName, false
 	}
 }
 
-func (c *Checker) tryGetNameFromType(t *Type) *string {
+func (c *Checker) tryGetNameFromType(t *Type) (name string, ok bool) {
 	switch {
 	case t.flags&TypeFlagsUniqueESSymbol != 0:
-		return &(t.AsUniqueESSymbolType()).name
+		return (t.AsUniqueESSymbolType()).name, true
 	case t.flags&TypeFlagsStringLiteral != 0:
 		s := t.AsLiteralType().value.(string)
-		return &s
+		return s, true
 	case t.flags&TypeFlagsStringLiteral != 0:
 		s := numberToString(t.AsLiteralType().value.(float64))
-		return &s
+		return s, true
 	default:
-		return nil
+		return "", false
 	}
 }
 
