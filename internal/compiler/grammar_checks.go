@@ -1383,6 +1383,16 @@ func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 	return false
 }
 
+// Does the accessor have the right number of parameters?
+//
+//	A `get` accessor has no parameters or a single `this` parameter.
+//	A `set` accessor has one parameter or a `this` parameter and one more parameter.
+func (c *Checker) doesAccessorHaveCorrectParameterCount(accessor *ast.AccessorDeclaration) bool {
+	// `getAccessorThisParameter` returns `nil` if the accessor's arity is incorrect,
+	// even if there is a `this` parameter declared.
+	return c.getAccessorThisParameter(accessor) != nil || len(accessor.Parameters()) == (ifElse(accessor.Kind == ast.KindGetAccessor, 0, 1))
+}
+
 func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool {
 	if node.Operator == ast.KindUniqueKeyword {
 		innerType := node.AsTypeOperatorNode().TypeNode
