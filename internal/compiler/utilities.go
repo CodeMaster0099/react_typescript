@@ -613,6 +613,10 @@ func hasAccessorModifier(node *ast.Node) bool {
 	return hasSyntacticModifier(node, ast.ModifierFlagsAccessor)
 }
 
+func hasDecorators(node *ast.Node) bool {
+	return hasSyntacticModifier(node, ast.ModifierFlagsDecorator)
+}
+
 func hasStaticModifier(node *ast.Node) bool {
 	return hasSyntacticModifier(node, ast.ModifierFlagsStatic)
 }
