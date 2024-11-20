@@ -242,7 +242,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 					return c.grammarErrorOnFirstToken(node, diagnostics.Decorators_are_not_valid_here)
 				}
 			} else if c.compilerOptions.LegacyDecorators == core.TSTrue && (node.Kind == ast.KindGetAccessor || node.Kind == ast.KindSetAccessor) {
-				accessors := c.getAllAccessorDeclarationsForDeclaration(node.AsAccessorDeclaration())
+				accessors := c.getAllAccessorDeclarationsForDeclaration(node)
 				if hasDecorators(accessors.firstAccessor) && node == accessors.secondAccessor {
 					return c.grammarErrorOnFirstToken(node, diagnostics.Decorators_cannot_be_applied_to_multiple_get_Slashset_accessors_of_the_same_name)
 				}

@@ -7585,6 +7585,59 @@ func isConflictingPrivateProperty(prop *ast.Symbol) bool {
 	return prop.ValueDeclaration == nil && prop.CheckFlags&ast.CheckFlagsContainsPrivate != 0
 }
 
+type allAccessorDeclarations struct {
+	firstAccessor  *ast.AccessorDeclaration
+	secondAccessor *ast.AccessorDeclaration
+	setAccessor    *ast.SetAccessorDeclaration
+	getAccessor    *ast.GetAccessorDeclaration
+}
+
+func (c *Checker) getAllAccessorDeclarationsForDeclaration(accessor *ast.AccessorDeclaration) allAccessorDeclarations {
+	// !!!
+	// accessor = getParseTreeNode(accessor, isGetOrSetAccessorDeclaration)
+
+	var otherKind ast.Kind
+	if accessor.Kind == ast.KindSetAccessor {
+		otherKind = ast.KindGetAccessor
+	} else if accessor.Kind == ast.KindGetAccessor {
+		otherKind = ast.KindSetAccessor
+	} else {
+		panic(fmt.Sprintf("Unexpected node kind %q", accessor.Kind))
+	}
+	otherAccessor := getDeclarationOfKind(c.getSymbolOfDeclaration(accessor), otherKind)
+
+	var firstAccessor *ast.AccessorDeclaration
+	var secondAccessor *ast.AccessorDeclaration
+	if otherAccessor != nil && (otherAccessor.Pos() < accessor.Pos()) {
+		firstAccessor = otherAccessor
+		secondAccessor = accessor
+	} else {
+		firstAccessor = accessor
+		secondAccessor = otherAccessor
+	}
+
+	var setAccessor *ast.SetAccessorDeclaration
+	var getAccessor *ast.GetAccessorDeclaration
+	if accessor.Kind == ast.KindSetAccessor {
+		setAccessor = accessor.AsSetAccessorDeclaration()
+		if otherAccessor != nil {
+			getAccessor = otherAccessor.AsGetAccessorDeclaration()
+		}
+	} else {
+		getAccessor = accessor.AsGetAccessorDeclaration()
+		if otherAccessor != nil {
+			setAccessor = otherAccessor.AsSetAccessorDeclaration()
+		}
+	}
+
+	return allAccessorDeclarations{
+		firstAccessor:  firstAccessor,
+		secondAccessor: secondAccessor,
+		setAccessor:    setAccessor,
+		getAccessor:    getAccessor,
+	}
+}
+
 func (c *Checker) getTypeArguments(t *Type) []*Type {
 	d := t.AsTypeReference()
 	if d.resolvedTypeArguments == nil {
