@@ -1544,6 +1544,13 @@ func findConstructorDeclaration(node *ast.Node) *ast.Node {
 	return nil
 }
 
+func getSingleVariableOfVariableStatement(node *ast.Node) *ast.Node {
+	if !ast.IsVariableStatement(node) {
+		return nil
+	}
+	return core.FirstOrNil(node.AsVariableStatement().DeclarationList.AsVariableDeclarationList().Declarations.Nodes)
+}
+
 type NameResolver struct {
 	compilerOptions                  *core.CompilerOptions
 	getSymbolOfDeclaration           func(node *ast.Node) *ast.Symbol
