@@ -1603,7 +1603,7 @@ func (c *Checker) checkGrammarVariableDeclaration(node *ast.VariableDeclaration)
 
 	if node.Parent.Parent.Kind != ast.KindForInStatement && node.Parent.Parent.Kind != ast.KindForOfStatement {
 		if nodeFlags&ast.NodeFlagsAmbient != 0 {
-			c.checkAmbientInitializer(node)
+			c.checkAmbientInitializer(node.AsNode())
 		} else if !(node.Initializer != nil) {
 			if ast.IsBindingPattern(node.Name()) && !ast.IsBindingPattern(node.Parent) {
 				return c.grammarErrorOnNode(node.AsNode(), diagnostics.A_destructuring_declaration_must_have_an_initializer)
@@ -1825,6 +1825,76 @@ func (c *Checker) checkGrammarProperty(node *ast.Node /*Union[PropertyDeclaratio
 
 	return false
 }
+
+func (c *Checker) checkAmbientInitializer(node *ast.Node) bool {
+	var initializer *ast.Expression
+	var typeNode *ast.TypeNode
+	switch node.Kind {
+	case ast.KindVariableDeclaration:
+		varDecl := node.AsVariableDeclaration()
+		initializer = varDecl.Initializer
+		typeNode = varDecl.TypeNode
+	case ast.KindPropertyDeclaration:
+		propDecl := node.AsPropertyDeclaration()
+		initializer = propDecl.Initializer
+		typeNode = propDecl.TypeNode
+	case ast.KindPropertySignature:
+		propSig := node.AsPropertySignatureDeclaration()
+		initializer = propSig.Initializer
+		typeNode = propSig.TypeNode
+	default:
+		panic(fmt.Sprintf("Unexpected node kind %q", node.Kind))
+	}
+
+	if initializer != nil {
+		isInvalidInitializer := !(isInitializerStringOrNumberLiteralExpression(initializer) || c.isInitializerSimpleLiteralEnumReference(initializer) || initializer.Kind == ast.KindTrueKeyword || initializer.Kind == ast.KindFalseKeyword || isInitializerBigIntLiteralExpression(initializer))
+		isConstOrReadonly := isDeclarationReadonly(node) || ast.IsVariableDeclaration(node) && (c.isVarConstLike(node))
+		if isConstOrReadonly && (typeNode == nil) {
+			if isInvalidInitializer {
+				return c.grammarErrorOnNode(initializer, diagnostics.A_const_initializer_in_an_ambient_context_must_be_a_string_or_numeric_literal_or_literal_enum_reference)
+			}
+		} else {
+			return c.grammarErrorOnNode(initializer, diagnostics.Initializers_are_not_allowed_in_ambient_contexts)
+		}
+	}
+
+	return false
+}
+
+func isInitializerStringOrNumberLiteralExpression(expr *ast.Expression) bool {
+	return isStringOrNumericLiteralLike(expr) ||
+		expr.Kind == ast.KindPrefixUnaryExpression && (expr.AsPrefixUnaryExpression()).Operator == ast.KindMinusToken && (expr.AsPrefixUnaryExpression()).Operand.Kind == ast.KindNumericLiteral
+}
+
+func isInitializerBigIntLiteralExpression(expr *ast.Expression) bool {
+	if expr.Kind == ast.KindBigIntLiteral {
+		return true
+	}
+
+	if expr.Kind == ast.KindPrefixUnaryExpression {
+		unaryExpr := expr.AsPrefixUnaryExpression()
+		return unaryExpr.Operator == ast.KindMinusToken && unaryExpr.Operand.Kind == ast.KindBigIntLiteral
+	}
+
+	return false
+}
+
+func (c *Checker) isInitializerSimpleLiteralEnumReference(expr *ast.Expression) bool {
+	if ast.IsPropertyAccessExpression(expr) {
+		return c.checkExpressionCached(expr).flags&TypeFlagsEnumLike != 0
+	}
+
+	if ast.IsElementAccessExpression(expr) {
+		elementAccess := expr.AsElementAccessExpression()
+
+		return isInitializerStringOrNumberLiteralExpression(elementAccess.ArgumentExpression) &&
+			isEntityNameExpression(elementAccess.Expression) &&
+			c.checkExpressionCached(expr).flags&TypeFlagsEnumLike != 0
+	}
+
+	return false
+}
+
 func (c *Checker) checkGrammarTopLevelElementForRequiredDeclareModifier(node *ast.Node) bool {
 	// A declare modifier is required for any top level .d.ts declaration except export=, export default, export as namespace
 	// interfaces and imports categories:

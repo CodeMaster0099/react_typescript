@@ -5556,6 +5556,11 @@ func (c *Checker) getCombinedNodeFlagsCached(node *ast.Node) ast.NodeFlags {
 	return c.lastGetCombinedNodeFlagsResult
 }
 
+func (c *Checker) isVarConstLike(node *ast.Node) bool {
+	blockScopeKind := c.getCombinedNodeFlagsCached(node) & ast.NodeFlagsBlockScoped
+	return blockScopeKind == ast.NodeFlagsConst || blockScopeKind == ast.NodeFlagsUsing || blockScopeKind == ast.NodeFlagsAwaitUsing
+}
+
 func (c *Checker) getEffectivePropertyNameForPropertyNameNode(node *ast.PropertyName) (effectiveName string, ok bool) {
 	name := getPropertyNameForPropertyNameNode(node)
 	switch {
