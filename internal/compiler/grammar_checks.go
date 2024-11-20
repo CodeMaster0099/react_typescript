@@ -1694,10 +1694,110 @@ func (c *Checker) checkGrammarVariableDeclarationList(declarationList *ast.Varia
 	}
 
 	if blockScopeFlags == ast.NodeFlagsAwaitUsing {
-		return c.checkAwaitGrammar(declarationList)
+		return c.checkGrammarAwaitOrUsingAwait(declarationList.AsNode())
 	}
 
 	return false
+}
+
+func (c *Checker) checkGrammarAwaitOrUsingAwait(node *ast.Node) bool {
+	// Grammar checking
+	hasError := false
+	container := getContainingFunctionOrClassStaticBlock(node)
+	if container != nil && ast.IsClassStaticBlockDeclaration(container) {
+		// NOTE: We report this regardless as to whether there are parse diagnostics.
+		var message *diagnostics.Message
+		if ast.IsAwaitExpression(node) {
+			message = diagnostics.X_await_expression_cannot_be_used_inside_a_class_static_block
+		} else {
+			message = diagnostics.X_await_using_statements_cannot_be_used_inside_a_class_static_block
+		}
+		c.error(node, message)
+		hasError = true
+	} else if !(node.Flags&ast.NodeFlagsAwaitContext != 0) {
+		if isInTopLevelContext(node) {
+			sourceFile := ast.GetSourceFileOfNode(node)
+			if !c.hasParseDiagnostics(sourceFile) {
+				var span core.TextRange
+				var spanCalculated bool
+				if !isEffectiveExternalModule(sourceFile, c.compilerOptions) {
+					span = getSpanOfTokenAtPosition(sourceFile, node.Pos())
+					spanCalculated = true
+					var message *diagnostics.Message
+					if ast.IsAwaitExpression(node) {
+						message = diagnostics.X_await_expressions_are_only_allowed_at_the_top_level_of_a_file_when_that_file_is_a_module_but_this_file_has_no_imports_or_exports_Consider_adding_an_empty_export_to_make_this_file_a_module
+					} else {
+						message = diagnostics.X_await_using_statements_are_only_allowed_at_the_top_level_of_a_file_when_that_file_is_a_module_but_this_file_has_no_imports_or_exports_Consider_adding_an_empty_export_to_make_this_file_a_module
+					}
+					diagnostic := ast.NewDiagnostic(sourceFile, span, message)
+					c.diagnostics.add(diagnostic)
+					hasError = true
+				}
+				switch c.moduleKind {
+				case core.ModuleKindNode16,
+					core.ModuleKindNodeNext:
+					if sourceFile.ImpliedNodeFormat == core.ModuleKindCommonJS {
+						if !spanCalculated {
+							span = getSpanOfTokenAtPosition(sourceFile, node.Pos())
+							spanCalculated = true
+						}
+						c.diagnostics.add(ast.NewDiagnostic(sourceFile, span, diagnostics.The_current_file_is_a_CommonJS_module_and_cannot_use_await_at_the_top_level))
+						hasError = true
+						break
+					}
+					fallthrough
+				case core.ModuleKindES2022,
+					core.ModuleKindESNext,
+					core.ModuleKindPreserve,
+					core.ModuleKindSystem:
+					if c.languageVersion >= core.ScriptTargetES2017 {
+						break
+					}
+					fallthrough
+				default:
+					if !spanCalculated {
+						span = getSpanOfTokenAtPosition(sourceFile, node.Pos())
+						spanCalculated = true
+					}
+					var message *diagnostics.Message
+					if ast.IsAwaitExpression(node) {
+						message = diagnostics.Top_level_await_expressions_are_only_allowed_when_the_module_option_is_set_to_es2022_esnext_system_node16_nodenext_or_preserve_and_the_target_option_is_set_to_es2017_or_higher
+					} else {
+						message = diagnostics.Top_level_await_using_statements_are_only_allowed_when_the_module_option_is_set_to_es2022_esnext_system_node16_nodenext_or_preserve_and_the_target_option_is_set_to_es2017_or_higher
+					}
+					c.diagnostics.add(ast.NewDiagnostic(sourceFile, span, message))
+					hasError = true
+				}
+			}
+		} else {
+			// use of 'await' in non-async function
+			sourceFile := ast.GetSourceFileOfNode(node)
+			if !c.hasParseDiagnostics(sourceFile) {
+				span := getSpanOfTokenAtPosition(sourceFile, node.Pos())
+				var message *diagnostics.Message
+				if ast.IsAwaitExpression(node) {
+					message = diagnostics.X_await_expressions_are_only_allowed_within_async_functions_and_at_the_top_levels_of_modules
+				} else {
+					message = diagnostics.X_await_using_statements_are_only_allowed_within_async_functions_and_at_the_top_levels_of_modules
+				}
+				diagnostic := ast.NewDiagnostic(sourceFile, span, message)
+				if container != nil && container.Kind != ast.KindConstructor && (getFunctionFlags(container)&FunctionFlagsAsync) == 0 {
+					relatedInfo := NewDiagnosticForNode(container, diagnostics.Did_you_mean_to_mark_this_function_as_async)
+					diagnostic.AddRelatedInfo(relatedInfo)
+				}
+				c.diagnostics.add(diagnostic)
+				hasError = true
+			}
+		}
+	}
+
+	if ast.IsAwaitExpression(node) && c.isInParameterInitializerBeforeContainingFunction(node) {
+		// NOTE: We report this regardless as to whether there are parse diagnostics.
+		c.error(node, diagnostics.X_await_expressions_cannot_be_used_in_a_parameter_initializer)
+		hasError = true
+	}
+
+	return hasError
 }
 
 func (c *Checker) checkGrammarForDisallowedBlockScopedVariableStatement(node *ast.VariableStatement) bool {
