@@ -4325,6 +4325,7 @@ type SourceFile struct {
 	LanguageVersion             core.ScriptTarget
 	LanguageVariant             core.LanguageVariant
 	ScriptKind                  core.ScriptKind
+	CommonJsModuleIndicator     *Node
 	ExternalModuleIndicator     *Node
 	EndFlowNode                 *FlowNode
 	JsGlobalAugmentations       SymbolTable

@@ -431,6 +431,16 @@ func isEffectiveModuleDeclaration(node *ast.Node) bool {
 	return ast.IsModuleDeclaration(node) || ast.IsIdentifier(node)
 }
 
+func isCommonJSContainingModuleKind(kind core.ModuleKind) bool {
+	return kind == core.ModuleKindCommonJS || kind == core.ModuleKindNode16 || kind == core.ModuleKindNodeNext
+}
+
+/** @internal */
+
+func isEffectiveExternalModule(node *ast.SourceFile, compilerOptions *core.CompilerOptions) bool {
+	return isExternalModule(node) || (isCommonJSContainingModuleKind(compilerOptions.GetEmitModuleKind()) && node.CommonJsModuleIndicator != nil)
+}
+
 func isObjectLiteralOrClassExpressionMethodOrAccessor(node *ast.Node) bool {
 	kind := node.Kind
 	return (kind == ast.KindMethodDeclaration || kind == ast.KindGetAccessor || kind == ast.KindSetAccessor) &&
