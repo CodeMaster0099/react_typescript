@@ -30,7 +30,7 @@ func (c *Checker) grammarErrorAtPos(nodeForSourceFile *ast.Node, start int, leng
 	return false
 }
 
-func (c *Checker) grammarErrorOnNodeSkippedOn(key string, node *ast.Node, message diagnostics.Message, args ...any) bool {
+func (c *Checker) grammarErrorOnNodeSkippedOn(key string, node *ast.Node, message *diagnostics.Message, args ...any) bool {
 	sourceFile := ast.GetSourceFileOfNode(node)
 	if !c.hasParseDiagnostics(sourceFile) {
 		// !!!
@@ -1633,7 +1633,7 @@ func (c *Checker) checkGrammarVariableDeclaration(node *ast.VariableDeclaration)
 	}
 
 	if c.program.getEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node.AsNode())) < core.ModuleKindSystem && (node.Parent.Parent.Flags&ast.NodeFlagsAmbient == 0) && hasSyntacticModifier(node.Parent.Parent, ast.ModifierFlagsExport) {
-		c.checkESModuleMarker(node.Name)
+		c.checkGrammarForEsModuleMarkerInBindingName(node.Name())
 	}
 
 	// 1. LexicalDeclaration : LetOrConst BindingList ;
@@ -1644,6 +1644,22 @@ func (c *Checker) checkGrammarVariableDeclaration(node *ast.VariableDeclaration)
 	// It is a SyntaxError if a VariableDeclaration or VariableDeclarationNoIn occurs within strict code
 	// and its Identifier is eval or arguments
 	return blockScopeKind != 0 && c.checkGrammarNameInLetOrConstDeclarations(node.Name())
+}
+
+func (c *Checker) checkGrammarForEsModuleMarkerInBindingName(name *ast.Node) bool {
+	if name.Kind == ast.KindIdentifier {
+		if name.AsIdentifier().Text == "__esModule" {
+			return c.grammarErrorOnNodeSkippedOn("noEmit", name, diagnostics.Identifier_expected_esModule_is_reserved_as_an_exported_marker_when_transforming_ECMAScript_modules)
+		}
+	} else {
+		elements := name.AsBindingPattern().Elements.Nodes
+		for _, element := range elements {
+			if !ast.IsOmittedExpression(element) {
+				return c.checkGrammarForEsModuleMarkerInBindingName(element.AsBindingElement().Name())
+			}
+		}
+	}
+	return false
 }
 
 func (c *Checker) checkGrammarNameInLetOrConstDeclarations(name *ast.Node /*Union[Identifier, BindingPattern]*/) bool {
