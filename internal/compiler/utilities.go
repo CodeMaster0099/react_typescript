@@ -538,10 +538,6 @@ func getErrorRangeForArrowFunction(sourceFile *ast.SourceFile, node *ast.Node) c
 	return core.NewTextRange(pos, node.End())
 }
 
-func getContainingClass(node *ast.Node) *ast.Node {
-	return ast.FindAncestor(node.Parent, ast.IsClassLike)
-}
-
 func declarationNameToString(name *ast.Node) string {
 	if name == nil || name.Pos() == name.End() {
 		return "(Missing)"
@@ -2990,6 +2986,14 @@ func (m *orderedMap[K, V]) add(key K, value V) {
 
 func getContainingFunction(node *ast.Node) *ast.Node {
 	return ast.FindAncestor(node.Parent, ast.IsFunctionLike)
+}
+
+func getContainingClass(node *ast.Node) *ast.Node {
+	return ast.FindAncestor(node.Parent, ast.IsClassLike)
+}
+
+func getContainingFunctionOrClassStaticBlock(node *ast.Node) *ast.Node {
+	return ast.FindAncestor(node.Parent, isFunctionLikeOrClassStaticBlockDeclaration)
 }
 
 func isTypeReferenceType(node *ast.Node) bool {

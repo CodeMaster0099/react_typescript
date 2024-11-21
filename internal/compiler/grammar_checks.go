@@ -1801,7 +1801,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 }
 
 func (c *Checker) checkGrammarForDisallowedBlockScopedVariableStatement(node *ast.VariableStatement) bool {
-	if !c.allowLetAndConstDeclarations(node.Parent) {
+	if !c.containerAllowsBlockScopedVariable(node.Parent) {
 		blockScopeKind := c.getCombinedNodeFlagsCached(node.DeclarationList) & ast.NodeFlagsBlockScoped
 		if blockScopeKind != 0 {
 			var keyword string
@@ -1822,6 +1822,23 @@ func (c *Checker) checkGrammarForDisallowedBlockScopedVariableStatement(node *as
 	}
 
 	return false
+}
+
+func (c *Checker) containerAllowsBlockScopedVariable(parent *ast.Node) bool {
+	switch parent.Kind {
+	case ast.KindIfStatement,
+		ast.KindDoStatement,
+		ast.KindWhileStatement,
+		ast.KindWithStatement,
+		ast.KindForStatement,
+		ast.KindForInStatement,
+		ast.KindForOfStatement:
+		return false
+	case ast.KindLabeledStatement:
+		return c.containerAllowsBlockScopedVariable(parent.Parent)
+	}
+
+	return true
 }
 
 func (c *Checker) checkGrammarMetaProperty(node *ast.MetaProperty) bool {
