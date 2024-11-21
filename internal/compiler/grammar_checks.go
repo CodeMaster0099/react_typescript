@@ -839,7 +839,7 @@ func (c *Checker) checkGrammarIndexSignatureParameters(node *ast.IndexSignatureD
 	if parameter.DotDotDotToken != nil {
 		return c.grammarErrorOnNode(parameter.DotDotDotToken, diagnostics.An_index_signature_cannot_have_a_rest_parameter)
 	}
-	if hasEffectiveModifiers(parameter) {
+	if hasEffectiveModifiers(parameter.AsNode()) {
 		return c.grammarErrorOnNode(parameter.Name(), diagnostics.An_index_signature_parameter_cannot_have_an_accessibility_modifier)
 	}
 	if parameter.QuestionToken != nil {
