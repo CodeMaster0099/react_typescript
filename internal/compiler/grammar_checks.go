@@ -1800,6 +1800,25 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 	return hasError
 }
 
+func (c *Checker) isInParameterInitializerBeforeContainingFunction(node *ast.Node) bool {
+	inBindingInitializer := false
+	for node.Parent != nil && !ast.IsFunctionLike(node.Parent) {
+		if ast.IsParameter(node.Parent) {
+			if inBindingInitializer || node.Parent.AsParameterDeclaration().Initializer == node {
+				return true
+			}
+		}
+
+		if ast.IsBindingElement(node.Parent) && node.Parent.AsBindingElement().Initializer == node {
+			inBindingInitializer = true
+		}
+
+		node = node.Parent
+	}
+
+	return false
+}
+
 func (c *Checker) checkGrammarForDisallowedBlockScopedVariableStatement(node *ast.VariableStatement) bool {
 	if !c.containerAllowsBlockScopedVariable(node.Parent) {
 		blockScopeKind := c.getCombinedNodeFlagsCached(node.DeclarationList) & ast.NodeFlagsBlockScoped
