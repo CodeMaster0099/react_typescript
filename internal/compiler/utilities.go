@@ -639,10 +639,6 @@ func hasEffectiveModifier(node *ast.Node, flags ast.ModifierFlags) bool {
 	return getEffectiveModifierFlags(node)&flags != 0
 }
 
-func hasEffectiveModifiers(node *ast.Node) bool {
-	return getEffectiveModifierFlags(node) != ast.ModifierFlagsNone
-}
-
 func hasEffectiveReadonlyModifier(node *ast.Node) bool {
 	return hasEffectiveModifier(node, ast.ModifierFlagsReadonly)
 }
