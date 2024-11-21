@@ -1694,13 +1694,13 @@ func (c *Checker) checkGrammarVariableDeclarationList(declarationList *ast.Varia
 	}
 
 	if blockScopeFlags == ast.NodeFlagsAwaitUsing {
-		return c.checkGrammarAwaitOrUsingAwait(declarationList.AsNode())
+		return c.checkGrammarAwaitOrAwaitUsing(declarationList.AsNode())
 	}
 
 	return false
 }
 
-func (c *Checker) checkGrammarAwaitOrUsingAwait(node *ast.Node) bool {
+func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 	// Grammar checking
 	hasError := false
 	container := getContainingFunctionOrClassStaticBlock(node)
