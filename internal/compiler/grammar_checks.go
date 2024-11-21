@@ -1781,7 +1781,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 					message = diagnostics.X_await_using_statements_are_only_allowed_within_async_functions_and_at_the_top_levels_of_modules
 				}
 				diagnostic := ast.NewDiagnostic(sourceFile, span, message)
-				if container != nil && container.Kind != ast.KindConstructor && (getFunctionFlags(container)&FunctionFlagsAsync) == 0 {
+				if container != nil && container.Kind != ast.KindConstructor && hasAsyncModifier(container) {
 					relatedInfo := NewDiagnosticForNode(container, diagnostics.Did_you_mean_to_mark_this_function_as_async)
 					diagnostic.AddRelatedInfo(relatedInfo)
 				}
