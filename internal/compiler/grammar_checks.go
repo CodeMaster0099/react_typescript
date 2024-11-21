@@ -8,13 +8,14 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
 func (c *Checker) grammarErrorOnFirstToken(node *ast.Node, message *diagnostics.Message, args ...any) bool {
 	sourceFile := ast.GetSourceFileOfNode(node)
 	if !c.hasParseDiagnostics(sourceFile) {
-		span := getSpanOfTokenAtPosition(sourceFile, node.Pos())
+		span := scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
 		c.diagnostics.add(ast.NewDiagnostic(sourceFile, span, message, args...))
 		return true
 	}
@@ -282,21 +283,21 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 		} else {
 			if modifier.Kind != ast.KindReadonlyKeyword {
 				if node.Kind == ast.KindPropertySignature || node.Kind == ast.KindMethodSignature {
-					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_type_member, TokenToString(modifier.Kind))
+					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_type_member, scanner.TokenToString(modifier.Kind))
 				}
 				if node.Kind == ast.KindIndexSignature && (modifier.Kind != ast.KindStaticKeyword || !ast.IsClassLike(node.Parent)) {
-					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_an_index_signature, TokenToString(modifier.Kind))
+					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_an_index_signature, scanner.TokenToString(modifier.Kind))
 				}
 			}
 			if modifier.Kind != ast.KindInKeyword && modifier.Kind != ast.KindOutKeyword && modifier.Kind != ast.KindConstKeyword {
 				if node.Kind == ast.KindTypeParameter {
-					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_type_parameter, TokenToString(modifier.Kind))
+					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_type_parameter, scanner.TokenToString(modifier.Kind))
 				}
 			}
 			switch modifier.Kind {
 			case ast.KindConstKeyword:
 				if node.Kind != ast.KindEnumDeclaration && node.Kind != ast.KindTypeParameter {
-					return c.grammarErrorOnNode(node, diagnostics.A_class_member_cannot_have_the_0_keyword, TokenToString(ast.KindConstKeyword))
+					return c.grammarErrorOnNode(node, diagnostics.A_class_member_cannot_have_the_0_keyword, scanner.TokenToString(ast.KindConstKeyword))
 				}
 				parent := (isJSDocTemplateTag(node.Parent) && getEffectiveJSDocHost(node.Parent)) || node.Parent
 
@@ -305,7 +306,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 						ast.IsFunctionTypeNode(parent) || ast.IsConstructorTypeNode(parent) ||
 						ast.IsCallSignatureDeclaration(parent) || ast.IsConstructSignatureDeclaration(parent) ||
 						ast.IsMethodSignatureDeclaration(parent)) {
-						return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_can_only_appear_on_a_type_parameter_of_a_function_method_or_class, TokenToString(modifier.Kind))
+						return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_can_only_appear_on_a_type_parameter_of_a_function_method_or_class, scanner.TokenToString(modifier.Kind))
 					}
 				}
 			case ast.KindOverrideKeyword:
@@ -708,7 +709,7 @@ func (c *Checker) checkGrammarForDisallowedTrailingComma(list *ast.NodeList, dia
 func (c *Checker) checkGrammarTypeParameterList(typeParameters *ast.NodeList, file *ast.SourceFile) bool {
 	if typeParameters != nil && len(typeParameters.Nodes) == 0 {
 		start := typeParameters.Pos() - len("<")
-		end := SkipTrivia(file.Text, typeParameters.End()) + len(">")
+		end := scanner.SkipTrivia(file.Text, typeParameters.End()) + len(">")
 		return c.grammarErrorAtPos(file.AsNode(), start, end-start, diagnostics.Type_parameter_list_cannot_be_empty)
 	}
 	return false
@@ -818,8 +819,8 @@ func (c *Checker) checkGrammarArrowFunction(node *ast.Node, file *ast.SourceFile
 	}
 
 	equalsGreaterThanToken := arrowFunc.EqualsGreaterThanToken
-	startLine, _ := GetLineAndCharacterOfPosition(file, equalsGreaterThanToken.Pos())
-	endLine, _ := GetLineAndCharacterOfPosition(file, equalsGreaterThanToken.End())
+	startLine, _ := scanner.GetLineAndCharacterOfPosition(file, equalsGreaterThanToken.Pos())
+	endLine, _ := scanner.GetLineAndCharacterOfPosition(file, equalsGreaterThanToken.End())
 	return startLine != endLine && c.grammarErrorOnNode(equalsGreaterThanToken, diagnostics.Line_terminator_not_permitted_before_arrow)
 }
 
@@ -875,7 +876,7 @@ func (c *Checker) checkGrammarForAtLeastOneTypeArgument(node *ast.Node, typeArgu
 	if typeArguments != nil && len(typeArguments.Nodes) == 0 {
 		sourceFile := ast.GetSourceFileOfNode(node)
 		start := typeArguments.Pos() - len("<")
-		end := SkipTrivia(sourceFile.Text, typeArguments.End()) + len(">")
+		end := scanner.SkipTrivia(sourceFile.Text, typeArguments.End()) + len(">")
 		return c.grammarErrorAtPos(sourceFile.AsNode(), start, end-start, diagnostics.Type_argument_list_cannot_be_empty)
 	}
 	return false
@@ -898,7 +899,7 @@ func (c *Checker) checkGrammarHeritageClause(node *ast.HeritageClause) bool {
 		return true
 	}
 	if types != nil && len(types.Nodes) == 0 {
-		listType := TokenToString(node.Token)
+		listType := scanner.TokenToString(node.Token)
 		// TODO: why not error on the token?
 		return c.grammarErrorAtPos(node.AsNode(), types.Pos(), 0, diagnostics.X_0_list_cannot_be_empty, listType)
 	}
@@ -1357,7 +1358,7 @@ func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 		return c.grammarErrorOnNode(accessor.Name(), diagnostics.An_accessor_cannot_have_type_parameters)
 	}
 	if !c.doesAccessorHaveCorrectParameterCount(accessor) {
-		return c.grammarErrorOnNode(accessor.Name(), ifElse(accessor.Kind == ast.KindGetAccessor, diagnostics.A_get_accessor_cannot_have_parameters, diagnostics.A_set_accessor_must_have_exactly_one_parameter))
+		return c.grammarErrorOnNode(accessor.Name(), core.IfElse(accessor.Kind == ast.KindGetAccessor, diagnostics.A_get_accessor_cannot_have_parameters, diagnostics.A_set_accessor_must_have_exactly_one_parameter))
 	}
 	if accessor.Kind == ast.KindSetAccessor {
 		if funcData.ReturnType != nil {
@@ -1390,14 +1391,14 @@ func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 func (c *Checker) doesAccessorHaveCorrectParameterCount(accessor *ast.AccessorDeclaration) bool {
 	// `getAccessorThisParameter` returns `nil` if the accessor's arity is incorrect,
 	// even if there is a `this` parameter declared.
-	return c.getAccessorThisParameter(accessor) != nil || len(accessor.Parameters()) == (ifElse(accessor.Kind == ast.KindGetAccessor, 0, 1))
+	return c.getAccessorThisParameter(accessor) != nil || len(accessor.Parameters()) == (core.IfElse(accessor.Kind == ast.KindGetAccessor, 0, 1))
 }
 
 func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool {
 	if node.Operator == ast.KindUniqueKeyword {
 		innerType := node.AsTypeOperatorNode().TypeNode
 		if innerType.Kind != ast.KindSymbolKeyword {
-			return c.grammarErrorOnNode(innerType, diagnostics.X_0_expected, TokenToString(ast.KindSymbolKeyword))
+			return c.grammarErrorOnNode(innerType, diagnostics.X_0_expected, scanner.TokenToString(ast.KindSymbolKeyword))
 		}
 		parent := ast.WalkUpParenthesizedTypes(node.Parent)
 		if isInJSFile(parent) && isJSDocTypeExpression(parent) {
@@ -1432,7 +1433,7 @@ func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool 
 	} else if node.Operator == ast.KindReadonlyKeyword {
 		innerType := node.AsTypeOperatorNode().TypeNode
 		if innerType.Kind != ast.KindArrayType && innerType.Kind != ast.KindTupleType {
-			return c.grammarErrorOnFirstToken(node.AsNode(), diagnostics.X_readonly_type_modifier_is_only_permitted_on_array_and_tuple_literal_types, TokenToString(ast.KindSymbolKeyword))
+			return c.grammarErrorOnFirstToken(node.AsNode(), diagnostics.X_readonly_type_modifier_is_only_permitted_on_array_and_tuple_literal_types, scanner.TokenToString(ast.KindSymbolKeyword))
 		}
 	}
 
@@ -1690,7 +1691,7 @@ func (c *Checker) checkGrammarVariableDeclarationList(declarationList *ast.Varia
 
 	blockScopeFlags := declarationList.Flags & ast.NodeFlagsBlockScoped
 	if (blockScopeFlags == ast.NodeFlagsUsing || blockScopeFlags == ast.NodeFlagsAwaitUsing) && ast.IsForInStatement(declarationList.Parent) {
-		return c.grammarErrorOnNode(declarationList.AsNode(), ifElse(blockScopeFlags == ast.NodeFlagsUsing, diagnostics.The_left_hand_side_of_a_for_in_statement_cannot_be_a_using_declaration, diagnostics.The_left_hand_side_of_a_for_in_statement_cannot_be_an_await_using_declaration))
+		return c.grammarErrorOnNode(declarationList.AsNode(), core.IfElse(blockScopeFlags == ast.NodeFlagsUsing, diagnostics.The_left_hand_side_of_a_for_in_statement_cannot_be_a_using_declaration, diagnostics.The_left_hand_side_of_a_for_in_statement_cannot_be_an_await_using_declaration))
 	}
 
 	if blockScopeFlags == ast.NodeFlagsAwaitUsing {
@@ -1721,7 +1722,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 				var span core.TextRange
 				var spanCalculated bool
 				if !isEffectiveExternalModule(sourceFile, c.compilerOptions) {
-					span = getSpanOfTokenAtPosition(sourceFile, node.Pos())
+					span = scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
 					spanCalculated = true
 					var message *diagnostics.Message
 					if ast.IsAwaitExpression(node) {
@@ -1738,7 +1739,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 					core.ModuleKindNodeNext:
 					if sourceFile.ImpliedNodeFormat == core.ModuleKindCommonJS {
 						if !spanCalculated {
-							span = getSpanOfTokenAtPosition(sourceFile, node.Pos())
+							span = scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
 							spanCalculated = true
 						}
 						c.diagnostics.add(ast.NewDiagnostic(sourceFile, span, diagnostics.The_current_file_is_a_CommonJS_module_and_cannot_use_await_at_the_top_level))
@@ -1756,7 +1757,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 					fallthrough
 				default:
 					if !spanCalculated {
-						span = getSpanOfTokenAtPosition(sourceFile, node.Pos())
+						span = scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
 						spanCalculated = true
 					}
 					var message *diagnostics.Message
@@ -1773,7 +1774,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 			// use of 'await' in non-async function
 			sourceFile := ast.GetSourceFileOfNode(node)
 			if !c.hasParseDiagnostics(sourceFile) {
-				span := getSpanOfTokenAtPosition(sourceFile, node.Pos())
+				span := scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
 				var message *diagnostics.Message
 				if ast.IsAwaitExpression(node) {
 					message = diagnostics.X_await_expressions_are_only_allowed_within_async_functions_and_at_the_top_levels_of_modules
@@ -1867,11 +1868,11 @@ func (c *Checker) checkGrammarMetaProperty(node *ast.MetaProperty) bool {
 	switch node.KeywordToken {
 	case ast.KindNewKeyword:
 		if nameText != "target" {
-			return c.grammarErrorOnNode(nodeName, diagnostics.X_0_is_not_a_valid_meta_property_for_keyword_1_Did_you_mean_2, nameText, TokenToString(node.KeywordToken), "target")
+			return c.grammarErrorOnNode(nodeName, diagnostics.X_0_is_not_a_valid_meta_property_for_keyword_1_Did_you_mean_2, nameText, scanner.TokenToString(node.KeywordToken), "target")
 		}
 	case ast.KindImportKeyword:
 		if nameText != "meta" {
-			return c.grammarErrorOnNode(nodeName, diagnostics.X_0_is_not_a_valid_meta_property_for_keyword_1_Did_you_mean_2, nameText, TokenToString(node.KeywordToken), "meta")
+			return c.grammarErrorOnNode(nodeName, diagnostics.X_0_is_not_a_valid_meta_property_for_keyword_1_Did_you_mean_2, nameText, scanner.TokenToString(node.KeywordToken), "meta")
 		}
 	}
 
@@ -1891,7 +1892,7 @@ func (c *Checker) checkGrammarConstructorTypeParameters(node *ast.ConstructorDec
 		if range_.pos == range_.end {
 			pos = range_.pos
 		} else {
-			pos = SkipTrivia(ast.GetSourceFileOfNode(node.AsNode()).Text, range_.pos)
+			pos = scanner.SkipTrivia(ast.GetSourceFileOfNode(node.AsNode()).Text, range_.pos)
 		}
 		return c.grammarErrorAtPos(node.AsNode(), pos, range_.end-pos, diagnostics.Type_parameters_cannot_appear_on_a_constructor_declaration)
 	}
@@ -2132,7 +2133,7 @@ func (c *Checker) checkGrammarNumericLiteral(node *ast.NumericLiteral) {
 	// 1) when `node` represents an integer <= 2 ** 53 - 1, `node.text` is its exact string representation and thus `value` precisely represents the integer.
 	// 2) otherwise, although `node.text` may be imprecise string representation, its mathematical value and consequently `value` cannot be less than 2 ** 53,
 	//    thus the result of the predicate won't be affected.
-	value := stringToNumber(node.Text)
+	value := core.StringToNumber(node.Text)
 	if value <= math.Pow(2, 53-1) {
 		return
 	}

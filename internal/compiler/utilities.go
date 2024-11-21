@@ -5,13 +5,13 @@ import (
 	"math"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync/atomic"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -384,13 +384,6 @@ func isSignedNumericLiteral(node *ast.Node) bool {
 	return false
 }
 
-func ifElse[T any](b bool, whenTrue T, whenFalse T) T {
-	if b {
-		return whenTrue
-	}
-	return whenFalse
-}
-
 func tokenIsIdentifierOrKeyword(token ast.Kind) bool {
 	return token >= ast.KindIdentifier
 }
@@ -400,23 +393,7 @@ func tokenIsIdentifierOrKeywordOrGreaterThan(token ast.Kind) bool {
 }
 
 func getTextOfNode(node *ast.Node) string {
-	return getSourceTextOfNodeFromSourceFile(ast.GetSourceFileOfNode(node), node)
-}
-
-func getSourceTextOfNodeFromSourceFile(sourceFile *ast.SourceFile, node *ast.Node) string {
-	return getTextOfNodeFromSourceText(sourceFile.Text, node)
-}
-
-func getTextOfNodeFromSourceText(sourceText string, node *ast.Node) string {
-	if ast.NodeIsMissing(node) {
-		return ""
-	}
-	text := sourceText[SkipTrivia(sourceText, node.Pos()):node.End()]
-	// if (isJSDocTypeExpressionOrChild(node)) {
-	//     // strip space + asterisk at line start
-	//     text = text.split(/\r\n|\n|\r/).map(line => line.replace(/^\s*\*/, "").trimStart()).join("\n");
-	// }
-	return text
+	return scanner.GetSourceTextOfNodeFromSourceFile(ast.GetSourceFileOfNode(node), node, false /*includeTrivia*/)
 }
 
 func isAssignmentDeclaration(decl *ast.Node) bool {
@@ -471,11 +448,11 @@ func getErrorRangeForNode(sourceFile *ast.SourceFile, node *ast.Node) core.TextR
 	errorNode := node
 	switch node.Kind {
 	case ast.KindSourceFile:
-		pos := SkipTrivia(sourceFile.Text, 0)
+		pos := scanner.SkipTrivia(sourceFile.Text, 0)
 		if pos == len(sourceFile.Text) {
 			return core.NewTextRange(0, 0)
 		}
-		return getRangeOfTokenAtPosition(sourceFile, pos)
+		return scanner.GetRangeOfTokenAtPosition(sourceFile, pos)
 	// This list is a work in progress. Add missing node kinds to improve their error spans
 	case ast.KindVariableDeclaration, ast.KindBindingElement, ast.KindClassDeclaration, ast.KindClassExpression, ast.KindInterfaceDeclaration,
 		ast.KindModuleDeclaration, ast.KindEnumDeclaration, ast.KindEnumMember, ast.KindFunctionDeclaration, ast.KindFunctionExpression,
@@ -486,7 +463,7 @@ func getErrorRangeForNode(sourceFile *ast.SourceFile, node *ast.Node) core.TextR
 		return getErrorRangeForArrowFunction(sourceFile, node)
 	case ast.KindCaseClause:
 	case ast.KindDefaultClause:
-		start := SkipTrivia(sourceFile.Text, node.Pos())
+		start := scanner.SkipTrivia(sourceFile.Text, node.Pos())
 		end := node.End()
 		statements := node.AsCaseOrDefaultClause().Statements.Nodes
 		if len(statements) != 0 {
@@ -494,45 +471,45 @@ func getErrorRangeForNode(sourceFile *ast.SourceFile, node *ast.Node) core.TextR
 		}
 		return core.NewTextRange(start, end)
 	case ast.KindReturnStatement, ast.KindYieldExpression:
-		pos := SkipTrivia(sourceFile.Text, node.Pos())
-		return getRangeOfTokenAtPosition(sourceFile, pos)
+		pos := scanner.SkipTrivia(sourceFile.Text, node.Pos())
+		return scanner.GetRangeOfTokenAtPosition(sourceFile, pos)
 	case ast.KindSatisfiesExpression:
-		pos := SkipTrivia(sourceFile.Text, node.AsSatisfiesExpression().Expression.End())
-		return getRangeOfTokenAtPosition(sourceFile, pos)
+		pos := scanner.SkipTrivia(sourceFile.Text, node.AsSatisfiesExpression().Expression.End())
+		return scanner.GetRangeOfTokenAtPosition(sourceFile, pos)
 	case ast.KindConstructor:
-		scanner := getScannerForSourceFile(sourceFile, node.Pos())
-		start := scanner.tokenStart
-		for scanner.token != ast.KindConstructorKeyword && scanner.token != ast.KindStringLiteral && scanner.token != ast.KindEndOfFile {
+		scanner := scanner.GetScannerForSourceFile(sourceFile, node.Pos())
+		start := scanner.TokenStart()
+		for scanner.Token() != ast.KindConstructorKeyword && scanner.Token() != ast.KindStringLiteral && scanner.Token() != ast.KindEndOfFile {
 			scanner.Scan()
 		}
-		return core.NewTextRange(start, scanner.pos)
+		return core.NewTextRange(start, scanner.TokenEnd())
 		// !!!
 		// case KindJSDocSatisfiesTag:
-		// 	pos := SkipTrivia(sourceFile.text, node.tagName.pos)
-		// 	return getRangeOfTokenAtPosition(sourceFile, pos)
+		// 	pos := scanner.SkipTrivia(sourceFile.text, node.tagName.pos)
+		// 	return scanner.GetRangeOfTokenAtPosition(sourceFile, pos)
 	}
 	if errorNode == nil {
 		// If we don't have a better node, then just set the error on the first token of
 		// construct.
-		return getRangeOfTokenAtPosition(sourceFile, node.Pos())
+		return scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
 	}
 	pos := errorNode.Pos()
 	if !ast.NodeIsMissing(errorNode) {
-		pos = SkipTrivia(sourceFile.Text, pos)
+		pos = scanner.SkipTrivia(sourceFile.Text, pos)
 	}
 	return core.NewTextRange(pos, errorNode.End())
 }
 
 func getErrorRangeForArrowFunction(sourceFile *ast.SourceFile, node *ast.Node) core.TextRange {
-	pos := SkipTrivia(sourceFile.Text, node.Pos())
+	pos := scanner.SkipTrivia(sourceFile.Text, node.Pos())
 	body := node.AsArrowFunction().Body
 	if body != nil && body.Kind == ast.KindBlock {
-		startLine, _ := GetLineAndCharacterOfPosition(sourceFile, body.Pos())
-		endLine, _ := GetLineAndCharacterOfPosition(sourceFile, body.End())
+		startLine, _ := scanner.GetLineAndCharacterOfPosition(sourceFile, body.Pos())
+		endLine, _ := scanner.GetLineAndCharacterOfPosition(sourceFile, body.End())
 		if startLine < endLine {
 			// The arrow function spans multiple lines,
 			// make the error span be the first line, inclusive.
-			return core.NewTextRange(pos, getEndLinePosition(sourceFile, startLine))
+			return core.NewTextRange(pos, scanner.GetEndLinePosition(sourceFile, startLine))
 		}
 	}
 	return core.NewTextRange(pos, node.End())
@@ -972,10 +949,6 @@ func isModuleAugmentationExternal(node *ast.Node) bool {
 		return isAmbientModule(grandParent) && ast.IsSourceFile(grandParent.Parent) && !isExternalModule(grandParent.Parent.AsSourceFile())
 	}
 	return false
-}
-
-func positionIsSynthesized(pos int) bool {
-	return pos < 0
 }
 
 func shouldPreserveConstEnums(options *core.CompilerOptions) bool {
@@ -1678,7 +1651,7 @@ loop:
 			result = r.lookup(r.getSymbolOfDeclaration(location).Exports, name, meaning&ast.SymbolFlagsEnumMember)
 			if result != nil {
 				if nameNotFoundMessage != nil && getIsolatedModules(r.compilerOptions) && location.Flags&ast.NodeFlagsAmbient == 0 && ast.GetSourceFileOfNode(location) != ast.GetSourceFileOfNode(result.ValueDeclaration) {
-					isolatedModulesLikeFlagName := ifElse(r.compilerOptions.VerbatimModuleSyntax == core.TSTrue, "verbatimModuleSyntax", "isolatedModules")
+					isolatedModulesLikeFlagName := core.IfElse(r.compilerOptions.VerbatimModuleSyntax == core.TSTrue, "verbatimModuleSyntax", "isolatedModules")
 					r.error(originalLocation, diagnostics.Cannot_access_0_from_another_file_without_qualification_when_1_is_enabled_Use_2_instead,
 						name, isolatedModulesLikeFlagName, r.getSymbolOfDeclaration(location).Name+"."+name)
 				}
@@ -2444,19 +2417,6 @@ func entityNameToString(name *ast.Node) string {
 	panic("Unhandled case in entityNameToString")
 }
 
-func getSpanOfTokenAtPosition(sourceFile *ast.SourceFile, pos int) core.TextRange {
-	scanner := NewScanner()
-	scanner.languageVersion = sourceFile.LanguageVersion
-	scanner.skipTrivia = true
-	scanner.languageVariant = sourceFile.LanguageVariant
-	scanner.text = sourceFile.Text
-	scanner.onError = nil
-	scanner.pos = pos
-	scanner.Scan()
-	start := scanner.TokenStart()
-	return core.NewTextRange(start, scanner.TokenEnd())
-}
-
 func getContainingQualifiedNameNode(node *ast.Node) *ast.Node {
 	for ast.IsQualifiedName(node.Parent) {
 		node = node.Parent
@@ -2735,10 +2695,6 @@ func declarationBelongsToPrivateAmbientMember(declaration *ast.Node) bool {
 
 func isPrivateWithinAmbient(node *ast.Node) bool {
 	return (hasEffectiveModifier(node, ast.ModifierFlagsPrivate) || isPrivateIdentifierClassElementDeclaration(node)) && node.Flags&ast.NodeFlagsAmbient != 0
-}
-
-func identifierToKeywordKind(node *ast.Identifier) ast.Kind {
-	return textToKeyword[node.Text]
 }
 
 func isTypeAssertion(node *ast.Node) bool {
@@ -3026,7 +2982,7 @@ func getPropertyNameFromType(t *Type) string {
 	case t.flags&TypeFlagsStringLiteral != 0:
 		return t.AsLiteralType().value.(string)
 	case t.flags&TypeFlagsNumberLiteral != 0:
-		return numberToString(t.AsLiteralType().value.(float64))
+		return core.NumberToString(t.AsLiteralType().value.(float64))
 	case t.flags&TypeFlagsUniqueESSymbol != 0:
 		return t.AsUniqueESSymbolType().name
 	}
@@ -3055,7 +3011,7 @@ func isNumericLiteralName(name string) bool {
 	// Note that this accepts the values 'Infinity', '-Infinity', and 'NaN', and that this is intentional.
 	// This is desired behavior, because when indexing with them as numeric entities, you are indexing
 	// with the strings '"Infinity"', '"-Infinity"', and '"NaN"' respectively.
-	return numberToString(stringToNumber(name)) == name
+	return core.NumberToString(core.StringToNumber(name)) == name
 }
 
 func getPropertyNameForPropertyNameNode(name *ast.Node) string {
@@ -3090,36 +3046,21 @@ func anyToString(v any) string {
 	case string:
 		return v
 	case float64:
-		return numberToString(v)
+		return core.NumberToString(v)
 	case bool:
-		return ifElse(v, "true", "false")
+		return core.IfElse(v, "true", "false")
 	case PseudoBigInt:
 		return "(BigInt)" // !!!
 	}
 	panic("Unhandled case in anyToString")
 }
 
-func numberToString(f float64) string {
-	// !!! This function should behave identically to the expression `"" + f` in JS
-	return strconv.FormatFloat(f, 'g', -1, 64)
-}
-
-func stringToNumber(s string) float64 {
-	// !!! This function should behave identically to the expression `+s` in JS
-	// This includes parsing binary, octal, and hex numeric strings
-	value, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return math.NaN()
-	}
-	return value
-}
-
 func isValidNumberString(s string, roundTripOnly bool) bool {
 	if s == "" {
 		return false
 	}
-	n := stringToNumber(s)
-	return !math.IsNaN(n) && !math.IsInf(n, 0) && (!roundTripOnly || numberToString(n) == s)
+	n := core.StringToNumber(s)
+	return !math.IsNaN(n) && !math.IsInf(n, 0) && (!roundTripOnly || core.NumberToString(n) == s)
 }
 
 func isValidBigIntString(s string, roundTripOnly bool) bool {
@@ -3478,10 +3419,10 @@ func createEvaluator(evaluateEntity Evaluator) Evaluator {
 			rightStr, rightIsStr := right.value.(string)
 			if (leftIsStr || leftIsNum) && (rightIsStr || rightIsNum) && operator == ast.KindPlusToken {
 				if leftIsNum {
-					leftStr = numberToString(leftNum)
+					leftStr = core.NumberToString(leftNum)
 				}
 				if rightIsNum {
-					rightStr = numberToString(rightNum)
+					rightStr = core.NumberToString(rightNum)
 				}
 				return evaluatorResult(leftStr+rightStr, isSyntacticallyString, resolvedOtherFiles, hasExternalReferences)
 			}
@@ -3490,7 +3431,7 @@ func createEvaluator(evaluateEntity Evaluator) Evaluator {
 		case ast.KindTemplateExpression:
 			return evaluateTemplateExpression(expr, location)
 		case ast.KindNumericLiteral:
-			return evaluatorResult(stringToNumber(expr.Text()), false, false, false)
+			return evaluatorResult(core.StringToNumber(expr.Text()), false, false, false)
 		case ast.KindIdentifier, ast.KindElementAccessExpression:
 			return evaluateEntity(expr, location)
 		case ast.KindPropertyAccessExpression:
