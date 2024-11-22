@@ -10,12 +10,15 @@ type CompilerOptions struct {
 	AllowUnusedLabels                  Tristate             `json:"allowUnusedLabels"`
 	CheckJs                            Tristate             `json:"checkJs"`
 	CustomConditions                   []string             `json:"customConditions"`
+	Declaration                        Tristate             `json:"declaration"`
 	ESModuleInterop                    Tristate             `json:"esModuleInterop"`
 	ExactOptionalPropertyTypes         Tristate             `json:"exactOptionalPropertyTypes"`
 	IsolatedModules                    Tristate             `json:"isolatedModules"`
 	ModuleKind                         ModuleKind           `json:"module"`
 	ModuleResolution                   ModuleResolutionKind `json:"moduleResolution"`
 	ModuleSuffixes                     []string             `json:"moduleSuffixes"`
+	NewLine                            NewLineKind          `json:"newLine"`
+	NoErrorTruncation                  Tristate             `json:"noErrorTruncation"`
 	NoFallthroughCasesInSwitch         Tristate             `json:"noFallthroughCasesInSwitch"`
 	NoImplicitAny                      Tristate             `json:"noImplicitAny"`
 	NoPropertyAccessFromIndexSignature Tristate             `json:"noPropertyAccessFromIndexSignature"`
@@ -26,6 +29,7 @@ type CompilerOptions struct {
 	ResolveJsonModule                  Tristate             `json:"resolveJsonModule"`
 	ResolvePackageJsonExports          Tristate             `json:"resolvePackageJsonExports"`
 	ResolvePackageJsonImports          Tristate             `json:"resolvePackageJsonImports"`
+	SkipLibCheck                       Tristate             `json:"skipLibCheck"`
 	Strict                             Tristate             `json:"strict"`
 	StrictBindCallApply                Tristate             `json:"strictBindCallApply"`
 	StrictNullChecks                   Tristate             `json:"strictNullChecks"`
@@ -128,4 +132,12 @@ const (
 	ScriptTargetESNext ScriptTarget = 99
 	ScriptTargetJSON   ScriptTarget = 100
 	ScriptTargetLatest ScriptTarget = ScriptTargetESNext
+)
+
+type NewLineKind int32
+
+const (
+	NewLineKindNone NewLineKind = 0
+	NewLineKindCRLF NewLineKind = 1
+	NewLineKindLF   NewLineKind = 2
 )

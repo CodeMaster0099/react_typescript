@@ -171,7 +171,7 @@ func extractCompilerSettings(content string) rawCompilerSettings {
 	opts := make(map[string]string)
 
 	for _, match := range optionRegex.FindAllStringSubmatch(content, -1) {
-		opts[match[1]] = strings.TrimSpace(match[2])
+		opts[strings.ToLower(match[1])] = strings.TrimSpace(match[2])
 	}
 
 	return opts

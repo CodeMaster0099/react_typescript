@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
@@ -21,7 +22,14 @@ var (
 	referencesRegex       = regexp.MustCompile(`reference\spath`)
 )
 
-var srcFolder = "/.src" // !!! Move this to vfs or equivalent of `vfsUtils.ts`
+var (
+	// Posix-style path to sources under test
+	srcFolder = "/.src" // !!! Move this to vfs or equivalent of `vfsUtils.ts`
+	// Posix-style path to the TypeScript compiler build outputs (including tsc.js, lib.d.ts, etc.)
+	builtFolder = "/.ts"
+	// Posix-style path to additional test libraries
+	testLibFolder = "/.lib"
+)
 
 type CompilerTestType int
 
@@ -96,8 +104,6 @@ func runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config fileB
 	// !!! Verify all baselines
 }
 
-// >> TODO: move functions below to utils or somewhere else
-// >> TODO: should this be alias or newtype?
 type fileBasedTestConfiguration = map[string]string
 
 type compilerFileBasedTest struct {
@@ -181,7 +187,7 @@ func splitOptionValues(value string, option string) []string {
 		variations[include] = struct{}{}
 	}
 
-	allValues := getAllValuesForSetting(option)
+	allValues := getAllValuesForOption(option)
 	if star && len(allValues) > 0 {
 		// add all entries
 		for _, value := range allValues {
@@ -196,8 +202,8 @@ func splitOptionValues(value string, option string) []string {
 
 	if len(variations) == 0 {
 		panic(fmt.Sprintf("Variations in test option '@%s' resulted in an empty set.", option))
-	}
 
+	}
 	return slices.Collect(maps.Keys(variations))
 }
 
@@ -231,12 +237,14 @@ func computeFileBasedTestConfigurationVariationsWorker(
 	}
 }
 
+// >> End of utils/common stuff to move
+
 type compilerTest struct {
 	filename       string
 	basename       string
 	configuredName string // name with configuration description, e.g. `file`
-	options        core.CompilerOptions
-	result         any // !!! compile files result
+	options        *core.CompilerOptions
+	result         *CompileFilesResult
 	tsConfigFiles  []*baseline.TestFile
 	toBeCompiled   []*baseline.TestFile // equivalent to the files that will be passed on the command line
 	otherFiles     []*baseline.TestFile // equivalent to other files on the file system not directly passed to the compiler (ie things that are referenced by other files)
@@ -315,7 +323,7 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 		toBeCompiled,
 		otherFiles,
 		harnessConfig,
-		tsConfigOptions,
+		*tsConfigOptions,
 		harnessConfig["currentDirectory"],
 		testCaseContentWithConfig.symlinks,
 	)
@@ -335,8 +343,9 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 
 func (c *compilerTest) VerifyDiagnostics(t *testing.T) {
 	// pretty := c.options.pretty
-	pretty := false                                   // !!! Add `pretty` to compiler options
-	baseline.DoErrorBaseline(t, "", nil, nil, pretty) // !!!
+	pretty := false // !!! Add `pretty` to compiler options
+	files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
+	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty)
 }
 
 func createHarnessTestFile(unit *testUnit) *baseline.TestFile {
@@ -345,4 +354,221 @@ func createHarnessTestFile(unit *testUnit) *baseline.TestFile {
 		Content:     unit.content,
 		FileOptions: unit.fileOptions,
 	}
+}
+
+// Below: move
+
+type harnessOptions struct {
+	useCaseSensitiveFileNames bool
+	includeBuiltFile          string
+	baselineFile              string
+	libFiles                  []string
+	noTypesAndSymbols         bool
+	captureSuggestions        bool
+}
+
+// >> TODO: also move this to common harness
+
+type CompileFilesResult struct {
+	Diagnostics []*ast.Diagnostic
+}
+
+func compileFiles(
+	inputFiles []*baseline.TestFile,
+	otherFiles []*baseline.TestFile,
+	rawHarnessConfig fileBasedTestConfiguration,
+	compilerOptions core.CompilerOptions,
+	currentDirectory string,
+	symlinks any) *CompileFilesResult {
+	// originalCurrentDirectory := currentDirectory
+	options := compilerOptions
+	harnessOptions := getHarnessOptions(rawHarnessConfig)
+
+	if currentDirectory == "" {
+		currentDirectory = srcFolder
+	}
+
+	var typescriptVersion string
+
+	// Parse settings
+	if rawHarnessConfig != nil { // >> TODO: why do we need this if we've already parsed ts config options in `NewCompilerTest`?
+		setCompilerOptionsFromHarnessConfig(rawHarnessConfig, &options) // >> TODO: validate that options are either harness or compiler options
+		typescriptVersion = rawHarnessConfig["typescriptVersion"]
+	}
+
+	// useCaseSensitiveFileNames := harnessOptions.useCaseSensitiveFileNames // >> TODO: this is wrong because this should default to true
+	var programFileNames []string
+	for _, file := range inputFiles {
+		// When a tsconfig is present, root names passed to createProgram should already be absolute
+		var fileName string
+		if compilerOptions.ConfigFilePath != "" {
+			fileName = tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
+		} else {
+			fileName = file.UnitName
+		}
+
+		if !tspath.FileExtensionIs(fileName, compiler.ExtensionJson) {
+			programFileNames = append(programFileNames, fileName)
+		}
+	}
+
+	// Files from built\local that are requested by test "@includeBuiltFiles" to be in the context.
+	// Treat them as library files, so include them in build, but not in baselines.
+	// !!! Note: lib files are not going to be in `built/local`.
+	// In addition, not all files that used to be in `built/local` are going to exist.
+	if harnessOptions.includeBuiltFile != "" {
+		programFileNames = append(programFileNames, tspath.CombinePaths(builtFolder, harnessOptions.includeBuiltFile))
+	}
+
+	// Files from tests\lib that are requested by "@libFiles"
+	if len(harnessOptions.libFiles) > 0 {
+		for _, libFile := range harnessOptions.libFiles {
+			programFileNames = append(programFileNames, tspath.CombinePaths(testLibFolder, libFile))
+		}
+	}
+
+	// !!!
+	// docs := append(inputFiles, otherFiles...) // !!! Convert to `TextDocument`
+	// const fs = vfs.createFromFileSystem(IO, !useCaseSensitiveFileNames, { documents: docs, cwd: currentDirectory });
+	// if (symlinks) {
+	// 	fs.apply(symlinks);
+	// }
+
+	// ts.assign(options, ts.convertToOptionsWithAbsolutePaths(options, path => ts.getNormalizedAbsolutePath(path, currentDirectory)));
+
+	host := createCompilerHost( /*fs, */ &options)
+	result := compileFilesWithHost(host, programFileNames, &options, typescriptVersion, harnessOptions.captureSuggestions)
+
+	return result
+}
+
+func getHarnessOptions(harnessConfig fileBasedTestConfiguration) harnessOptions {
+	// !!!
+	// >> TODO: split and trim libFiles by comma
+	return harnessOptions{}
+}
+
+func setCompilerOptionsFromHarnessConfig(harnessConfig fileBasedTestConfiguration, options *core.CompilerOptions) {
+	for name, value := range harnessConfig {
+		if value == "" {
+			panic(fmt.Sprintf("Cannot have undefined value for compiler option '%s'", name))
+		}
+		if name == "typescriptversion" {
+			continue
+		}
+
+		// !!! Implement this once command line parsing is done
+		// const option = getCommandLineOption(name);
+		// if (option) {
+		// 	const errors: ts.Diagnostic[] = [];
+		// 	options[option.name] = optionValue(option, value, errors);
+		// 	if (errors.length > 0) {
+		// 		throw new Error(`Unknown value '${value}' for compiler option '${name}'.`);
+		// 	}
+		// }
+		// else {
+		// 	throw new Error(`Unknown compiler option '${name}'.`);
+		// }
+	}
+}
+
+func createCompilerHost( /*fs vfs.FS, */ options *core.CompilerOptions) *compiler.CompilerHost {
+	host := compiler.NewCompilerHost(options, false) // !!! Pass in vfs
+	return &host
+}
+
+func compileFilesWithHost(
+	host *compiler.CompilerHost,
+	rootFiles []string,
+	options *core.CompilerOptions,
+	typescriptVersion string,
+	captureSuggestions bool) *CompileFilesResult {
+	// !!!
+	// if (compilerOptions.project || !rootFiles || rootFiles.length === 0) {
+	// 	const project = readProject(host.parseConfigHost, compilerOptions.project, compilerOptions);
+	// 	if (project) {
+	// 		if (project.errors && project.errors.length > 0) {
+	// 			return new CompilationResult(host, compilerOptions, /*program*/ undefined, /*result*/ undefined, project.errors);
+	// 		}
+	// 		if (project.config) {
+	// 			rootFiles = project.config.fileNames;
+	// 			compilerOptions = project.config.options;
+	// 		}
+	// 	}
+	// 	delete compilerOptions.project;
+	// }
+
+	// establish defaults (aligns with old harness)
+	if options.NewLine == core.NewLineKindNone {
+		options.NewLine = core.NewLineKindCRLF
+	}
+	// !!!
+	// if options.SkipDefaultLibCheck == core.TSUnknown {
+	// 	options.SkipDefaultLibCheck = core.TSTrue
+	// }
+	if options.NoErrorTruncation == core.TSUnknown {
+		options.NoErrorTruncation = core.TSTrue
+	}
+
+	// pre-emit/post-emit error comparison requires declaration emit twice, which can be slow. If it's unlikely to flag any error consistency issues
+	// and if the test is running `skipLibCheck` - an indicator that we want the tets to run quickly - skip the before/after error comparison, too
+	skipErrorComparison := len(rootFiles) >= 100 || options.SkipLibCheck == core.TSTrue && options.Declaration == core.TSTrue
+	// var preProgram *compiler.Program
+	if !skipErrorComparison {
+		// !!! Need actual program for this
+		// preProgram = ts.createProgram({ rootNames: rootFiles || [], options: { ...compilerOptions, configFile: compilerOptions.configFile, traceResolution: false }, host, typeScriptVersion })
+	}
+	// let preErrors = preProgram && ts.getPreEmitDiagnostics(preProgram);
+	// if (preProgram && captureSuggestions) {
+	//     preErrors = ts.concatenate(preErrors, ts.flatMap(preProgram.getSourceFiles(), f => preProgram.getSuggestionDiagnostics(f)));
+	// }
+
+	// const program = ts.createProgram({ rootNames: rootFiles || [], options: compilerOptions, host, typeScriptVersion });
+	// const emitResult = program.emit();
+	// let postErrors = ts.getPreEmitDiagnostics(program);
+	// if (captureSuggestions) {
+	//     postErrors = ts.concatenate(postErrors, ts.flatMap(program.getSourceFiles(), f => program.getSuggestionDiagnostics(f)));
+	// }
+	// const longerErrors = ts.length(preErrors) > postErrors.length ? preErrors : postErrors;
+	// const shorterErrors = longerErrors === preErrors ? postErrors : preErrors;
+	// const errors = preErrors && (preErrors.length !== postErrors.length) ? [
+	//     ...shorterErrors!,
+	//     ts.addRelatedInfo(
+	//         ts.createCompilerDiagnostic({
+	//             category: ts.DiagnosticCategory.Error,
+	//             code: -1,
+	//             key: "-1",
+	//             message: `Pre-emit (${preErrors.length}) and post-emit (${postErrors.length}) diagnostic counts do not match! This can indicate that a semantic _error_ was added by the emit resolver - such an error may not be reflected on the command line or in the editor, but may be captured in a baseline here!`,
+	//         }),
+	//         ts.createCompilerDiagnostic({
+	//             category: ts.DiagnosticCategory.Error,
+	//             code: -1,
+	//             key: "-1",
+	//             message: `The excess diagnostics are:`,
+	//         }),
+	//         ...ts.filter(longerErrors!, p => !ts.some(shorterErrors, p2 => ts.compareDiagnostics(p, p2) === ts.Comparison.EqualTo)),
+	//     ),
+	// ] : postErrors;
+	program := createProgram(host, options)
+	var diagnostics []*ast.Diagnostic
+	diagnostics = append(diagnostics, program.GetSyntacticDiagnostics(nil)...)
+	diagnostics = append(diagnostics, program.GetBindDiagnostics(nil)...)
+	diagnostics = append(diagnostics, program.GetSemanticDiagnostics(nil)...)
+	diagnostics = append(diagnostics, program.GetGlobalDiagnostics()...)
+	return &CompileFilesResult{
+		Diagnostics: diagnostics,
+	}
+}
+
+// !!! Temporary while we don't have the real `createProgram`
+func createProgram(host *compiler.CompilerHost, options *core.CompilerOptions) *compiler.Program {
+	// >> TODO: we need a root path. maybe use currentDirectory for now?
+	// And we'll also need an FS after Jake's PR
+	programOptions := compiler.ProgramOptions{
+		Host:           *host,
+		Options:        options,
+		SingleThreaded: true,
+	}
+	program := compiler.NewProgram(programOptions)
+	return program
 }
