@@ -287,7 +287,7 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 	var toBeCompiled []*baseline.TestFile
 	var otherFiles []*baseline.TestFile
 	var tsConfigOptions *core.CompilerOptions
-	hasNonDtsFiles := core.Some(units, func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, compiler.ExtensionDts) })
+	hasNonDtsFiles := core.Some(units, func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, tspath.ExtensionDts) })
 	harnessConfig := testCaseContentWithConfig.configuration
 	// var tsConfigFiles []*baseline.TestFile // !!!
 	if testCaseContentWithConfig.tsConfig != nil {
@@ -407,7 +407,7 @@ func compileFiles(
 			fileName = file.UnitName
 		}
 
-		if !tspath.FileExtensionIs(fileName, compiler.ExtensionJson) {
+		if !tspath.FileExtensionIs(fileName, tspath.ExtensionJson) {
 			programFileNames = append(programFileNames, fileName)
 		}
 	}

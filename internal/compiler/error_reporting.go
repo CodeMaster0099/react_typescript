@@ -199,9 +199,9 @@ func WriteLocation(output *strings.Builder, file *ast.SourceFile, pos int, forma
 	firstLine, firstChar := scanner.GetLineAndCharacterOfPosition(file, pos)
 	var relativeFileName string
 	if formatOpts != nil {
-		relativeFileName = tspath.ConvertToRelativePath(file.Path(), formatOpts.ComparePathsOptions)
+		relativeFileName = tspath.ConvertToRelativePath(string(file.Path()), formatOpts.ComparePathsOptions) // TODO(jakebailey): !!!
 	} else {
-		relativeFileName = file.Path()
+		relativeFileName = string(file.Path()) // TODO(jakebailey): !!!
 	}
 
 	writeWithStyleAndReset(output, relativeFileName, foregroundColorEscapeCyan)
@@ -333,7 +333,7 @@ func prettyPathForFileError(file *ast.SourceFile, fileErrors []*ast.Diagnostic, 
 	line, _ := scanner.GetLineAndCharacterOfPosition(file, fileErrors[0].Loc().Pos())
 	fileName := file.FileName()
 	if tspath.PathIsAbsolute(fileName) && tspath.PathIsAbsolute(formatOpts.CurrentDirectory) {
-		fileName = tspath.ConvertToRelativePath(file.Path(), formatOpts.ComparePathsOptions)
+		fileName = tspath.ConvertToRelativePath(string(file.Path()), formatOpts.ComparePathsOptions) // TODO(jakebailey): !!!
 	}
 	return fmt.Sprintf("%s%s:%d%s",
 		fileName,
