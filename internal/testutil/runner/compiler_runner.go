@@ -8,12 +8,14 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/tspath"
+	"github.com/microsoft/typescript-go/internal/vfs"
 )
 
 var (
@@ -53,6 +55,7 @@ func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunne
 	} else {
 		testSuitName = "conformance"
 	}
+	// !!! Basepath has to account for the fact that the cwd is the package root when the tests are run
 	basePath := fmt.Sprintf("tests/cases/%s", testSuitName)
 	return &CompilerBaselineRunner{
 		basePath:     basePath,
@@ -60,6 +63,7 @@ func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunne
 	}
 }
 
+// >> TODO: right now, this returns absolute, normalized file paths, but maybe we want paths relative to the cwd i.e. test folder
 func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 	if len(r.testFiles) > 0 {
 		return r.testFiles
@@ -73,7 +77,6 @@ func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 }
 
 func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
-	t.Parallel()
 	files := r.EnumerateTestFiles()
 	for _, filename := range files {
 		r.runTest(t, filename)
@@ -83,15 +86,14 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 var compilerVaryBy []string
 
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
-	t.Parallel()
 	test := getCompilerFileBasedTest(filename)
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
 			description := "" // !!!
-			t.Run(fmt.Sprint("%s tests for %s%s", r.testSuitName, filename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
+			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, filename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
 		}
 	} else {
-		t.Run(fmt.Sprint("%s tests for %s", r.testSuitName, filename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
+		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, filename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
 	}
 }
 
@@ -323,7 +325,7 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 		toBeCompiled,
 		otherFiles,
 		harnessConfig,
-		*tsConfigOptions,
+		tsConfigOptions,
 		harnessConfig["currentDirectory"],
 		testCaseContentWithConfig.symlinks,
 	)
@@ -356,7 +358,7 @@ func createHarnessTestFile(unit *testUnit) *baseline.TestFile {
 	}
 }
 
-// Below: move
+// >> Below: move
 
 type harnessOptions struct {
 	useCaseSensitiveFileNames bool
@@ -377,11 +379,14 @@ func compileFiles(
 	inputFiles []*baseline.TestFile,
 	otherFiles []*baseline.TestFile,
 	rawHarnessConfig fileBasedTestConfiguration,
-	compilerOptions core.CompilerOptions,
+	compilerOptions *core.CompilerOptions,
 	currentDirectory string,
 	symlinks any) *CompileFilesResult {
 	// originalCurrentDirectory := currentDirectory
-	options := compilerOptions
+	var options core.CompilerOptions
+	if compilerOptions != nil {
+		options = *compilerOptions
+	}
 	harnessOptions := getHarnessOptions(rawHarnessConfig)
 
 	if currentDirectory == "" {
@@ -399,33 +404,36 @@ func compileFiles(
 	// useCaseSensitiveFileNames := harnessOptions.useCaseSensitiveFileNames // >> TODO: this is wrong because this should default to true
 	var programFileNames []string
 	for _, file := range inputFiles {
+		// >> TODO: why aren't they always normalized and absolute?
 		// When a tsconfig is present, root names passed to createProgram should already be absolute
 		var fileName string
-		if compilerOptions.ConfigFilePath != "" {
-			fileName = tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
-		} else {
-			fileName = file.UnitName
-		}
+		// if compilerOptions.ConfigFilePath != "" {
+		// 	fileName = tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
+		// } else {
+		// 	fileName = file.UnitName
+		// }
+		fileName = tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
 
 		if !tspath.FileExtensionIs(fileName, tspath.ExtensionJson) {
 			programFileNames = append(programFileNames, fileName)
 		}
 	}
 
-	// Files from built\local that are requested by test "@includeBuiltFiles" to be in the context.
-	// Treat them as library files, so include them in build, but not in baselines.
 	// !!! Note: lib files are not going to be in `built/local`.
 	// In addition, not all files that used to be in `built/local` are going to exist.
-	if harnessOptions.includeBuiltFile != "" {
-		programFileNames = append(programFileNames, tspath.CombinePaths(builtFolder, harnessOptions.includeBuiltFile))
-	}
+	// Files from built\local that are requested by test "@includeBuiltFiles" to be in the context.
+	// Treat them as library files, so include them in build, but not in baselines.
+	// if harnessOptions.includeBuiltFile != "" {
+	// 	programFileNames = append(programFileNames, tspath.CombinePaths(builtFolder, harnessOptions.includeBuiltFile))
+	// }
 
-	// Files from tests\lib that are requested by "@libFiles"
-	if len(harnessOptions.libFiles) > 0 {
-		for _, libFile := range harnessOptions.libFiles {
-			programFileNames = append(programFileNames, tspath.CombinePaths(testLibFolder, libFile))
-		}
-	}
+	// !!! This won't work until we have the actual lib files
+	// // Files from tests\lib that are requested by "@libFiles"
+	// if len(harnessOptions.libFiles) > 0 {
+	// 	for _, libFile := range harnessOptions.libFiles {
+	// 		programFileNames = append(programFileNames, tspath.CombinePaths(testLibFolder, libFile))
+	// 	}
+	// }
 
 	// !!!
 	// docs := append(inputFiles, otherFiles...) // !!! Convert to `TextDocument`
@@ -436,7 +444,25 @@ func compileFiles(
 
 	// ts.assign(options, ts.convertToOptionsWithAbsolutePaths(options, path => ts.getNormalizedAbsolutePath(path, currentDirectory)));
 
-	host := createCompilerHost( /*fs, */ &options)
+	// !!! Port vfs usage closer to original
+
+	// Create fake FS for testing
+	testfs := fstest.MapFS{}
+	for _, file := range inputFiles {
+		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
+		testfs[fileName] = &fstest.MapFile{
+			Data: []byte(file.Content),
+		}
+	}
+	for _, file := range otherFiles {
+		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
+		testfs[fileName] = &fstest.MapFile{
+			Data: []byte(file.Content),
+		}
+	}
+	fs := vfs.FromIOFS(true, testfs)
+
+	host := createCompilerHost(fs, &options, currentDirectory)
 	result := compileFilesWithHost(host, programFileNames, &options, typescriptVersion, harnessOptions.captureSuggestions)
 
 	return result
@@ -472,13 +498,12 @@ func setCompilerOptionsFromHarnessConfig(harnessConfig fileBasedTestConfiguratio
 	}
 }
 
-func createCompilerHost( /*fs vfs.FS, */ options *core.CompilerOptions) *compiler.CompilerHost {
-	host := compiler.NewCompilerHost(options, false) // !!! Pass in vfs
-	return &host
+func createCompilerHost(fs vfs.FS, options *core.CompilerOptions, currentDirectory string) compiler.CompilerHost {
+	return compiler.NewCompilerHost(options, false, "", fs)
 }
 
 func compileFilesWithHost(
-	host *compiler.CompilerHost,
+	host compiler.CompilerHost,
 	rootFiles []string,
 	options *core.CompilerOptions,
 	typescriptVersion string,
@@ -512,12 +537,12 @@ func compileFilesWithHost(
 
 	// pre-emit/post-emit error comparison requires declaration emit twice, which can be slow. If it's unlikely to flag any error consistency issues
 	// and if the test is running `skipLibCheck` - an indicator that we want the tets to run quickly - skip the before/after error comparison, too
-	skipErrorComparison := len(rootFiles) >= 100 || options.SkipLibCheck == core.TSTrue && options.Declaration == core.TSTrue
+	// skipErrorComparison := len(rootFiles) >= 100 || options.SkipLibCheck == core.TSTrue && options.Declaration == core.TSTrue
 	// var preProgram *compiler.Program
-	if !skipErrorComparison {
-		// !!! Need actual program for this
-		// preProgram = ts.createProgram({ rootNames: rootFiles || [], options: { ...compilerOptions, configFile: compilerOptions.configFile, traceResolution: false }, host, typeScriptVersion })
-	}
+	// if !skipErrorComparison {
+	// !!! Need actual program for this
+	// preProgram = ts.createProgram({ rootNames: rootFiles || [], options: { ...compilerOptions, configFile: compilerOptions.configFile, traceResolution: false }, host, typeScriptVersion })
+	// }
 	// let preErrors = preProgram && ts.getPreEmitDiagnostics(preProgram);
 	// if (preProgram && captureSuggestions) {
 	//     preErrors = ts.concatenate(preErrors, ts.flatMap(preProgram.getSourceFiles(), f => preProgram.getSuggestionDiagnostics(f)));
@@ -561,13 +586,14 @@ func compileFilesWithHost(
 }
 
 // !!! Temporary while we don't have the real `createProgram`
-func createProgram(host *compiler.CompilerHost, options *core.CompilerOptions) *compiler.Program {
+func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *compiler.Program {
 	// >> TODO: we need a root path. maybe use currentDirectory for now?
 	// And we'll also need an FS after Jake's PR
 	programOptions := compiler.ProgramOptions{
-		Host:           *host,
+		Host:           host,
 		Options:        options,
 		SingleThreaded: true,
+		RootPath:       host.GetCurrentDirectory(),
 	}
 	program := compiler.NewProgram(programOptions)
 	return program

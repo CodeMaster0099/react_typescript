@@ -11,7 +11,7 @@ var testPathPrefix = regexp.MustCompile(`(?:(file:\/{3})|\/)\.(?:ts|lib|src)\/`)
 var testPathCharacters = regexp.MustCompile(`[\^<>:"|?*%]`)
 var testPathDotDot = regexp.MustCompile(`\.\.\/`)
 
-var libFolder = "built/local/"
+var libFolder = "built/local/" // !!! This needs to change
 var builtFolder = "/.ts"
 
 func removeTestPathPrefixes(text string, retainTrailingDirectorySeparator bool) string {

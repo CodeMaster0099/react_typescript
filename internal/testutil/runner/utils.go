@@ -6,10 +6,10 @@ import (
 	"regexp"
 
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
-// >> TODO: do we need a runner base struct + composition?
 func enumerateFiles(folder string, testRegex *regexp.Regexp, recursive bool) ([]string, error) {
 	files, err := listFiles(folder, testRegex, recursive)
 	if err != nil {
@@ -24,8 +24,9 @@ func listFiles(path string, spec *regexp.Regexp, recursive bool) ([]string, erro
 }
 
 func listFilesWorker(spec *regexp.Regexp, recursive bool, folder string) ([]string, error) {
+	folder = tspath.GetNormalizedAbsolutePath(folder, repo.TestDataPath)
 	entries, err := os.ReadDir(folder)
-	if err == nil {
+	if err != nil {
 		return nil, err
 	}
 	var paths []string
