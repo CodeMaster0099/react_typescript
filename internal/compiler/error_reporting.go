@@ -10,6 +10,7 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
+	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -79,10 +80,10 @@ func FormatDiagnosticsWithColorAndContext(output *strings.Builder, diags []*ast.
 }
 
 func writeCodeSnippet(writer *strings.Builder, sourceFile *ast.SourceFile, start int, length int, squiggleColor string, formatOpts *DiagnosticsFormattingOptions) {
-	firstLine, firstLineChar := GetLineAndCharacterOfPosition(sourceFile, start)
-	lastLine, lastLineChar := GetLineAndCharacterOfPosition(sourceFile, start+length)
+	firstLine, firstLineChar := scanner.GetLineAndCharacterOfPosition(sourceFile, start)
+	lastLine, lastLineChar := scanner.GetLineAndCharacterOfPosition(sourceFile, start+length)
 
-	lastLineOfFile, _ := GetLineAndCharacterOfPosition(sourceFile, len(sourceFile.Text))
+	lastLineOfFile, _ := scanner.GetLineAndCharacterOfPosition(sourceFile, len(sourceFile.Text))
 
 	hasMoreThanFiveLines := lastLine-firstLine >= 4
 	gutterWidth := len(strconv.Itoa(lastLineOfFile + 1))
@@ -101,10 +102,10 @@ func writeCodeSnippet(writer *strings.Builder, sourceFile *ast.SourceFile, start
 			i = lastLine - 1
 		}
 
-		lineStart := GetPositionOfLineAndCharacter(sourceFile, i, 0)
+		lineStart := scanner.GetPositionOfLineAndCharacter(sourceFile, i, 0)
 		var lineEnd int
 		if i < lastLineOfFile {
-			lineEnd = GetPositionOfLineAndCharacter(sourceFile, i+1, 0)
+			lineEnd = scanner.GetPositionOfLineAndCharacter(sourceFile, i+1, 0)
 		} else {
 			lineEnd = sourceFile.Loc.End()
 		}
@@ -195,7 +196,7 @@ func writeWithStyleAndReset(output *strings.Builder, text string, formatStyle st
 }
 
 func WriteLocation(output *strings.Builder, file *ast.SourceFile, pos int, formatOpts *DiagnosticsFormattingOptions, writeWithStyleAndReset FormattedWriter) {
-	firstLine, firstChar := GetLineAndCharacterOfPosition(file, pos)
+	firstLine, firstChar := scanner.GetLineAndCharacterOfPosition(file, pos)
 	var relativeFileName string
 	if formatOpts != nil {
 		relativeFileName = tspath.ConvertToRelativePath(file.Path(), formatOpts.ComparePathsOptions)
@@ -236,20 +237,20 @@ func WriteErrorSummaryText(output *strings.Builder, allDiagnostics []*ast.Diagno
 	if totalErrorCount == 1 {
 		// Special-case a single error.
 		if len(errorSummary.GlobalErrors) > 0 {
-			message = formatMessage(diagnostics.Found_1_error)
+			message = diagnostics.Found_1_error.Format()
 		} else {
-			message = formatMessage(diagnostics.Found_1_error_in_0, firstFileName)
+			message = diagnostics.Found_1_error_in_0.Format(firstFileName)
 		}
 	} else {
 		if numErroringFiles == 0 {
 			// No file-specific errors.
-			message = formatMessage(diagnostics.Found_0_errors, totalErrorCount)
+			message = diagnostics.Found_0_errors.Format(totalErrorCount)
 		} else if numErroringFiles == 1 {
 			// One file with errors.
-			message = formatMessage(diagnostics.Found_0_errors_in_the_same_file_starting_at_Colon_1, totalErrorCount, firstFileName)
+			message = diagnostics.Found_0_errors_in_the_same_file_starting_at_Colon_1.Format(totalErrorCount, firstFileName)
 		} else {
 			// Multiple files with errors.
-			message = formatMessage(diagnostics.Found_0_errors_in_1_files, totalErrorCount, numErroringFiles)
+			message = diagnostics.Found_0_errors_in_1_files.Format(totalErrorCount, numErroringFiles)
 		}
 	}
 	output.WriteString(formatOpts.NewLine)
@@ -329,7 +330,7 @@ func writeTabularErrorsDisplay(output *strings.Builder, errorSummary *ErrorSumma
 }
 
 func prettyPathForFileError(file *ast.SourceFile, fileErrors []*ast.Diagnostic, formatOpts *DiagnosticsFormattingOptions) string {
-	line, _ := GetLineAndCharacterOfPosition(file, fileErrors[0].Loc().Pos())
+	line, _ := scanner.GetLineAndCharacterOfPosition(file, fileErrors[0].Loc().Pos())
 	fileName := file.FileName()
 	if tspath.PathIsAbsolute(fileName) && tspath.PathIsAbsolute(formatOpts.CurrentDirectory) {
 		fileName = tspath.ConvertToRelativePath(file.Path(), formatOpts.ComparePathsOptions)
@@ -350,7 +351,7 @@ func WriteFormatDiagnostics(output *strings.Builder, diagnostics []*ast.Diagnost
 
 func WriteFormatDiagnostic(output *strings.Builder, diagnostic *ast.Diagnostic, formatOpts *DiagnosticsFormattingOptions) {
 	if diagnostic.File() != nil {
-		line, character := GetLineAndCharacterOfPosition(diagnostic.File(), diagnostic.Loc().Pos())
+		line, character := scanner.GetLineAndCharacterOfPosition(diagnostic.File(), diagnostic.Loc().Pos())
 		fileName := diagnostic.File().FileName()
 		relativeFileName := tspath.ConvertToRelativePath(fileName, formatOpts.ComparePathsOptions)
 		fmt.Fprintf(output, "%s(%d,%d): ", relativeFileName, line+1, character+1)

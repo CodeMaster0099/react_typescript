@@ -14,7 +14,12 @@ func NodeIsPresent(node *Node) bool {
 
 // Determines if a node contains synthetic positions
 func NodeIsSynthesized(node *Node) bool {
-	return node.Loc.Pos() < 0 || node.Loc.End() < 0
+	return PositionIsSynthesized(node.Loc.Pos()) || PositionIsSynthesized(node.Loc.End())
+}
+
+// Determines whether a position is synthetic
+func PositionIsSynthesized(pos int) bool {
+	return pos < 0
 }
 
 func NodeKindIs(node *Node, kinds ...Kind) bool {
@@ -474,4 +479,52 @@ func FindAncestorOrQuit(node *Node, callback func(*Node) FindAncestorResult) *No
 		node = node.Parent
 	}
 	return nil
+}
+
+func ModifierToFlag(token Kind) ModifierFlags {
+	switch token {
+	case KindStaticKeyword:
+		return ModifierFlagsStatic
+	case KindPublicKeyword:
+		return ModifierFlagsPublic
+	case KindProtectedKeyword:
+		return ModifierFlagsProtected
+	case KindPrivateKeyword:
+		return ModifierFlagsPrivate
+	case KindAbstractKeyword:
+		return ModifierFlagsAbstract
+	case KindAccessorKeyword:
+		return ModifierFlagsAccessor
+	case KindExportKeyword:
+		return ModifierFlagsExport
+	case KindDeclareKeyword:
+		return ModifierFlagsAmbient
+	case KindConstKeyword:
+		return ModifierFlagsConst
+	case KindDefaultKeyword:
+		return ModifierFlagsDefault
+	case KindAsyncKeyword:
+		return ModifierFlagsAsync
+	case KindReadonlyKeyword:
+		return ModifierFlagsReadonly
+	case KindOverrideKeyword:
+		return ModifierFlagsOverride
+	case KindInKeyword:
+		return ModifierFlagsIn
+	case KindOutKeyword:
+		return ModifierFlagsOut
+	case KindImmediateKeyword:
+		return ModifierFlagsImmediate
+	case KindDecorator:
+		return ModifierFlagsDecorator
+	}
+	return ModifierFlagsNone
+}
+
+func ModifiersToFlags(modifiers []*Node) ModifierFlags {
+	var flags ModifierFlags
+	for _, modifier := range modifiers {
+		flags |= ModifierToFlag(modifier.Kind)
+	}
+	return flags
 }
