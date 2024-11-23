@@ -5113,6 +5113,7 @@ type SourceFile struct {
 	diagnostics                 []*Diagnostic
 	bindDiagnostics             []*Diagnostic
 	BindSuggestionDiagnostics   []*Diagnostic
+	ImpliedNodeFormat           core.ModuleKind
 	LineMap                     []core.TextPos
 	LanguageVersion             core.ScriptTarget
 	LanguageVariant             core.LanguageVariant

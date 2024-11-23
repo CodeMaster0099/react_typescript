@@ -299,7 +299,10 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 				if node.Kind != ast.KindEnumDeclaration && node.Kind != ast.KindTypeParameter {
 					return c.grammarErrorOnNode(node, diagnostics.A_class_member_cannot_have_the_0_keyword, scanner.TokenToString(ast.KindConstKeyword))
 				}
-				parent := (isJSDocTemplateTag(node.Parent) && getEffectiveJSDocHost(node.Parent)) || node.Parent
+
+				// !!!
+				// parent := (isJSDocTemplateTag(node.Parent) && getEffectiveJSDocHost(node.Parent)) || node.Parent
+				parent := node.Parent
 
 				if node.Kind == ast.KindTypeParameter {
 					if !(ast.IsFunctionLikeDeclaration(parent) || ast.IsClassLike(parent) ||
@@ -527,8 +530,10 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 				} else {
 					inOutText = "out"
 				}
-				parent := isJSDocTemplateTag(node.Parent) && (getEffectiveJSDocHost(node.Parent) || core.Find(getJSDocRoot(node.Parent). /* ? */ tags, isJSDocTypedefTag)) || node.Parent
-				if node.Kind != ast.KindTypeParameter || parent && !(ast.IsInterfaceDeclaration(parent) || ast.IsClassLike(parent) || ast.IsTypeAliasDeclaration(parent) || isJSDocTypedefTag(parent)) {
+				// !!!
+				// parent := isJSDocTemplateTag(node.Parent) && (getEffectiveJSDocHost(node.Parent) || core.Find(getJSDocRoot(node.Parent). /* ? */ tags, isJSDocTypedefTag)) || node.Parent
+				parent := node.Parent
+				if node.Kind != ast.KindTypeParameter || parent != nil && !(ast.IsInterfaceDeclaration(parent) || ast.IsClassLike(parent) || ast.IsTypeAliasDeclaration(parent) || isJSDocTypedefTag(parent)) {
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_can_only_appear_on_a_type_parameter_of_a_class_interface_or_type_alias, inOutText)
 				}
 				if flags&inOutFlag != 0 {
@@ -564,6 +569,11 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 	if flags&ast.ModifierFlagsAsync != 0 {
 		return c.checkGrammarAsyncModifier(node, lastAsync)
 	}
+	return false
+}
+
+func isJSDocTypedefTag(node *ast.Node) bool {
+	// !!!
 	return false
 }
 
@@ -736,7 +746,9 @@ func (c *Checker) checkGrammarParameterList(parameters *ast.NodeList) bool {
 			if parameter.Initializer != nil {
 				return c.grammarErrorOnNode(parameter.Name(), diagnostics.A_rest_parameter_cannot_have_an_initializer)
 			}
-		} else if c.hasEffectiveQuestionToken(parameter) {
+		} else if isOptionalDeclaration(parameter.AsNode()) {
+			// !!!
+			// used to be hasEffectiveQuestionToken for JSDoc
 			seenOptionalParameter = true
 			if parameter.QuestionToken != nil && parameter.Initializer != nil {
 				return c.grammarErrorOnNode(parameter.Name(), diagnostics.Parameter_cannot_have_question_mark_and_initializer)
@@ -1401,12 +1413,13 @@ func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool 
 			return c.grammarErrorOnNode(innerType, diagnostics.X_0_expected, scanner.TokenToString(ast.KindSymbolKeyword))
 		}
 		parent := ast.WalkUpParenthesizedTypes(node.Parent)
-		if isInJSFile(parent) && isJSDocTypeExpression(parent) {
-			host := getJSDocHost(parent)
-			if host != nil {
-				parent = getSingleVariableOfVariableStatement(host) || host
-			}
-		}
+		// !!!
+		// if isInJSFile(parent) && isJSDocTypeExpression(parent) {
+		// 	host := getJSDocHost(parent)
+		// 	if host != nil {
+		// 		parent = getSingleVariableOfVariableStatement(host) || host
+		// 	}
+		// }
 		switch parent.Kind {
 		case ast.KindVariableDeclaration:
 			decl := parent.AsVariableDeclaration()
@@ -1880,29 +1893,35 @@ func (c *Checker) checkGrammarMetaProperty(node *ast.MetaProperty) bool {
 }
 
 func (c *Checker) checkGrammarConstructorTypeParameters(node *ast.ConstructorDeclaration) bool {
-	var jsdocTypeParameters []*ast.TypeParameterDeclaration
-	if isInJSFile(node.AsNode()) {
-		jsdocTypeParameters = getJSDocTypeParameterDeclarations(node)
-	} else {
-		jsdocTypeParameters = nil
-	}
-	range_ := node.TypeParameters || jsdocTypeParameters && core.FirstOrNil(jsdocTypeParameters)
+	// !!!
+	// var jsdocTypeParameters []*ast.TypeParameterDeclaration
+	// if isInJSFile(node.AsNode()) {
+	// 	jsdocTypeParameters = getJSDocTypeParameterDeclarations(node)
+	// } else {
+	// 	jsdocTypeParameters = nil
+	// }
+	// if range_ == nil {
+	// 	range_ = core.FirstOrNil(jsdocTypeParameters)
+	// }
+	range_ := node.TypeParameters
 	if range_ != nil {
 		var pos int
-		if range_.pos == range_.end {
-			pos = range_.pos
+		if range_.Pos() == range_.End() {
+			pos = range_.Pos()
 		} else {
-			pos = scanner.SkipTrivia(ast.GetSourceFileOfNode(node.AsNode()).Text, range_.pos)
+			pos = scanner.SkipTrivia(ast.GetSourceFileOfNode(node.AsNode()).Text, range_.Pos())
 		}
-		return c.grammarErrorAtPos(node.AsNode(), pos, range_.end-pos, diagnostics.Type_parameters_cannot_appear_on_a_constructor_declaration)
+		return c.grammarErrorAtPos(node.AsNode(), pos, range_.End()-pos, diagnostics.Type_parameters_cannot_appear_on_a_constructor_declaration)
 	}
 
 	return false
 }
 
 func (c *Checker) checkGrammarConstructorTypeAnnotation(node *ast.ConstructorDeclaration) bool {
-	t := node.ReturnType || getEffectiveReturnTypeNode(node)
-	if t {
+	// !!!
+	// t := node.ReturnType || getEffectiveReturnTypeNode(node)
+	t := node.ReturnType
+	if t != nil {
 		return c.grammarErrorOnNode(t, diagnostics.Type_annotation_cannot_appear_on_a_constructor_declaration)
 	}
 	return false
