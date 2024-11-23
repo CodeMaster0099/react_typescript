@@ -1226,20 +1226,13 @@ func (node *ForInOrOfStatement) ForEachChild(v Visitor) bool {
 func IsForInStatement(node *Node) bool {
 	return node.Kind == KindForInStatement
 }
+
 func IsForOfStatement(node *Node) bool {
 	return node.Kind == KindForOfStatement
 }
 
 func IsForInOrOfStatement(node *Node) bool {
 	return IsForInStatement(node) || IsForOfStatement(node)
-}
-
-func IsForInStatement(node *Node) bool {
-	return node.Kind == KindForInStatement
-}
-
-func IsForOfStatement(node *Node) bool {
-	return node.Kind == KindForOfStatement
 }
 
 // BreakStatement

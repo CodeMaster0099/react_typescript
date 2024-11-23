@@ -1485,10 +1485,6 @@ func (c *Checker) checkExportAssignment(node *ast.Node) {
 	node.ForEachChild(c.checkSourceElement)
 }
 
-func (c *Checker) checkGrammarStatementInAmbientContext(node *ast.Node) {
-	// !!!
-}
-
 func (c *Checker) checkMissingDeclaration(node *ast.Node) {
 	// !!!
 }
