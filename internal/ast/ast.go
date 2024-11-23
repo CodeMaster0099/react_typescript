@@ -2,6 +2,7 @@ package ast
 
 import (
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
 // Visitor
@@ -170,10 +171,22 @@ func (node *Node) Expression() *Node {
 		return node.AsAsExpression().Expression
 	case KindSatisfiesExpression:
 		return node.AsSatisfiesExpression().Expression
+	case KindTypeOfExpression:
+		return node.AsTypeOfExpression().Expression
 	case KindSpreadAssignment:
 		return node.AsSpreadAssignment().Expression
+	case KindSpreadElement:
+		return node.AsSpreadElement().Expression
 	case KindTemplateSpan:
 		return node.AsTemplateSpan().Expression
+	case KindDeleteExpression:
+		return node.AsDeleteExpression().Expression
+	case KindVoidExpression:
+		return node.AsVoidExpression().Expression
+	case KindAwaitExpression:
+		return node.AsAwaitExpression().Expression
+	case KindYieldExpression:
+		return node.AsYieldExpression().Expression
 	case KindForInStatement, KindForOfStatement:
 		return node.AsForInOrOfStatement().Expression
 	}
@@ -181,13 +194,19 @@ func (node *Node) Expression() *Node {
 }
 
 func (node *Node) Arguments() []*Node {
+	var arguments *NodeList
 	switch node.Kind {
 	case KindCallExpression:
-		return node.AsCallExpression().Arguments.Nodes
+		arguments = node.AsCallExpression().Arguments
 	case KindNewExpression:
-		return node.AsNewExpression().Arguments.Nodes
+		arguments = node.AsNewExpression().Arguments
+	default:
+		panic("Unhandled case in Node.Arguments")
 	}
-	panic("Unhandled case in Node.Arguments")
+	if arguments != nil {
+		return arguments.Nodes
+	}
+	return nil
 }
 
 func (node *Node) ModifierFlags() ModifierFlags {
@@ -685,6 +704,15 @@ func (n *Node) AsJSDocNameReference() *JSDocNameReference {
 }
 func (n *Node) AsTemplateLiteralTypeNode() *TemplateLiteralTypeNode {
 	return n.data.(*TemplateLiteralTypeNode)
+}
+func (n *Node) AsVoidExpression() *VoidExpression {
+	return n.data.(*VoidExpression)
+}
+func (n *Node) AsAwaitExpression() *AwaitExpression {
+	return n.data.(*AwaitExpression)
+}
+func (n *Node) AsYieldExpression() *YieldExpression {
+	return n.data.(*YieldExpression)
 }
 
 // NodeData
@@ -1195,8 +1223,15 @@ func (node *ForInOrOfStatement) ForEachChild(v Visitor) bool {
 	return visit(v, node.AwaitModifier) || visit(v, node.Initializer) || visit(v, node.Expression) || visit(v, node.Statement)
 }
 
+func IsForInStatement(node *Node) bool {
+	return node.Kind == KindForInStatement
+}
+func IsForOfStatement(node *Node) bool {
+	return node.Kind == KindForOfStatement
+}
+
 func IsForInOrOfStatement(node *Node) bool {
-	return node.Kind == KindForInStatement || node.Kind == KindForOfStatement
+	return IsForInStatement(node) || IsForOfStatement(node)
 }
 
 func IsForInStatement(node *Node) bool {
@@ -1874,6 +1909,10 @@ func (node *EnumMember) ForEachChild(v Visitor) bool {
 
 func (node *EnumMember) Name() *DeclarationName {
 	return node.name
+}
+
+func IsEnumMember(node *Node) bool {
+	return node.Kind == KindEnumMember
 }
 
 // EnumDeclaration
@@ -3242,6 +3281,10 @@ func (f *NodeFactory) NewTaggedTemplateExpression(tag *Expression, questionDotTo
 
 func (node *TaggedTemplateExpression) ForEachChild(v Visitor) bool {
 	return visit(v, node.Tag) || visit(v, node.QuestionDotToken) || visitNodeList(v, node.TypeArguments) || visit(v, node.Template)
+}
+
+func IsTaggedTemplateExpression(node *Node) bool {
+	return node.Kind == KindTaggedTemplateExpression
 }
 
 // ParenthesizedExpression
@@ -5072,7 +5115,7 @@ type SourceFile struct {
 	LocalsContainerBase
 	Text                        string
 	fileName                    string
-	path                        string
+	path                        tspath.Path
 	Statements                  *NodeList // NodeList[*Statement]
 	diagnostics                 []*Diagnostic
 	bindDiagnostics             []*Diagnostic
@@ -5095,10 +5138,6 @@ type SourceFile struct {
 	ModuleAugmentations         []*ModuleName      // []ModuleName
 	PatternAmbientModules       []PatternAmbientModule
 	AmbientModuleNames          []string
-	Pragmas                     map[string][]Pragma
-	ReferencedFiles             []FileReference
-	TypeReferenceDirectives     []FileReference
-	LibReferenceDirectives      []FileReference
 	HasNoDefaultLib             bool
 	jsdocCache                  map[*Node][]*Node
 }
@@ -5116,11 +5155,11 @@ func (node *SourceFile) FileName() string {
 	return node.fileName
 }
 
-func (node *SourceFile) Path() string {
+func (node *SourceFile) Path() tspath.Path {
 	return node.path
 }
 
-func (node *SourceFile) SetPath(p string) {
+func (node *SourceFile) SetPath(p tspath.Path) {
 	node.path = p
 }
 
@@ -5146,62 +5185,4 @@ func (node *SourceFile) ForEachChild(v Visitor) bool {
 
 func IsSourceFile(node *Node) bool {
 	return node.Kind == KindSourceFile
-}
-
-type CommentRange struct {
-	core.TextRange
-	HasTrailingNewLine bool
-	Kind               Kind
-}
-
-func NewCommentRange(kind Kind, pos int, end int, hasTrailingNewLine bool) CommentRange {
-	return CommentRange{
-		TextRange:          core.NewTextRange(pos, end),
-		HasTrailingNewLine: hasTrailingNewLine,
-		Kind:               kind,
-	}
-}
-
-type FileReference struct {
-	core.TextRange
-	FileName       string
-	ResolutionMode core.ResolutionMode
-	Preserve       bool
-}
-
-type PragmaArgument struct {
-	core.TextRange
-	Name  string
-	Value string
-}
-
-type Pragma struct {
-	Name      string
-	Args      map[string]PragmaArgument
-	ArgsRange CommentRange
-}
-
-type PragmaKindFlags = uint8
-
-const (
-	PragmaKindFlagsNone PragmaKindFlags = iota
-	PragmaKindTripleSlashXML
-	PragmaKindSingleLine
-	PragmaKindMultiLine
-	PragmaKindAll     = PragmaKindTripleSlashXML | PragmaKindSingleLine | PragmaKindMultiLine
-	PragmaKindDefault = PragmaKindAll
-)
-
-type PragmaArgumentSpecification struct {
-	Name        string
-	Optional    bool
-	CaptureSpan bool
-}
-type PragmaSpecification struct {
-	Args []PragmaArgumentSpecification
-	Kind PragmaKindFlags
-}
-
-func (spec *PragmaSpecification) IsTripleSlash() bool {
-	return (spec.Kind & PragmaKindTripleSlashXML) > 0
 }
