@@ -1491,11 +1491,13 @@ func (c *Checker) checkMissingDeclaration(node *ast.Node) {
 
 func (c *Checker) checkVariableStatement(node *ast.Node) {
 	// !!!
+	varStatement := node.AsVariableStatement()
+	declarationList := varStatement.DeclarationList
 	// // Grammar checking
-	// if !c.checkGrammarModifiers(node) && !c.checkGrammarVariableDeclarationList(node.DeclarationList) {
-	// 	c.checkGrammarForDisallowedBlockScopedVariableStatement(node)
-	// }
-	c.checkVariableDeclarationList(node.AsVariableStatement().DeclarationList)
+	if !c.checkGrammarModifiers(node) && !c.checkGrammarVariableDeclarationList(declarationList.AsVariableDeclarationList()) {
+		c.checkGrammarForDisallowedBlockScopedVariableStatement(varStatement)
+	}
+	c.checkVariableDeclarationList(declarationList)
 }
 
 func (c *Checker) checkVariableDeclarationList(node *ast.Node) {
