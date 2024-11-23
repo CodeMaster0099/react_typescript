@@ -1204,7 +1204,7 @@ func (c *Checker) checkGrammarJsxElement(node *ast.Node, jsxCommon struct {
 			return c.grammarErrorOnNode(name, diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name)
 		}
 
-		if initializer != nil && initializer.Kind == ast.KindJsxExpression && initializer.Expression == nil {
+		if initializer != nil && initializer.Kind == ast.KindJsxExpression && initializer.Expression() == nil {
 			return c.grammarErrorOnNode(initializer, diagnostics.JSX_attributes_must_only_be_assigned_a_non_empty_expression)
 		}
 	}
@@ -2173,7 +2173,7 @@ func (c *Checker) checkGrammarBigIntLiteral(node *ast.BigIntLiteral) bool {
 }
 
 func (c *Checker) checkGrammarImportClause(node *ast.ImportClause) bool {
-	if node.IsTypeOnly && node.Name != nil && node.NamedBindings != nil {
+	if node.IsTypeOnly && node.Name() != nil && node.NamedBindings != nil {
 		return c.grammarErrorOnNode(&node.Node, diagnostics.A_type_only_import_can_specify_a_default_import_or_named_bindings_but_not_both)
 	}
 	if node.IsTypeOnly && node.NamedBindings != nil && node.NamedBindings.Kind == ast.KindNamedImports {
