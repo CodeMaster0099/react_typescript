@@ -3,7 +3,6 @@ package compiler
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
@@ -42,18 +41,12 @@ func NewProgram(options ProgramOptions) *Program {
 	}
 	p.host = options.Host
 	if p.host == nil {
-		cwd, err := os.Getwd()
-		if err != nil {
-			panic(err) // TODO(jakebailey): make host required, plumb from above
-		}
-
-		p.host = NewCompilerHost(p.options, options.SingleThreaded, cwd, vfs.FromOS())
+		panic("host required")
 	}
-	rootPath := options.RootPath
-	if rootPath == "" {
-		rootPath = "."
+	p.rootPath = options.RootPath
+	if p.rootPath == "" {
+		panic("root path required")
 	}
-	p.rootPath = p.host.AbsFileName(rootPath)
 	fileInfos := readFileInfos(p.host.FS(), p.rootPath, extensions)
 	// Sort files by descending file size
 	slices.SortFunc(fileInfos, func(a FileInfo, b FileInfo) int {
@@ -122,9 +115,9 @@ func (p *Program) bindSourceFiles() {
 }
 
 func (p *Program) getResolvedModule(currentSourceFile *ast.SourceFile, moduleReference string) *ast.SourceFile {
-	directory := currentSourceFile.Path().GetDirectoryPath()
+	directory := tspath.GetDirectoryPath(currentSourceFile.FileName())
 	if tspath.IsExternalModuleNameRelative(moduleReference) {
-		return p.findSourceFile(tspath.CombinePaths(string(directory), moduleReference))
+		return p.findSourceFile(tspath.CombinePaths(directory, moduleReference))
 	}
 	return p.findNodeModule(moduleReference)
 }
@@ -132,7 +125,7 @@ func (p *Program) getResolvedModule(currentSourceFile *ast.SourceFile, moduleRef
 func (p *Program) findSourceFile(candidate string) *ast.SourceFile {
 	extensionless := tspath.RemoveFileExtension(candidate)
 	for _, ext := range []string{tspath.ExtensionTs, tspath.ExtensionTsx, tspath.ExtensionDts} {
-		path := tspath.Path(extensionless + ext)
+		path := tspath.ToPath(extensionless+ext, p.host.GetCurrentDirectory(), p.host.FS().UseCaseSensitiveFileNames())
 		if result, ok := p.filesByPath[path]; ok {
 			return result
 		}

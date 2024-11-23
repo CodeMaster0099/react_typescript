@@ -93,6 +93,7 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, filename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
 		}
 	} else {
+		// !!! Fix filename for printing
 		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, filename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
 	}
 }
@@ -499,7 +500,7 @@ func setCompilerOptionsFromHarnessConfig(harnessConfig fileBasedTestConfiguratio
 }
 
 func createCompilerHost(fs vfs.FS, options *core.CompilerOptions, currentDirectory string) compiler.CompilerHost {
-	return compiler.NewCompilerHost(options, false, "", fs)
+	return compiler.NewCompilerHost(options, false, currentDirectory, fs)
 }
 
 func compileFilesWithHost(
@@ -587,8 +588,6 @@ func compileFilesWithHost(
 
 // !!! Temporary while we don't have the real `createProgram`
 func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *compiler.Program {
-	// >> TODO: we need a root path. maybe use currentDirectory for now?
-	// And we'll also need an FS after Jake's PR
 	programOptions := compiler.ProgramOptions{
 		Host:           host,
 		Options:        options,

@@ -1,9 +1,6 @@
 package compiler
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/microsoft/typescript-go/internal/core"
@@ -13,7 +10,6 @@ import (
 type CompilerHost interface {
 	FS() vfs.FS
 	GetCurrentDirectory() string
-	AbsFileName(fileName string) string
 	RunTask(fn func())
 	WaitForTasks()
 }
@@ -35,6 +31,7 @@ func NewCompilerHost(options *core.CompilerOptions, singleThreaded bool, current
 	h := &compilerHost{}
 	h.options = options
 	h.singleThreaded = singleThreaded
+	h.currentDirectory = currentDirectory
 	h.fs = fs
 	return h
 }
@@ -45,15 +42,6 @@ func (h *compilerHost) FS() vfs.FS {
 
 func (h *compilerHost) GetCurrentDirectory() string {
 	return h.currentDirectory
-}
-
-func (h *compilerHost) AbsFileName(fileName string) string {
-	absFileName, err := filepath.Abs(fileName)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	return absFileName
 }
 
 func (h *compilerHost) RunTask(task func()) {

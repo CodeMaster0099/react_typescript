@@ -3,6 +3,7 @@ package vfs
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -64,6 +65,32 @@ var (
 
 var _ FS = (*vfs)(nil)
 
+// FromIOFS creates a new FS from an [fs.FS].
+// For paths like `c:/foo/bar`, fsys will be used as though it's rooted at `/` and the path is `/c:/foo/bar`.
+func FromIOFS(useCaseSensitiveFileNames bool, fsys fs.FS) FS {
+	return &vfs{
+		readSema: osReadSema,
+		// !!! The passed in FS may not actually respect case insensitive file names.
+		useCaseSensitiveFileNames: useCaseSensitiveFileNames,
+		rootFor: func(root string) fs.FS {
+			if root == "/" {
+				return fsys
+			}
+
+			p := tspath.RemoveTrailingDirectorySeparator(root)
+			sub, err := fs.Sub(fsys, p)
+			if err != nil {
+				panic(fmt.Sprintf("vfs: failed to create sub file system for %q: %v", p, err))
+			}
+			return sub
+		},
+		realpath: func(path string) (string, error) {
+			// TODO: replace once https://go.dev/cl/385534 is available
+			return path, nil
+		},
+	}
+}
+
 // FromOS creates a new FS from the OS file system.
 func FromOS() FS {
 	useCaseSensitiveFileNames := isFileSystemCaseSensitive()
@@ -82,31 +109,6 @@ func FromOS() FS {
 				return "", err //nolint:wrapcheck
 			}
 			return tspath.NormalizeSlashes(path), nil
-		},
-	}
-}
-
-// FromIOFS creates a new FS from an [fs.FS].
-// For paths like `c:/foo/bar`, fsys will be used as though it's rooted at `/` and the path is `/c:/foo/bar`.
-func FromIOFS(useCaseSensitiveFileNames bool, fsys fs.FS) FS {
-	return &vfs{
-		readSema:                  osReadSema,
-		useCaseSensitiveFileNames: useCaseSensitiveFileNames,
-		rootFor: func(root string) fs.FS {
-			if root == "/" {
-				return fsys
-			}
-
-			p := tspath.RemoveTrailingDirectorySeparator(root)
-			sub, err := fs.Sub(fsys, p)
-			if err != nil {
-				panic(err)
-			}
-			return sub
-		},
-		realpath: func(path string) (string, error) {
-			// TODO: replace once https://go.dev/cl/385534 is available
-			return path, nil
 		},
 	}
 }
@@ -151,16 +153,24 @@ func (v *vfs) UseCaseSensitiveFileNames() bool {
 	return v.useCaseSensitiveFileNames
 }
 
-func splitRoot(p string) (rootName, rest string) {
+func rootLength(p string) int {
 	l := tspath.GetEncodedRootLength(p)
-	if l < 0 {
-		panic("FS does not support URLs")
+	if l <= 0 {
+		panic(fmt.Sprintf("vfs: path %q is not absolute", p))
 	}
+	return l
+}
+
+func splitRoot(p string) (rootName, rest string) {
+	l := rootLength(p)
 	return p[:l], p[l:]
 }
 
 func (v *vfs) rootAndPath(path string) (fsys fs.FS, rootName string, rest string) {
 	rootName, rest = splitRoot(path)
+	if rest == "" {
+		rest = "."
+	}
 	return v.rootFor(rootName), rootName, rest
 }
 
@@ -254,11 +264,15 @@ func (v *vfs) WalkDir(root string, walkFn WalkDirFunc) error {
 		return nil
 	}
 	return fs.WalkDir(fsys, rest, func(path string, d fs.DirEntry, err error) error { //nolint:wrapcheck
+		if path == "." {
+			path = ""
+		}
 		return walkFn(rootName+path, d, err)
 	})
 }
 
 func (v *vfs) Realpath(path string) string {
+	_ = rootLength(path) // panic if not absolute
 	path, _ = v.realpath(path)
 	return path
 }
