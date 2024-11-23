@@ -1509,7 +1509,7 @@ func (c *Checker) checkVariableDeclarationList(node *ast.Node) {
 
 func (c *Checker) checkVariableDeclaration(node *ast.Node) {
 	// !!!
-	// c.checkGrammarVariableDeclaration(node)
+	c.checkGrammarVariableDeclaration(node.AsVariableDeclaration())
 	c.checkVariableLikeDeclaration(node)
 }
 
