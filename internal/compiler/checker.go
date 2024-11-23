@@ -7065,11 +7065,11 @@ func (c *Checker) getEffectivePropertyNameForPropertyNameNode(node *ast.Property
 func (c *Checker) tryGetNameFromType(t *Type) (name string, ok bool) {
 	switch {
 	case t.flags&TypeFlagsUniqueESSymbol != 0:
-		return (t.AsUniqueESSymbolType()).name, true
+		return t.AsUniqueESSymbolType().name, true
 	case t.flags&TypeFlagsStringLiteral != 0:
 		s := t.AsLiteralType().value.(string)
 		return s, true
-	case t.flags&TypeFlagsStringLiteral != 0:
+	case t.flags&TypeFlagsNumberLiteral != 0:
 		s := core.NumberToString(t.AsLiteralType().value.(float64))
 		return s, true
 	default:
