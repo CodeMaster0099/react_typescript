@@ -1727,26 +1727,58 @@ func (c *Checker) checkTryStatement(node *ast.Node) {
 }
 
 func (c *Checker) checkBindingElement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarBindingElement(node.AsBindingElement())
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkClassDeclaration(node *ast.Node) {
+	classDecl := node.AsClassDeclaration()
+	var firstDecorator *ast.Node
+	if modifiers := classDecl.Modifiers(); modifiers != nil {
+		firstDecorator = core.Find(modifiers.NodeList.Nodes, ast.IsDecorator)
+	}
+	if c.legacyDecorators && firstDecorator != nil && core.Some(classDecl.Members.Nodes, func(p *ast.Node) bool {
+		return hasStaticModifier(p) && isPrivateIdentifierClassElementDeclaration(p)
+	}) {
+		c.grammarErrorOnNode(firstDecorator, diagnostics.Class_decorators_can_t_be_used_with_static_private_identifier_Consider_removing_the_experimental_decorator)
+	}
+	if node.Name() == nil && !hasSyntacticModifier(node, ast.ModifierFlagsDefault) {
+		c.grammarErrorOnFirstToken(node, diagnostics.A_class_declaration_without_the_default_modifier_must_have_a_name)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkInterfaceDeclaration(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarModifiers(node) {
+		c.checkGrammarInterfaceDeclaration(node.AsInterfaceDeclaration())
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkEnumDeclaration(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkModuleDeclaration(node *ast.Node) {
+	if body := getBodyOfNode(node); body != nil {
+		c.checkSourceElement(body)
+		if !isGlobalScopeAugmentation(node) {
+			c.registerForUnusedIdentifiersCheck(node)
+		}
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1762,6 +1794,24 @@ func (c *Checker) checkImportEqualsDeclaration(node *ast.Node) {
 }
 
 func (c *Checker) checkExportDeclaration(node *ast.Node) {
+	var diagnostic *diagnostics.Message
+	if isInJSFile(node) {
+		diagnostic = diagnostics.An_export_declaration_can_only_be_used_at_the_top_level_of_a_module
+	} else {
+		diagnostic = diagnostics.An_export_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
+	}
+
+	// Grammar checking
+	if c.checkGrammarModuleElementContext(node, diagnostic) {
+		// If we hit an export in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	exportDecl := node.AsExportDeclaration()
+	if !c.checkGrammarModifiers(node) && exportDecl.Modifiers() != nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.An_export_declaration_cannot_have_modifiers)
+	}
+	c.checkGrammarExportDeclaration(exportDecl)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }

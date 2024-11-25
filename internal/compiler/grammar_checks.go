@@ -184,7 +184,7 @@ func (c *Checker) checkGrammarDecorator(decorator *ast.Decorator) bool {
 
 	return false
 }
-func (c *Checker) checkGrammarExportDeclaration(node ast.ExportDeclaration) bool {
+func (c *Checker) checkGrammarExportDeclaration(node *ast.ExportDeclaration) bool {
 	if node.IsTypeOnly && node.ExportClause != nil && node.ExportClause.Kind == ast.KindNamedExports {
 		return c.checkGrammarTypeOnlyNamedImportsOrExports(node.ExportClause)
 	}
@@ -975,7 +975,7 @@ func (c *Checker) checkGrammarClassDeclarationHeritageClauses(node *ast.ClassLik
 	return false
 }
 
-func (c *Checker) checkGrammarInterfaceDeclaration(node ast.InterfaceDeclaration) bool {
+func (c *Checker) checkGrammarInterfaceDeclaration(node *ast.InterfaceDeclaration) bool {
 	if node.HeritageClauses != nil {
 		seenExtendsClause := false
 		for _, heritageClauseNode := range node.HeritageClauses.Nodes {
