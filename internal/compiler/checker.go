@@ -1396,11 +1396,23 @@ func (c *Checker) checkPropertySignature(node *ast.Node) {
 }
 
 func (c *Checker) checkSignatureDeclaration(node *ast.Node) {
+	// Grammar checking
+	if node.Kind == ast.KindIndexSignature {
+		c.checkGrammarIndexSignature(node.AsIndexSignatureDeclaration())
+	} else if node.Kind == ast.KindFunctionType || node.Kind == ast.KindFunctionDeclaration || node.Kind == ast.KindConstructorType || node.Kind == ast.KindCallSignature || node.Kind == ast.KindConstructor || node.Kind == ast.KindConstructSignature {
+		c.checkGrammarFunctionLikeDeclaration(node)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkMethodDeclaration(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarMethod(node) {
+		c.checkGrammarComputedPropertyName(node.Name())
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }

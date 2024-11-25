@@ -486,6 +486,9 @@ func (n *Node) AsTypeReference() *TypeReferenceNode {
 func (n *Node) AsConstructorDeclaration() *ConstructorDeclaration {
 	return n.data.(*ConstructorDeclaration)
 }
+func (n *Node) AsIndexSignatureDeclaration() *IndexSignatureDeclaration {
+	return n.data.(*IndexSignatureDeclaration)
+}
 func (n *Node) AsConditionalTypeNode() *ConditionalTypeNode {
 	return n.data.(*ConditionalTypeNode)
 }
