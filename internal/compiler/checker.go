@@ -1418,21 +1418,40 @@ func (c *Checker) checkMethodDeclaration(node *ast.Node) {
 }
 
 func (c *Checker) checkClassStaticBlockDeclaration(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkConstructorDeclaration(node *ast.Node) {
+	// Grammar check on signature of constructor and modifier of the constructor is done in checkSignatureDeclaration function.
+	c.checkSignatureDeclaration(node)
+	// Grammar check for checking only related to constructorDeclaration
+	ctor := node.AsConstructorDeclaration()
+	if !c.checkGrammarConstructorTypeParameters(ctor) {
+		c.checkGrammarConstructorTypeAnnotation(ctor)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkAccessorDeclaration(node *ast.Node) {
+	// Grammar checking accessors
+	if !c.checkGrammarFunctionLikeDeclaration(node) && !c.checkGrammarAccessor(node) {
+		c.checkGrammarComputedPropertyName(node.Name())
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkTypeReferenceNode(node *ast.Node) {
+	// Grammar checks
+	c.checkGrammarTypeArguments(node, node.AsTypeReferenceNode().TypeArguments)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1473,6 +1492,9 @@ func (c *Checker) checkThisType(node *ast.Node) {
 }
 
 func (c *Checker) checkTypeOperator(node *ast.Node) {
+	// Grammar checks
+	c.checkGrammarTypeOperatorNode(node.AsTypeOperatorNode())
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1483,6 +1505,13 @@ func (c *Checker) checkConditionalType(node *ast.Node) {
 }
 
 func (c *Checker) checkInferType(node *ast.Node) {
+	// Grammar checks
+	if ast.FindAncestor(node, func(n *ast.Node) bool {
+		return n.Parent != nil && n.Parent.Kind == ast.KindConditionalType && (n.Parent.AsConditionalTypeNode()).ExtendsType == n
+	}) == nil {
+		c.grammarErrorOnNode(node, diagnostics.X_infer_declarations_are_only_permitted_in_the_extends_clause_of_a_conditional_type)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1498,8 +1527,21 @@ func (c *Checker) checkImportType(node *ast.Node) {
 }
 
 func (c *Checker) checkNamedTupleMember(node *ast.Node) {
+	tupleMember := node.AsNamedTupleMember()
+
+	// Grammar checks
+	if tupleMember.DotDotDotToken != nil && tupleMember.QuestionToken != nil {
+		c.grammarErrorOnNode(node, diagnostics.A_tuple_member_cannot_be_both_optional_and_rest)
+	}
+	if tupleMember.Type.Kind == ast.KindOptionalType {
+		c.grammarErrorOnNode(tupleMember.Type, diagnostics.A_labeled_tuple_element_is_declared_as_optional_with_a_question_mark_after_the_name_and_before_the_colon_rather_than_after_the_type)
+	}
+	if tupleMember.Type.Kind == ast.KindRestType {
+		c.grammarErrorOnNode(tupleMember.Type, diagnostics.A_labeled_tuple_element_is_declared_as_rest_with_a_before_the_name_rather_than_before_the_type)
+	}
+
 	// !!!
-	node.ForEachChild(c.checkSourceElement)
+	tupleMember.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkIndexedAccessType(node *ast.Node) {
@@ -1508,36 +1550,61 @@ func (c *Checker) checkIndexedAccessType(node *ast.Node) {
 }
 
 func (c *Checker) checkMappedType(node *ast.Node) {
+	// Grammar checks
+	c.checkGrammarMappedType(node.AsMappedTypeNode())
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkFunctionDeclaration(node *ast.Node) {
 	// !!!
+	c.checkGrammarForGenerator(node)
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkBlock(node *ast.Node) {
+	// Grammar checking for SyntaxKind.Block
+	if node.Kind == ast.KindBlock {
+		c.checkGrammarStatementInAmbientContext(node)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkIfStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkDoStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkWhileStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkForStatement(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		if init := node.Initializer(); init != nil && init.Kind == ast.KindVariableDeclarationList {
+			c.checkGrammarVariableDeclarationList(init.AsVariableDeclarationList())
+		}
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1548,16 +1615,50 @@ func (c *Checker) checkForInStatement(node *ast.Node) {
 }
 
 func (c *Checker) checkForOfStatement(node *ast.Node) {
+	forInOfStatement := node.AsForInOrOfStatement()
+	// Grammar checking
+	c.checkGrammarForInOrForOfStatement(forInOfStatement)
+
+	container := getContainingFunctionOrClassStaticBlock(node)
+	if forInOfStatement.AwaitModifier != nil {
+		if container != nil && ast.IsClassStaticBlockDeclaration(container) {
+			c.grammarErrorOnNode(forInOfStatement.AwaitModifier, diagnostics.X_for_await_loops_cannot_be_used_inside_a_class_static_block)
+		}
+		// !!!
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkBreakOrContinueStatement(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		c.checkGrammarBreakOrContinueStatement(node)
+	}
+
+	// TODO: Check that target label is valid
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkReturnStatement(node *ast.Node) {
+	// Grammar checking
+	if c.checkGrammarStatementInAmbientContext(node) {
+		return
+	}
+	container := getContainingFunctionOrClassStaticBlock(node)
+	if container != nil && ast.IsClassStaticBlockDeclaration(container) {
+		c.grammarErrorOnFirstToken(node, diagnostics.A_return_statement_cannot_be_used_inside_a_class_static_block)
+		return
+	}
+
+	if container == nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.A_return_statement_can_only_be_used_within_a_function_body)
+		return
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
