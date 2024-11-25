@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -451,17 +452,47 @@ func compileFiles(
 	testfs := fstest.MapFS{}
 	for _, file := range inputFiles {
 		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
+		rootLen := tspath.GetRootLength(fileName)
+		fileName = fileName[rootLen:]
 		testfs[fileName] = &fstest.MapFile{
 			Data: []byte(file.Content),
 		}
 	}
 	for _, file := range otherFiles {
 		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
+		rootLen := tspath.GetRootLength(fileName)
+		fileName = fileName[rootLen:]
 		testfs[fileName] = &fstest.MapFile{
 			Data: []byte(file.Content),
 		}
 	}
-	fs := vfs.FromIOFS(true, testfs)
+
+	caseSensitive := true // !!!
+	// !!! Copy lib files for now; remove later
+	libFiles, err := listFiles("lib", nil, false)
+	if err != nil {
+		panic(fmt.Sprintf("Could not list lib files: %s", err.Error()))
+	}
+	for _, libFile := range libFiles {
+		relativeLibFile := tspath.ConvertToRelativePath(
+			libFile,
+			tspath.ComparePathsOptions{
+				UseCaseSensitiveFileNames: caseSensitive,
+				CurrentDirectory:          repo.TestDataPath,
+			},
+		)
+		fileName := tspath.GetNormalizedAbsolutePath(relativeLibFile, currentDirectory)
+		rootLen := tspath.GetRootLength(fileName)
+		fileName = fileName[rootLen:]
+		data, err := os.ReadFile(libFile)
+		if err != nil {
+			panic(fmt.Sprintf("Could not read lib file %s: %s", libFile, err.Error()))
+		}
+		testfs[fileName] = &fstest.MapFile{
+			Data: data,
+		}
+	}
+	fs := vfs.FromIOFS(caseSensitive, testfs)
 
 	host := createCompilerHost(fs, &options, currentDirectory)
 	result := compileFilesWithHost(host, programFileNames, &options, typescriptVersion, harnessOptions.captureSuggestions)
