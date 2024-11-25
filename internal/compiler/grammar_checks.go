@@ -34,8 +34,7 @@ func (c *Checker) grammarErrorAtPos(nodeForSourceFile *ast.Node, start int, leng
 func (c *Checker) grammarErrorOnNodeSkippedOn(key string, node *ast.Node, message *diagnostics.Message, args ...any) bool {
 	sourceFile := ast.GetSourceFileOfNode(node)
 	if !c.hasParseDiagnostics(sourceFile) {
-		// !!!
-		// c.errorSkippedOn(key, node, message, args...)
+		c.errorSkippedOn(key, node, message, args...)
 		return true
 	}
 	return false
@@ -128,7 +127,7 @@ func (c *Checker) checkGrammarDecorator(decorator *ast.Decorator) bool {
 
 		canHaveCallExpression := true
 		var errorNode *ast.Node
-		for true {
+		for {
 			// Allow TS syntax such as non-null assertions and instantiation expressions
 			if ast.IsExpressionWithTypeArguments(node) || ast.IsNonNullExpression(node) {
 				node = node.Expression()
@@ -711,7 +710,6 @@ func (c *Checker) checkGrammarForDisallowedTrailingComma(list *ast.NodeList, dia
 		return c.grammarErrorAtPos(list.Nodes[0], list.End()-len(","), len(","), diag)
 	}
 	return false
-
 }
 
 func (c *Checker) checkGrammarTypeParameterList(typeParameters *ast.NodeList, file *ast.SourceFile) bool {
@@ -727,7 +725,7 @@ func (c *Checker) checkGrammarParameterList(parameters *ast.NodeList) bool {
 	seenOptionalParameter := false
 	parameterCount := len(parameters.Nodes)
 
-	for i := 0; i < parameterCount; i++ {
+	for i := range parameterCount {
 		parameter := parameters.Nodes[i].AsParameterDeclaration()
 		if parameter.DotDotDotToken != nil {
 			if i != parameterCount-1 {
@@ -1753,7 +1751,6 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 					if sourceFile.ImpliedNodeFormat == core.ModuleKindCommonJS {
 						if !spanCalculated {
 							span = scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
-							spanCalculated = true
 						}
 						c.diagnostics.add(ast.NewDiagnostic(sourceFile, span, diagnostics.The_current_file_is_a_CommonJS_module_and_cannot_use_await_at_the_top_level))
 						hasError = true
@@ -1771,7 +1768,6 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 				default:
 					if !spanCalculated {
 						span = scanner.GetRangeOfTokenAtPosition(sourceFile, node.Pos())
-						spanCalculated = true
 					}
 					var message *diagnostics.Message
 					if ast.IsAwaitExpression(node) {
