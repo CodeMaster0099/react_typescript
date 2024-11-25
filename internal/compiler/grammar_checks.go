@@ -1959,16 +1959,14 @@ func (c *Checker) checkGrammarProperty(node *ast.Node /*Union[PropertyDeclaratio
 		propDecl := node.AsPropertyDeclaration()
 		postfixToken := propDecl.PostfixToken
 		if postfixToken != nil && postfixToken.Kind == ast.KindExclamationToken {
-			var message *diagnostics.Message
 			switch {
 			case propDecl.Initializer != nil:
-				message = diagnostics.Declarations_with_initializers_cannot_also_have_definite_assignment_assertions
+				return c.grammarErrorOnNode(postfixToken, diagnostics.Declarations_with_initializers_cannot_also_have_definite_assignment_assertions)
 			case propDecl.Type == nil:
-				message = diagnostics.Declarations_with_definite_assignment_assertions_must_also_have_type_annotations
+				return c.grammarErrorOnNode(postfixToken, diagnostics.Declarations_with_definite_assignment_assertions_must_also_have_type_annotations)
 			case !ast.IsClassLike(node.Parent) || node.Flags&ast.NodeFlagsAmbient != 0 || isStatic(node) || hasAbstractModifier(node):
-				message = diagnostics.A_definite_assignment_assertion_is_not_permitted_in_this_context
+				return c.grammarErrorOnNode(postfixToken, diagnostics.A_definite_assignment_assertion_is_not_permitted_in_this_context)
 			}
-			return c.grammarErrorOnNode(postfixToken, message)
 		}
 	}
 
