@@ -91,7 +91,7 @@ func (c *Checker) checkGrammarRegularExpressionLiteral(node *ast.RegularExpressi
 
 func (c *Checker) checkGrammarPrivateIdentifierExpression(privId ast.PrivateIdentifier) bool {
 	privIdAsNode := privId.AsNode()
-	if !(getContainingClass(privId.AsNode()) != nil) {
+	if getContainingClass(privId.AsNode()) == nil {
 		return c.grammarErrorOnNode(privId.AsNode(), diagnostics.Private_identifiers_are_not_allowed_outside_class_bodies)
 	}
 
@@ -101,7 +101,7 @@ func (c *Checker) checkGrammarPrivateIdentifierExpression(privId ast.PrivateIden
 		}
 
 		isInOperation := ast.IsBinaryExpression(privId.Parent) && privId.Parent.AsBinaryExpression().OperatorToken.Kind == ast.KindInKeyword
-		if !(c.getSymbolForPrivateIdentifierExpression(privIdAsNode) != nil) && !isInOperation {
+		if c.getSymbolForPrivateIdentifierExpression(privIdAsNode) == nil && !isInOperation {
 			return c.grammarErrorOnNode(privIdAsNode, diagnostics.Cannot_find_name_0, privId.Text)
 		}
 	}
@@ -117,7 +117,7 @@ func (c *Checker) checkGrammarMappedType(node *ast.MappedTypeNode) bool {
 func (c *Checker) checkGrammarDecorator(decorator *ast.Decorator) bool {
 	sourceFile := ast.GetSourceFileOfNode(decorator.AsNode())
 	if !c.hasParseDiagnostics(sourceFile) {
-		var node *ast.Expression = decorator.Expression
+		node := decorator.Expression
 
 		// DecoratorParenthesizedExpression :
 		//   `(` Expression `)`
@@ -213,11 +213,9 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 		return c.grammarErrorOnFirstToken(node, diagnostics.Neither_decorators_nor_modifiers_may_be_applied_to_this_parameters)
 	}
 
-	var blockScopeKind ast.NodeFlags
+	blockScopeKind := ast.NodeFlagsNone
 	if ast.IsVariableStatement(node) {
 		blockScopeKind = node.AsVariableStatement().DeclarationList.Flags & ast.NodeFlagsBlockScoped
-	} else {
-		blockScopeKind = ast.NodeFlagsNone
 	}
 	var lastStatic *ast.Node
 	var lastDeclare *ast.Node
@@ -250,7 +248,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 			}
 
 			// if we've seen any modifiers aside from `export`, `default`, or another decorator, then this is an invalid position
-			if flags & ^(ast.ModifierFlagsExportDefault|ast.ModifierFlagsDecorator) != 0 {
+			if flags&^(ast.ModifierFlagsExportDefault|ast.ModifierFlagsDecorator) != 0 {
 				return c.grammarErrorOnNode(modifier, diagnostics.Decorators_are_not_valid_here)
 			}
 
@@ -271,7 +269,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 			flags |= ast.ModifierFlagsDecorator
 
 			// if we have not yet seen a modifier, then these are leading decorators
-			if !(flags&ast.ModifierFlagsModifier != 0) {
+			if flags&ast.ModifierFlagsModifier == 0 {
 				hasLeadingDecorators = true
 			} else if flags&ast.ModifierFlagsExport != 0 {
 				sawExportBeforeDecorators = true
@@ -400,7 +398,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 				}
 				flags |= ast.ModifierFlagsReadonly
 			case ast.KindExportKeyword:
-				if c.compilerOptions.VerbatimModuleSyntax == core.TSTrue && !(node.Flags&ast.NodeFlagsAmbient != 0) && node.Kind != ast.KindTypeAliasDeclaration && node.Kind != ast.KindInterfaceDeclaration && node.Kind != ast.KindModuleDeclaration && node.Parent.Kind == ast.KindSourceFile && c.program.getEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node)) == core.ModuleKindCommonJS {
+				if c.compilerOptions.VerbatimModuleSyntax == core.TSTrue && node.Flags&ast.NodeFlagsAmbient == 0 && node.Kind != ast.KindTypeAliasDeclaration && node.Kind != ast.KindInterfaceDeclaration && node.Kind != ast.KindModuleDeclaration && node.Parent.Kind == ast.KindSourceFile && c.program.getEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node)) == core.ModuleKindCommonJS {
 					return c.grammarErrorOnNode(modifier, diagnostics.A_top_level_export_modifier_cannot_be_used_on_value_declarations_in_a_CommonJS_module_when_verbatimModuleSyntax_is_enabled)
 				}
 				if flags&ast.ModifierFlagsExport != 0 {
@@ -434,7 +432,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_using_declaration, "default")
 				} else if blockScopeKind == ast.NodeFlagsAwaitUsing {
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_an_await_using_declaration, "default")
-				} else if !(flags&ast.ModifierFlagsExport != 0) {
+				} else if flags&ast.ModifierFlagsExport == 0 {
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "export", "default")
 				} else if sawExportBeforeDecorators {
 					return c.grammarErrorOnNode(firstDecorator, diagnostics.Decorators_are_not_valid_here)
@@ -732,10 +730,10 @@ func (c *Checker) checkGrammarParameterList(parameters *ast.NodeList) bool {
 	for i := 0; i < parameterCount; i++ {
 		parameter := parameters.Nodes[i].AsParameterDeclaration()
 		if parameter.DotDotDotToken != nil {
-			if i != (parameterCount - 1) {
+			if i != parameterCount-1 {
 				return c.grammarErrorOnNode(parameter.DotDotDotToken, diagnostics.A_rest_parameter_must_be_last_in_a_parameter_list)
 			}
-			if !(parameter.Flags&ast.NodeFlagsAmbient != 0) {
+			if parameter.Flags&ast.NodeFlagsAmbient == 0 {
 				c.checkGrammarForDisallowedTrailingComma(parameters, diagnostics.A_rest_parameter_or_binding_pattern_may_not_have_a_trailing_comma)
 			}
 

@@ -140,7 +140,7 @@ type InferenceContext struct{}
 type DeclarationMeaning uint32
 
 const (
-	DeclarationMeaningGetAccessor = 1 << iota
+	DeclarationMeaningGetAccessor DeclarationMeaning = 1 << iota
 	DeclarationMeaningSetAccessor
 	DeclarationMeaningPropertyAssignment
 	DeclarationMeaningMethod
