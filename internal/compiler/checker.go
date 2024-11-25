@@ -1345,23 +1345,54 @@ func (c *Checker) checkDeferredNode(node *ast.Node) {
 }
 
 func (c *Checker) checkTypeParameter(node *ast.Node) {
+	// Grammar Checking
+	c.checkGrammarModifiers(node)
+	if expr := node.AsTypeParameter().Expression; expr != nil {
+		c.grammarErrorOnFirstToken(expr, diagnostics.Type_expected)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkParameter(node *ast.Node) {
+	// Grammar checking
+	// It is a SyntaxError if the Identifier "eval" or the Identifier "arguments" occurs as the
+	// Identifier in a PropertySetParameterList of a PropertyAssignment that is contained in strict code
+	// or if its FunctionBody is strict code(11.1.5).
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkPropertyDeclaration(node *ast.Node) {
-	// !!!
+	// // Grammar checking
+	if !c.checkGrammarModifiers(node) && !c.checkGrammarProperty(node) {
+		c.checkGrammarComputedPropertyName(node.Name())
+	}
+	c.checkVariableLikeDeclaration(node)
+
+	// // !!!
+	// // c.setNodeLinksForPrivateIdentifierScope(node)
+
+	// property signatures already report "initializer not allowed in ambient context" elsewhere
+	if hasSyntacticModifier(node, ast.ModifierFlagsAbstract) && ast.IsPropertyDeclaration(node) {
+		propDecl := node.AsPropertyDeclaration()
+		if propDecl.Initializer != nil {
+			c.error(node, diagnostics.Property_0_cannot_have_an_initializer_because_it_is_marked_abstract, declarationNameToString(propDecl.Name()))
+		}
+	}
 	node.ForEachChild(c.checkSourceElement)
+
 }
 
 func (c *Checker) checkPropertySignature(node *ast.Node) {
-	// !!!
-	node.ForEachChild(c.checkSourceElement)
+	if ast.IsPrivateIdentifier(node.AsPropertySignatureDeclaration().Name()) {
+		c.error(node, diagnostics.Private_identifiers_are_not_allowed_outside_class_bodies)
+	}
+
+	c.checkPropertyDeclaration(node)
 }
 
 func (c *Checker) checkSignatureDeclaration(node *ast.Node) {
@@ -1927,6 +1958,10 @@ func (c *Checker) checkExportsOnMergedDeclarations(node *ast.Node) {
 
 func (c *Checker) checkTypeParameters(typeParameterDeclarations []*ast.Node) {
 	// !!!
+
+	for _, typeParameter := range typeParameterDeclarations {
+		typeParameter.ForEachChild(c.checkSourceElement)
+	}
 }
 
 func (c *Checker) registerForUnusedIdentifiersCheck(node *ast.Node) {
