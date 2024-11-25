@@ -1597,7 +1597,7 @@ func (c *Checker) checkVariableStatement(node *ast.Node) {
 	// !!!
 	varStatement := node.AsVariableStatement()
 	declarationList := varStatement.DeclarationList
-	// // Grammar checking
+	// Grammar checking
 	if !c.checkGrammarModifiers(node) && !c.checkGrammarVariableDeclarationList(declarationList.AsVariableDeclarationList()) {
 		c.checkGrammarForDisallowedBlockScopedVariableStatement(varStatement)
 	}
@@ -1614,7 +1614,8 @@ func (c *Checker) checkVariableDeclarationList(node *ast.Node) {
 }
 
 func (c *Checker) checkVariableDeclaration(node *ast.Node) {
-	// !!!
+	// !!! tracing
+
 	c.checkGrammarVariableDeclaration(node.AsVariableDeclaration())
 	c.checkVariableLikeDeclaration(node)
 }
@@ -1892,11 +1893,11 @@ func (c *Checker) areDeclarationFlagsIdentical(left *ast.Declaration, right *ast
 }
 
 func (c *Checker) checkTypeAliasDeclaration(node *ast.Node) {
-	// !!!
 	// Grammar checking
-	// c.checkGrammarModifiers(node)
+	c.checkGrammarModifiers(node)
 	c.checkTypeNameIsReserved(node.Name(), diagnostics.Type_alias_name_cannot_be_0)
 	c.checkExportsOnMergedDeclarations(node)
+
 	typeNode := node.AsTypeAliasDeclaration().Type
 	typeParameters := node.TypeParameters()
 	c.checkTypeParameters(typeParameters)
@@ -1933,7 +1934,9 @@ func (c *Checker) registerForUnusedIdentifiersCheck(node *ast.Node) {
 }
 
 func (c *Checker) checkExpressionStatement(node *ast.Node) {
-	// !!! Grammar checking
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	c.checkExpression(node.AsExpressionStatement().Expression)
 }
 
@@ -2107,10 +2110,10 @@ func (c *Checker) checkExpressionWorker(node *ast.Node, checkMode CheckMode) *Ty
 		// !!! Handle blockedStringType
 		return c.getFreshTypeOfLiteralType(c.getStringLiteralType(node.Text()))
 	case ast.KindNumericLiteral:
-		// !!! checkGrammarNumericLiteral(node as NumericLiteral)
+		c.checkGrammarNumericLiteral(node.AsNumericLiteral())
 		return c.getFreshTypeOfLiteralType(c.getNumberLiteralType(core.StringToNumber(node.Text())))
 	case ast.KindBigIntLiteral:
-		// !!! checkGrammarBigIntLiteral(node as BigIntLiteral);
+		c.checkGrammarBigIntLiteral(node.AsBigIntLiteral())
 		return c.getFreshTypeOfLiteralType(c.getBigIntLiteralType(PseudoBigInt{
 			negative:    false,
 			base10Value: parsePseudoBigInt(node.AsBigIntLiteral().Text),
@@ -2199,7 +2202,7 @@ func (c *Checker) checkExpressionWorker(node *ast.Node, checkMode CheckMode) *Ty
 }
 
 func (c *Checker) checkPrivateIdentifierExpression(node *ast.Node) *Type {
-	// !!! c.checkGrammarPrivateIdentifierExpression(node)
+	c.checkGrammarPrivateIdentifierExpression(node.AsPrivateIdentifier())
 	symbol := c.getSymbolForPrivateIdentifierExpression(node)
 	if symbol != nil {
 		c.markPropertyAsReferenced(symbol, nil /*nodeForCheckWriteOnly*/, false /*isSelfTypeAccess*/)
@@ -3868,8 +3871,9 @@ func (c *Checker) checkReferenceExpression(expr *ast.Node, invalidReferenceMessa
 
 func (c *Checker) checkObjectLiteral(node *ast.Node, checkMode CheckMode) *Type {
 	inDestructuringPattern := isAssignmentTarget(node)
-	// !!!
-	// // Grammar checking
+	// Grammar checking
+	c.checkGrammarObjectLiteralExpression(node.AsObjectLiteralExpression(), inDestructuringPattern)
+
 	// c.checkGrammarObjectLiteralExpression(node, inDestructuringPattern)
 	var allPropertiesTable ast.SymbolTable
 	if c.strictNullChecks {

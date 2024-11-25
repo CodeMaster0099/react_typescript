@@ -88,7 +88,7 @@ func (c *Checker) checkGrammarRegularExpressionLiteral(node *ast.RegularExpressi
 	// return false
 }
 
-func (c *Checker) checkGrammarPrivateIdentifierExpression(privId ast.PrivateIdentifier) bool {
+func (c *Checker) checkGrammarPrivateIdentifierExpression(privId *ast.PrivateIdentifier) bool {
 	privIdAsNode := privId.AsNode()
 	if getContainingClass(privId.AsNode()) == nil {
 		return c.grammarErrorOnNode(privId.AsNode(), diagnostics.Private_identifiers_are_not_allowed_outside_class_bodies)
