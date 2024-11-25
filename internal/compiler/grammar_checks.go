@@ -309,17 +309,19 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 						return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_can_only_appear_on_a_type_parameter_of_a_function_method_or_class, scanner.TokenToString(modifier.Kind))
 					}
 				}
+
 			case ast.KindOverrideKeyword:
 				// If node.kind === SyntaxKind.Parameter, checkParameter reports an error if it's not a parameter property.
-				if flags&ast.ModifierFlagsOverride != 0 {
+				switch {
+				case flags&ast.ModifierFlagsOverride != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_already_seen, "override")
-				} else if flags&ast.ModifierFlagsAmbient != 0 {
+				case flags&ast.ModifierFlagsAmbient != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_be_used_with_1_modifier, "override", "declare")
-				} else if flags&ast.ModifierFlagsReadonly != 0 {
+				case flags&ast.ModifierFlagsReadonly != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "override", "readonly")
-				} else if flags&ast.ModifierFlagsAccessor != 0 {
+				case flags&ast.ModifierFlagsAccessor != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "override", "accessor")
-				} else if flags&ast.ModifierFlagsAsync != 0 {
+				case flags&ast.ModifierFlagsAsync != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "override", "async")
 				}
 				flags |= ast.ModifierFlagsOverride
@@ -329,95 +331,105 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 				ast.KindProtectedKeyword,
 				ast.KindPrivateKeyword:
 				text := visibilityToString(ast.ModifierToFlag(modifier.Kind))
-
-				if flags&ast.ModifierFlagsAccessibilityModifier != 0 {
+				switch {
+				case flags&ast.ModifierFlagsAccessibilityModifier != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.Accessibility_modifier_already_seen)
-				} else if flags&ast.ModifierFlagsOverride != 0 {
+				case flags&ast.ModifierFlagsOverride != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, text, "override")
-				} else if flags&ast.ModifierFlagsStatic != 0 {
+				case flags&ast.ModifierFlagsStatic != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, text, "static")
-				} else if flags&ast.ModifierFlagsAccessor != 0 {
+				case flags&ast.ModifierFlagsAccessor != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, text, "accessor")
-				} else if flags&ast.ModifierFlagsReadonly != 0 {
+				case flags&ast.ModifierFlagsReadonly != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, text, "readonly")
-				} else if flags&ast.ModifierFlagsAsync != 0 {
+				case flags&ast.ModifierFlagsAsync != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, text, "async")
-				} else if node.Parent.Kind == ast.KindModuleBlock || node.Parent.Kind == ast.KindSourceFile {
+				case node.Parent.Kind == ast.KindModuleBlock || node.Parent.Kind == ast.KindSourceFile:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_module_or_namespace_element, text)
-				} else if flags&ast.ModifierFlagsAbstract != 0 {
+				case flags&ast.ModifierFlagsAbstract != 0:
 					if modifier.Kind == ast.KindPrivateKeyword {
 						return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_be_used_with_1_modifier, text, "abstract")
 					} else {
 						return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, text, "abstract")
 					}
-				} else if isPrivateIdentifierClassElementDeclaration(node) {
+				case isPrivateIdentifierClassElementDeclaration(node):
 					return c.grammarErrorOnNode(modifier, diagnostics.An_accessibility_modifier_cannot_be_used_with_a_private_identifier)
 				}
 				flags |= ast.ModifierToFlag(modifier.Kind)
+
 			case ast.KindStaticKeyword:
-				if flags&ast.ModifierFlagsStatic != 0 {
+				switch {
+				case flags&ast.ModifierFlagsStatic != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_already_seen, "static")
-				} else if flags&ast.ModifierFlagsReadonly != 0 {
+				case flags&ast.ModifierFlagsReadonly != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "static", "readonly")
-				} else if flags&ast.ModifierFlagsAsync != 0 {
+				case flags&ast.ModifierFlagsAsync != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "static", "async")
-				} else if flags&ast.ModifierFlagsAccessor != 0 {
+				case flags&ast.ModifierFlagsAccessor != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "static", "accessor")
-				} else if node.Parent.Kind == ast.KindModuleBlock || node.Parent.Kind == ast.KindSourceFile {
+				case node.Parent.Kind == ast.KindModuleBlock || node.Parent.Kind == ast.KindSourceFile:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_module_or_namespace_element, "static")
-				} else if node.Kind == ast.KindParameter {
+				case node.Kind == ast.KindParameter:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_parameter, "static")
-				} else if flags&ast.ModifierFlagsAbstract != 0 {
+				case flags&ast.ModifierFlagsAbstract != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_be_used_with_1_modifier, "static", "abstract")
-				} else if flags&ast.ModifierFlagsOverride != 0 {
+				case flags&ast.ModifierFlagsOverride != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "static", "override")
 				}
 				flags |= ast.ModifierFlagsStatic
 				lastStatic = modifier
+
 			case ast.KindAccessorKeyword:
-				if flags&ast.ModifierFlagsAccessor != 0 {
+				switch {
+				case flags&ast.ModifierFlagsAccessor != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_already_seen, "accessor")
-				} else if flags&ast.ModifierFlagsReadonly != 0 {
+				case flags&ast.ModifierFlagsReadonly != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_be_used_with_1_modifier, "accessor", "readonly")
-				} else if flags&ast.ModifierFlagsAmbient != 0 {
+				case flags&ast.ModifierFlagsAmbient != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_be_used_with_1_modifier, "accessor", "declare")
-				} else if node.Kind != ast.KindPropertyDeclaration {
+				case node.Kind != ast.KindPropertyDeclaration:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_accessor_modifier_can_only_appear_on_a_property_declaration)
 				}
-
 				flags |= ast.ModifierFlagsAccessor
+
 			case ast.KindReadonlyKeyword:
-				if flags&ast.ModifierFlagsReadonly != 0 {
+				switch {
+				case flags&ast.ModifierFlagsReadonly != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_already_seen, "readonly")
-				} else if node.Kind != ast.KindPropertyDeclaration && node.Kind != ast.KindPropertySignature && node.Kind != ast.KindIndexSignature && node.Kind != ast.KindParameter {
+				case node.Kind != ast.KindPropertyDeclaration && node.Kind != ast.KindPropertySignature && node.Kind != ast.KindIndexSignature && node.Kind != ast.KindParameter:
 					// If node.kind === SyntaxKind.Parameter, checkParameter reports an error if it's not a parameter property.
 					return c.grammarErrorOnNode(modifier, diagnostics.X_readonly_modifier_can_only_appear_on_a_property_declaration_or_index_signature)
-				} else if flags&ast.ModifierFlagsAccessor != 0 {
+				case flags&ast.ModifierFlagsAccessor != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_be_used_with_1_modifier, "readonly", "accessor")
 				}
 				flags |= ast.ModifierFlagsReadonly
+
 			case ast.KindExportKeyword:
 				if c.compilerOptions.VerbatimModuleSyntax == core.TSTrue && node.Flags&ast.NodeFlagsAmbient == 0 && node.Kind != ast.KindTypeAliasDeclaration && node.Kind != ast.KindInterfaceDeclaration && node.Kind != ast.KindModuleDeclaration && node.Parent.Kind == ast.KindSourceFile && c.program.getEmitModuleFormatOfFile(ast.GetSourceFileOfNode(node)) == core.ModuleKindCommonJS {
 					return c.grammarErrorOnNode(modifier, diagnostics.A_top_level_export_modifier_cannot_be_used_on_value_declarations_in_a_CommonJS_module_when_verbatimModuleSyntax_is_enabled)
 				}
-				if flags&ast.ModifierFlagsExport != 0 {
+
+				switch {
+				case flags&ast.ModifierFlagsExport != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_already_seen, "export")
-				} else if flags&ast.ModifierFlagsAmbient != 0 {
+				case flags&ast.ModifierFlagsAmbient != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "export", "declare")
-				} else if flags&ast.ModifierFlagsAbstract != 0 {
+				case flags&ast.ModifierFlagsAbstract != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "export", "abstract")
-				} else if flags&ast.ModifierFlagsAsync != 0 {
+				case flags&ast.ModifierFlagsAsync != 0:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_must_precede_1_modifier, "export", "async")
-				} else if ast.IsClassLike(node.Parent) {
+				case ast.IsClassLike(node.Parent):
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_class_elements_of_this_kind, "export")
-				} else if node.Kind == ast.KindParameter {
+				case node.Kind == ast.KindParameter:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_parameter, "export")
-				} else if blockScopeKind == ast.NodeFlagsUsing {
+				case blockScopeKind == ast.NodeFlagsUsing:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_a_using_declaration, "export")
-				} else if blockScopeKind == ast.NodeFlagsAwaitUsing {
+				case blockScopeKind == ast.NodeFlagsAwaitUsing:
 					return c.grammarErrorOnNode(modifier, diagnostics.X_0_modifier_cannot_appear_on_an_await_using_declaration, "export")
 				}
+
 				flags |= ast.ModifierFlagsExport
+
 			case ast.KindDefaultKeyword:
 				var container *ast.Node
 				if node.Parent.Kind == ast.KindSourceFile {
@@ -1472,6 +1484,7 @@ func (c *Checker) checkGrammarMethod(node *ast.Node /*Union[MethodDeclaration, M
 		if node.Parent.Kind == ast.KindObjectLiteralExpression {
 			// We only disallow modifier on a method declaration if it is a property of object-literal-expression
 			if modifiers := node.Modifiers(); modifiers != nil && !(len(modifiers.Nodes) == 1 && modifiers.Nodes[0].Kind == ast.KindAsyncKeyword) {
+				// TODO: just use the first token of the first modifier instead of "on first token"
 				return c.grammarErrorOnFirstToken(node, diagnostics.Modifiers_cannot_appear_here)
 			}
 
