@@ -2216,6 +2216,20 @@ func (c *Checker) getSymbolForPrivateIdentifierExpression(node *ast.Node) *ast.S
 	return symbol
 }
 
+// !!!
+// Review
+// func (c *Checker) getSymbolForPrivateIdentifierExpression(privId *ast.Node) *ast.Symbol {
+// 	if !isExpressionNode(privId) {
+// 		return nil
+// 	}
+
+// 	links := c.typeNodeLinks.get(privId)
+// 	if links.resolvedSymbol == nil {
+// 		links.resolvedSymbol = c.lookupSymbolForPrivateIdentifierDeclaration(privId.AsPrivateIdentifier().Text, privId)
+// 	}
+// 	return links.resolvedSymbol
+// }
+
 func (c *Checker) checkSuperExpression(node *ast.Node) *Type {
 	// !!!
 	return c.errorType
@@ -2657,18 +2671,6 @@ func (c *Checker) lookupSymbolForPrivateIdentifierDeclaration(propName string, l
 		}
 	}
 	return nil
-}
-
-func (c *Checker) getSymbolForPrivateIdentifierExpression(privId *ast.Node) *ast.Symbol {
-	if !isExpressionNode(privId) {
-		return nil
-	}
-
-	links := c.typeNodeLinks.get(privId)
-	if links.resolvedSymbol == nil {
-		links.resolvedSymbol = c.lookupSymbolForPrivateIdentifierDeclaration(privId.AsPrivateIdentifier().Text, privId)
-	}
-	return links.resolvedSymbol
 }
 
 func (c *Checker) getPrivateIdentifierPropertyOfType(leftType *Type, lexicallyScopedIdentifier *ast.Symbol) *ast.Symbol {
