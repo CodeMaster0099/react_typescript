@@ -1379,7 +1379,7 @@ func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 			panic("Return value does not match parameter count assertion.")
 		}
 		parameter := parameterNode.AsParameterDeclaration()
-		if parameter != nil {
+		if parameter.DotDotDotToken != nil {
 			return c.grammarErrorOnNode(parameter.DotDotDotToken, diagnostics.A_set_accessor_cannot_have_rest_parameter)
 		}
 		if parameter.QuestionToken != nil {
