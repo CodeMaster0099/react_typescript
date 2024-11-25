@@ -162,6 +162,8 @@ func (n *Node) Expression() *Node {
 		return n.AsNewExpression().Expression
 	case KindExpressionWithTypeArguments:
 		return n.AsExpressionWithTypeArguments().Expression
+	case KindComputedPropertyName:
+		return n.AsComputedPropertyName().Expression
 	case KindNonNullExpression:
 		return n.AsNonNullExpression().Expression
 	case KindTypeAssertionExpression:
@@ -332,7 +334,7 @@ func (n *Node) Initializer() *Node {
 	case KindPropertyDeclaration:
 		return n.AsPropertyDeclaration().Initializer
 	case KindPropertySignature:
-		return n.AsPropertyDeclaration().Initializer
+		return n.AsPropertySignatureDeclaration().Initializer
 	case KindPropertyAssignment:
 		return n.AsPropertyAssignment().Initializer
 	case KindEnumMember:
