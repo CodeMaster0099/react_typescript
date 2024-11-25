@@ -3268,14 +3268,19 @@ func (c *Checker) getThisContainer(node *ast.Node, includeArrowFunctions bool, i
 func (c *Checker) isInParameterInitializerBeforeContainingFunction(node *ast.Node) bool {
 	inBindingInitializer := false
 	for node.Parent != nil && !ast.IsFunctionLike(node.Parent) {
-		if ast.IsParameter(node.Parent) && (inBindingInitializer || node.Parent.Initializer() == node) {
-			return true
+		if ast.IsParameter(node.Parent) {
+			if inBindingInitializer || node.Parent.AsParameterDeclaration().Initializer == node {
+				return true
+			}
 		}
-		if ast.IsBindingElement(node.Parent) && node.Parent.Initializer() == node {
+
+		if ast.IsBindingElement(node.Parent) && node.Parent.AsBindingElement().Initializer == node {
 			inBindingInitializer = true
 		}
+
 		node = node.Parent
 	}
+
 	return false
 }
 

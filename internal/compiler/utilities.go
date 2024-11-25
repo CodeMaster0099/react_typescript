@@ -616,10 +616,6 @@ func hasStaticModifier(node *ast.Node) bool {
 	return hasSyntacticModifier(node, ast.ModifierFlagsStatic)
 }
 
-func hasDecorators(node *ast.Node) bool {
-	return hasSyntacticModifier(node, ast.ModifierFlagsDecorator)
-}
-
 func getEffectiveModifierFlags(node *ast.Node) ast.ModifierFlags {
 	return node.ModifierFlags() // !!! Handle JSDoc
 }
@@ -3409,11 +3405,6 @@ func isLiteralExpressionOfObject(node *ast.Node) bool {
 
 func canHaveFlowNode(node *ast.Node) bool {
 	return node.FlowNodeData() != nil
-}
-
-func (c *Checker) isVarConstLike(node *ast.Node) bool {
-	blockScopeKind := c.getCombinedNodeFlagsCached(node) & ast.NodeFlagsBlockScoped
-	return blockScopeKind == ast.NodeFlagsConst || blockScopeKind == ast.NodeFlagsUsing || blockScopeKind == ast.NodeFlagsAwaitUsing
 }
 
 func isNonNullAccess(node *ast.Node) bool {

@@ -861,10 +861,11 @@ func (c *Checker) checkGrammarIndexSignatureParameters(node *ast.IndexSignatureD
 	if parameter.Initializer != nil {
 		return c.grammarErrorOnNode(parameter.Name(), diagnostics.An_index_signature_parameter_cannot_have_an_initializer)
 	}
-	if !(parameter.TypeNode != nil) {
+	typeNode := parameter.Type
+	if typeNode != nil {
 		return c.grammarErrorOnNode(parameter.Name(), diagnostics.An_index_signature_parameter_must_have_a_type_annotation)
 	}
-	t := c.getTypeFromTypeNode(parameter.TypeNode)
+	t := c.getTypeFromTypeNode(typeNode)
 	if someType(t, func(t *Type) bool {
 		return t.flags&TypeFlagsStringOrNumberLiteralOrUnique != 0
 	}) || c.isGenericType(t) {
@@ -873,7 +874,7 @@ func (c *Checker) checkGrammarIndexSignatureParameters(node *ast.IndexSignatureD
 	if !everyType(t, c.isValidIndexKeyType) {
 		return c.grammarErrorOnNode(parameter.Name(), diagnostics.An_index_signature_parameter_type_must_be_string_number_symbol_or_a_template_literal_type)
 	}
-	if node.ReturnType == nil {
+	if node.Type == nil {
 		return c.grammarErrorOnNode(node.AsNode(), diagnostics.An_index_signature_must_have_a_type_annotation)
 	}
 	return false
@@ -1326,7 +1327,7 @@ func (c *Checker) checkGrammarForInOrForOfStatement(forInOrOfStatement *ast.ForI
 				}
 				return c.grammarErrorOnNode(firstVariableDeclaration.Name(), diagnostic)
 			}
-			if firstVariableDeclaration.TypeNode != nil {
+			if firstVariableDeclaration.Type != nil {
 				var diagnostic *diagnostics.Message
 				if forInOrOfStatement.Kind == ast.KindForInStatement {
 					diagnostic = diagnostics.The_left_hand_side_of_a_for_in_statement_cannot_use_a_type_annotation
@@ -1373,7 +1374,7 @@ func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 		return c.grammarErrorOnNode(accessor.Name(), core.IfElse(accessor.Kind == ast.KindGetAccessor, diagnostics.A_get_accessor_cannot_have_parameters, diagnostics.A_set_accessor_must_have_exactly_one_parameter))
 	}
 	if accessor.Kind == ast.KindSetAccessor {
-		if funcData.ReturnType != nil {
+		if funcData.Type != nil {
 			return c.grammarErrorOnNode(accessor.Name(), diagnostics.A_set_accessor_cannot_have_a_return_type_annotation)
 		}
 
@@ -1408,7 +1409,7 @@ func (c *Checker) doesAccessorHaveCorrectParameterCount(accessor *ast.AccessorDe
 
 func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool {
 	if node.Operator == ast.KindUniqueKeyword {
-		innerType := node.AsTypeOperatorNode().TypeNode
+		innerType := node.AsTypeOperatorNode().Type
 		if innerType.Kind != ast.KindSymbolKeyword {
 			return c.grammarErrorOnNode(innerType, diagnostics.X_0_expected, scanner.TokenToString(ast.KindSymbolKeyword))
 		}
@@ -1444,7 +1445,7 @@ func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool 
 			return c.grammarErrorOnNode(node.AsNode(), diagnostics.X_unique_symbol_types_are_not_allowed_here)
 		}
 	} else if node.Operator == ast.KindReadonlyKeyword {
-		innerType := node.AsTypeOperatorNode().TypeNode
+		innerType := node.AsTypeOperatorNode().Type
 		if innerType.Kind != ast.KindArrayType && innerType.Kind != ast.KindTupleType {
 			return c.grammarErrorOnFirstToken(node.AsNode(), diagnostics.X_readonly_type_modifier_is_only_permitted_on_array_and_tuple_literal_types, scanner.TokenToString(ast.KindSymbolKeyword))
 		}
@@ -1633,12 +1634,12 @@ func (c *Checker) checkGrammarVariableDeclaration(node *ast.VariableDeclaration)
 		}
 	}
 
-	if node.ExclamationToken != nil && (node.Parent.Parent.Kind != ast.KindVariableStatement || node.TypeNode == nil || node.Initializer != nil || nodeFlags&ast.NodeFlagsAmbient != 0) {
+	if node.ExclamationToken != nil && (node.Parent.Parent.Kind != ast.KindVariableStatement || node.Type == nil || node.Initializer != nil || nodeFlags&ast.NodeFlagsAmbient != 0) {
 		var message *diagnostics.Message
 		switch {
 		case node.Initializer != nil:
 			message = diagnostics.Declarations_with_initializers_cannot_also_have_definite_assignment_assertions
-		case !(node.TypeNode != nil):
+		case node.Type == nil:
 			message = diagnostics.Declarations_with_definite_assignment_assertions_must_also_have_type_annotations
 		default:
 			message = diagnostics.A_definite_assignment_assertion_is_not_permitted_in_this_context
@@ -1815,25 +1816,6 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 	return hasError
 }
 
-func (c *Checker) isInParameterInitializerBeforeContainingFunction(node *ast.Node) bool {
-	inBindingInitializer := false
-	for node.Parent != nil && !ast.IsFunctionLike(node.Parent) {
-		if ast.IsParameter(node.Parent) {
-			if inBindingInitializer || node.Parent.AsParameterDeclaration().Initializer == node {
-				return true
-			}
-		}
-
-		if ast.IsBindingElement(node.Parent) && node.Parent.AsBindingElement().Initializer == node {
-			inBindingInitializer = true
-		}
-
-		node = node.Parent
-	}
-
-	return false
-}
-
 func (c *Checker) checkGrammarForDisallowedBlockScopedVariableStatement(node *ast.VariableStatement) bool {
 	if !c.containerAllowsBlockScopedVariable(node.Parent) {
 		blockScopeKind := c.getCombinedNodeFlagsCached(node.DeclarationList) & ast.NodeFlagsBlockScoped
@@ -1921,7 +1903,7 @@ func (c *Checker) checkGrammarConstructorTypeParameters(node *ast.ConstructorDec
 func (c *Checker) checkGrammarConstructorTypeAnnotation(node *ast.ConstructorDeclaration) bool {
 	// !!!
 	// t := node.ReturnType || getEffectiveReturnTypeNode(node)
-	t := node.ReturnType
+	t := node.Type
 	if t != nil {
 		return c.grammarErrorOnNode(t, diagnostics.Type_annotation_cannot_appear_on_a_constructor_declaration)
 	}
@@ -1987,7 +1969,7 @@ func (c *Checker) checkGrammarProperty(node *ast.Node /*Union[PropertyDeclaratio
 			switch {
 			case propDecl.Initializer != nil:
 				message = diagnostics.Declarations_with_initializers_cannot_also_have_definite_assignment_assertions
-			case propDecl.TypeNode == nil:
+			case propDecl.Type == nil:
 				message = diagnostics.Declarations_with_definite_assignment_assertions_must_also_have_type_annotations
 			case !ast.IsClassLike(node.Parent) || node.Flags&ast.NodeFlagsAmbient != 0 || isStatic(node) || hasAbstractModifier(node):
 				message = diagnostics.A_definite_assignment_assertion_is_not_permitted_in_this_context
@@ -2006,15 +1988,15 @@ func (c *Checker) checkAmbientInitializer(node *ast.Node) bool {
 	case ast.KindVariableDeclaration:
 		varDecl := node.AsVariableDeclaration()
 		initializer = varDecl.Initializer
-		typeNode = varDecl.TypeNode
+		typeNode = varDecl.Type
 	case ast.KindPropertyDeclaration:
 		propDecl := node.AsPropertyDeclaration()
 		initializer = propDecl.Initializer
-		typeNode = propDecl.TypeNode
+		typeNode = propDecl.Type
 	case ast.KindPropertySignature:
 		propSig := node.AsPropertySignatureDeclaration()
 		initializer = propSig.Initializer
-		typeNode = propSig.TypeNode
+		typeNode = propSig.Type
 	default:
 		panic(fmt.Sprintf("Unexpected node kind %q", node.Kind))
 	}
