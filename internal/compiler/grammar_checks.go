@@ -751,7 +751,7 @@ func (c *Checker) checkGrammarParameterList(parameters *ast.NodeList) bool {
 			if parameter.QuestionToken != nil && parameter.Initializer != nil {
 				return c.grammarErrorOnNode(parameter.Name(), diagnostics.Parameter_cannot_have_question_mark_and_initializer)
 			}
-		} else if seenOptionalParameter && !(parameter.Initializer != nil) {
+		} else if seenOptionalParameter && parameter.Initializer == nil {
 			return c.grammarErrorOnNode(parameter.Name(), diagnostics.A_required_parameter_cannot_follow_an_optional_parameter)
 		}
 	}
@@ -1237,7 +1237,7 @@ func (c *Checker) checkGrammarForInOrForOfStatement(forInOrOfStatement *ast.ForI
 	}
 
 	if forInOrOfStatement.Kind == ast.KindForOfStatement && forInOrOfStatement.AwaitModifier != nil {
-		if !(forInOrOfStatement.Flags&ast.NodeFlagsAwaitContext != 0) {
+		if forInOrOfStatement.Flags&ast.NodeFlagsAwaitContext == 0 {
 			sourceFile := ast.GetSourceFileOfNode(asNode)
 			if isInTopLevelContext(asNode) {
 				if !c.hasParseDiagnostics(sourceFile) {
@@ -1284,7 +1284,7 @@ func (c *Checker) checkGrammarForInOrForOfStatement(forInOrOfStatement *ast.ForI
 		}
 	}
 
-	if ast.IsForOfStatement(asNode) && !(forInOrOfStatement.Flags&ast.NodeFlagsAwaitContext != 0) && ast.IsIdentifier(forInOrOfStatement.Initializer) && forInOrOfStatement.Initializer.Text() == "async" {
+	if ast.IsForOfStatement(asNode) && forInOrOfStatement.Flags&ast.NodeFlagsAwaitContext == 0 && ast.IsIdentifier(forInOrOfStatement.Initializer) && forInOrOfStatement.Initializer.Text() == "async" {
 		c.grammarErrorOnNode(forInOrOfStatement.Initializer, diagnostics.The_left_hand_side_of_a_for_of_statement_may_not_be_async)
 		return false
 	}
@@ -1342,7 +1342,7 @@ func (c *Checker) checkGrammarForInOrForOfStatement(forInOrOfStatement *ast.ForI
 
 func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 	body := getBodyOfNode(accessor)
-	if !(accessor.Flags&ast.NodeFlagsAmbient != 0) && (accessor.Parent.Kind != ast.KindTypeLiteral) && (accessor.Parent.Kind != ast.KindInterfaceDeclaration) {
+	if accessor.Flags&ast.NodeFlagsAmbient == 0 && (accessor.Parent.Kind != ast.KindTypeLiteral) && (accessor.Parent.Kind != ast.KindInterfaceDeclaration) {
 		if c.languageVersion < core.ScriptTargetES2015 && ast.IsPrivateIdentifier(accessor.Name()) {
 			return c.grammarErrorOnNode(accessor.Name(), diagnostics.Private_identifiers_are_only_available_when_targeting_ECMAScript_2015_and_higher)
 		}
@@ -1428,7 +1428,7 @@ func (c *Checker) checkGrammarTypeOperatorNode(node *ast.TypeOperatorNode) bool 
 			if !isVariableDeclarationInVariableStatement(decl.AsNode()) {
 				return c.grammarErrorOnNode(node.AsNode(), diagnostics.X_unique_symbol_types_are_only_allowed_on_variables_in_a_variable_statement)
 			}
-			if !(decl.Parent.Flags&ast.NodeFlagsConst != 0) {
+			if decl.Parent.Flags&ast.NodeFlagsConst == 0 {
 				return c.grammarErrorOnNode((parent.AsVariableDeclaration()).Name(), diagnostics.A_variable_whose_type_is_a_unique_symbol_type_must_be_const)
 			}
 		case ast.KindPropertyDeclaration:
@@ -1617,7 +1617,7 @@ func (c *Checker) checkGrammarVariableDeclaration(node *ast.VariableDeclaration)
 	if node.Parent.Parent.Kind != ast.KindForInStatement && node.Parent.Parent.Kind != ast.KindForOfStatement {
 		if nodeFlags&ast.NodeFlagsAmbient != 0 {
 			c.checkAmbientInitializer(node.AsNode())
-		} else if !(node.Initializer != nil) {
+		} else if node.Initializer == nil {
 			if ast.IsBindingPattern(node.Name()) && !ast.IsBindingPattern(node.Parent) {
 				return c.grammarErrorOnNode(node.AsNode(), diagnostics.A_destructuring_declaration_must_have_an_initializer)
 			}
@@ -1728,7 +1728,7 @@ func (c *Checker) checkGrammarAwaitOrAwaitUsing(node *ast.Node) bool {
 		}
 		c.error(node, message)
 		hasError = true
-	} else if !(node.Flags&ast.NodeFlagsAwaitContext != 0) {
+	} else if node.Flags&ast.NodeFlagsAwaitContext == 0 {
 		if isInTopLevelContext(node) {
 			sourceFile := ast.GetSourceFileOfNode(node)
 			if !c.hasParseDiagnostics(sourceFile) {
