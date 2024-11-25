@@ -107,7 +107,7 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 			if len(line) < 0 {
 				continue
 			}
-			out := fmt.Sprintf("!!! %s TS%d: %s", diag.Category().String(), diag.Code(), line)
+			out := fmt.Sprintf("!!! %s TS%d: %s", diag.Category().Name(), diag.Code(), line)
 			errLines = append(errLines, out)
 		}
 

@@ -261,7 +261,6 @@ type testCaseContentWithConfig struct {
 }
 
 func NewCompilerTest(filename string, testContent *testCaseContent, configuration fileBasedTestConfiguration) *compilerTest {
-	absoluteRootDir := srcFolder
 	basename := tspath.GetBaseFileName(filename)
 	configuredName := basename
 	if configuration != nil {
@@ -299,7 +298,7 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 	} else {
 		baseUrl, ok := harnessConfig["baseUrl"]
 		if ok && !tspath.IsRootedDiskPath(baseUrl) {
-			harnessConfig["baseUrl"] = tspath.GetNormalizedAbsolutePath(baseUrl, absoluteRootDir)
+			harnessConfig["baseUrl"] = tspath.GetNormalizedAbsolutePath(baseUrl, srcFolder)
 		}
 
 		lastUnit := units[len(units)-1]
@@ -323,12 +322,17 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 		// tsConfigOptions.configFile!.fileName = tsConfigOptions.configFilePath; // !!!
 	}
 
+	currentDirectory := harnessConfig["currentDirectory"]
+	if currentDirectory == "" {
+		currentDirectory = srcFolder
+	}
+
 	result := compileFiles(
 		toBeCompiled,
 		otherFiles,
 		harnessConfig,
 		tsConfigOptions,
-		harnessConfig["currentDirectory"],
+		currentDirectory,
 		testCaseContentWithConfig.symlinks,
 	)
 
@@ -354,7 +358,7 @@ func (c *compilerTest) VerifyDiagnostics(t *testing.T) {
 
 func createHarnessTestFile(unit *testUnit) *baseline.TestFile {
 	return &baseline.TestFile{
-		UnitName:    unit.name,
+		UnitName:    tspath.GetNormalizedAbsolutePath(unit.name, srcFolder),
 		Content:     unit.content,
 		FileOptions: unit.fileOptions,
 	}
@@ -390,10 +394,6 @@ func compileFiles(
 		options = *compilerOptions
 	}
 	harnessOptions := getHarnessOptions(rawHarnessConfig)
-
-	if currentDirectory == "" {
-		currentDirectory = srcFolder
-	}
 
 	var typescriptVersion string
 

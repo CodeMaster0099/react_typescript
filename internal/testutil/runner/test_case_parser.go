@@ -21,7 +21,7 @@ type rawCompilerSettings map[string]string
 type testUnit struct {
 	content          string
 	name             string
-	fileOptions      map[string]string
+	fileOptions      rawCompilerSettings
 	originalFilePath string
 }
 
