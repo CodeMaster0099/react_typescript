@@ -1384,7 +1384,6 @@ func (c *Checker) checkPropertyDeclaration(node *ast.Node) {
 		}
 	}
 	node.ForEachChild(c.checkSourceElement)
-
 }
 
 func (c *Checker) checkPropertySignature(node *ast.Node) {
@@ -1664,26 +1663,65 @@ func (c *Checker) checkReturnStatement(node *ast.Node) {
 }
 
 func (c *Checker) checkWithStatement(node *ast.Node) {
+	// Grammar checking for withStatement
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		if node.Flags&ast.NodeFlagsAwaitContext != 0 {
+			c.grammarErrorOnFirstToken(node, diagnostics.X_with_statements_are_not_allowed_in_an_async_function_block)
+		}
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkSwitchStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkLabeledStatement(node *ast.Node) {
+	labeledStatement := node.AsLabeledStatement()
+	labelNode := labeledStatement.Label
+	labelText := labelNode.AsIdentifier().Text
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		// TODO: why is this not just a loop?
+		ast.FindAncestorOrQuit(node.Parent, func(current *ast.Node) ast.FindAncestorResult {
+			if ast.IsFunctionLike(current) {
+				return ast.FindAncestorQuit
+			}
+			if current.Kind == ast.KindLabeledStatement && (current.AsLabeledStatement()).Label.AsIdentifier().Text == labelText {
+				c.grammarErrorOnNode(labelNode, diagnostics.Duplicate_label_0, labelText)
+				return ast.FindAncestorTrue
+			}
+			return ast.FindAncestorFalse
+		})
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkThrowStatement(node *ast.Node) {
-	// !!!
-	node.ForEachChild(c.checkSourceElement)
+	throwExpr := node.AsThrowStatement().Expression
+
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		if ast.IsIdentifier(throwExpr) && len(throwExpr.AsIdentifier().Text) == 0 {
+			c.grammarErrorAtPos(node, throwExpr.Pos(), 0 /*length*/, diagnostics.Line_break_not_permitted_here)
+		}
+	}
+
+	c.checkExpression(throwExpr)
 }
 
 func (c *Checker) checkTryStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
