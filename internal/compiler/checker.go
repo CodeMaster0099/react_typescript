@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/scanner"
+	"github.com/microsoft/typescript-go/internal/stringutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -1118,6 +1119,9 @@ func (c *Checker) getSymbol(symbols ast.SymbolTable, name string, meaning ast.Sy
 func (c *Checker) checkSourceFile(sourceFile *ast.SourceFile) {
 	links := c.sourceFileLinks.get(sourceFile)
 	if !links.typeChecked {
+		// Grammar checking
+		c.checkGrammarSourceFile(sourceFile)
+
 		// !!!
 		c.checkSourceElements(sourceFile.Statements.Nodes)
 		c.checkDeferredNodes(sourceFile)
@@ -1345,51 +1349,112 @@ func (c *Checker) checkDeferredNode(node *ast.Node) {
 }
 
 func (c *Checker) checkTypeParameter(node *ast.Node) {
+	// Grammar Checking
+	c.checkGrammarModifiers(node)
+	if expr := node.AsTypeParameter().Expression; expr != nil {
+		c.grammarErrorOnFirstToken(expr, diagnostics.Type_expected)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkParameter(node *ast.Node) {
+	// Grammar checking
+	// It is a SyntaxError if the Identifier "eval" or the Identifier "arguments" occurs as the
+	// Identifier in a PropertySetParameterList of a PropertyAssignment that is contained in strict code
+	// or if its FunctionBody is strict code(11.1.5).
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkPropertyDeclaration(node *ast.Node) {
-	// !!!
+	// // Grammar checking
+	if !c.checkGrammarModifiers(node) && !c.checkGrammarProperty(node) {
+		c.checkGrammarComputedPropertyName(node.Name())
+	}
+	c.checkVariableLikeDeclaration(node)
+
+	// // !!!
+	// // c.setNodeLinksForPrivateIdentifierScope(node)
+
+	// property signatures already report "initializer not allowed in ambient context" elsewhere
+	if hasSyntacticModifier(node, ast.ModifierFlagsAbstract) && ast.IsPropertyDeclaration(node) {
+		propDecl := node.AsPropertyDeclaration()
+		if propDecl.Initializer != nil {
+			c.error(node, diagnostics.Property_0_cannot_have_an_initializer_because_it_is_marked_abstract, declarationNameToString(propDecl.Name()))
+		}
+	}
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkPropertySignature(node *ast.Node) {
-	// !!!
-	node.ForEachChild(c.checkSourceElement)
+	if ast.IsPrivateIdentifier(node.AsPropertySignatureDeclaration().Name()) {
+		c.error(node, diagnostics.Private_identifiers_are_not_allowed_outside_class_bodies)
+	}
+
+	c.checkPropertyDeclaration(node)
 }
 
 func (c *Checker) checkSignatureDeclaration(node *ast.Node) {
+	// Grammar checking
+	if node.Kind == ast.KindIndexSignature {
+		c.checkGrammarIndexSignature(node.AsIndexSignatureDeclaration())
+	} else if node.Kind == ast.KindFunctionType || node.Kind == ast.KindFunctionDeclaration || node.Kind == ast.KindConstructorType || node.Kind == ast.KindCallSignature || node.Kind == ast.KindConstructor || node.Kind == ast.KindConstructSignature {
+		c.checkGrammarFunctionLikeDeclaration(node)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkMethodDeclaration(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarMethod(node) {
+		c.checkGrammarComputedPropertyName(node.Name())
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkClassStaticBlockDeclaration(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkConstructorDeclaration(node *ast.Node) {
+	// Grammar check on signature of constructor and modifier of the constructor is done in checkSignatureDeclaration function.
+	c.checkSignatureDeclaration(node)
+	// Grammar check for checking only related to constructorDeclaration
+	ctor := node.AsConstructorDeclaration()
+	if !c.checkGrammarConstructorTypeParameters(ctor) {
+		c.checkGrammarConstructorTypeAnnotation(ctor)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkAccessorDeclaration(node *ast.Node) {
+	// Grammar checking accessors
+	if !c.checkGrammarFunctionLikeDeclaration(node) && !c.checkGrammarAccessor(node) {
+		c.checkGrammarComputedPropertyName(node.Name())
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkTypeReferenceNode(node *ast.Node) {
+	// Grammar checks
+	c.checkGrammarTypeArguments(node, node.AsTypeReferenceNode().TypeArguments)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1430,6 +1495,9 @@ func (c *Checker) checkThisType(node *ast.Node) {
 }
 
 func (c *Checker) checkTypeOperator(node *ast.Node) {
+	// Grammar checks
+	c.checkGrammarTypeOperatorNode(node.AsTypeOperatorNode())
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1440,6 +1508,13 @@ func (c *Checker) checkConditionalType(node *ast.Node) {
 }
 
 func (c *Checker) checkInferType(node *ast.Node) {
+	// Grammar checks
+	if ast.FindAncestor(node, func(n *ast.Node) bool {
+		return n.Parent != nil && n.Parent.Kind == ast.KindConditionalType && (n.Parent.AsConditionalTypeNode()).ExtendsType == n
+	}) == nil {
+		c.grammarErrorOnNode(node, diagnostics.X_infer_declarations_are_only_permitted_in_the_extends_clause_of_a_conditional_type)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1455,8 +1530,21 @@ func (c *Checker) checkImportType(node *ast.Node) {
 }
 
 func (c *Checker) checkNamedTupleMember(node *ast.Node) {
+	tupleMember := node.AsNamedTupleMember()
+
+	// Grammar checks
+	if tupleMember.DotDotDotToken != nil && tupleMember.QuestionToken != nil {
+		c.grammarErrorOnNode(node, diagnostics.A_tuple_member_cannot_be_both_optional_and_rest)
+	}
+	if tupleMember.Type.Kind == ast.KindOptionalType {
+		c.grammarErrorOnNode(tupleMember.Type, diagnostics.A_labeled_tuple_element_is_declared_as_optional_with_a_question_mark_after_the_name_and_before_the_colon_rather_than_after_the_type)
+	}
+	if tupleMember.Type.Kind == ast.KindRestType {
+		c.grammarErrorOnNode(tupleMember.Type, diagnostics.A_labeled_tuple_element_is_declared_as_rest_with_a_before_the_name_rather_than_before_the_type)
+	}
+
 	// !!!
-	node.ForEachChild(c.checkSourceElement)
+	tupleMember.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkIndexedAccessType(node *ast.Node) {
@@ -1465,36 +1553,61 @@ func (c *Checker) checkIndexedAccessType(node *ast.Node) {
 }
 
 func (c *Checker) checkMappedType(node *ast.Node) {
+	// Grammar checks
+	c.checkGrammarMappedType(node.AsMappedTypeNode())
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkFunctionDeclaration(node *ast.Node) {
 	// !!!
+	c.checkGrammarForGenerator(node)
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkBlock(node *ast.Node) {
+	// Grammar checking for SyntaxKind.Block
+	if node.Kind == ast.KindBlock {
+		c.checkGrammarStatementInAmbientContext(node)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkIfStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkDoStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkWhileStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkForStatement(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		if init := node.Initializer(); init != nil && init.Kind == ast.KindVariableDeclarationList {
+			c.checkGrammarVariableDeclarationList(init.AsVariableDeclarationList())
+		}
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1505,86 +1618,274 @@ func (c *Checker) checkForInStatement(node *ast.Node) {
 }
 
 func (c *Checker) checkForOfStatement(node *ast.Node) {
+	forInOfStatement := node.AsForInOrOfStatement()
+	// Grammar checking
+	c.checkGrammarForInOrForOfStatement(forInOfStatement)
+
+	container := getContainingFunctionOrClassStaticBlock(node)
+	if forInOfStatement.AwaitModifier != nil {
+		if container != nil && ast.IsClassStaticBlockDeclaration(container) {
+			c.grammarErrorOnNode(forInOfStatement.AwaitModifier, diagnostics.X_for_await_loops_cannot_be_used_inside_a_class_static_block)
+		}
+		// !!!
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkBreakOrContinueStatement(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		c.checkGrammarBreakOrContinueStatement(node)
+	}
+
+	// TODO: Check that target label is valid
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkReturnStatement(node *ast.Node) {
+	// Grammar checking
+	if c.checkGrammarStatementInAmbientContext(node) {
+		return
+	}
+	container := getContainingFunctionOrClassStaticBlock(node)
+	if container != nil && ast.IsClassStaticBlockDeclaration(container) {
+		c.grammarErrorOnFirstToken(node, diagnostics.A_return_statement_cannot_be_used_inside_a_class_static_block)
+		return
+	}
+
+	if container == nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.A_return_statement_can_only_be_used_within_a_function_body)
+		return
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkWithStatement(node *ast.Node) {
+	// Grammar checking for withStatement
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		if node.Flags&ast.NodeFlagsAwaitContext != 0 {
+			c.grammarErrorOnFirstToken(node, diagnostics.X_with_statements_are_not_allowed_in_an_async_function_block)
+		}
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkSwitchStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkLabeledStatement(node *ast.Node) {
+	labeledStatement := node.AsLabeledStatement()
+	labelNode := labeledStatement.Label
+	labelText := labelNode.AsIdentifier().Text
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		// TODO(danielr): why is this not just a loop?
+		ast.FindAncestorOrQuit(node.Parent, func(current *ast.Node) ast.FindAncestorResult {
+			if ast.IsFunctionLike(current) {
+				return ast.FindAncestorQuit
+			}
+			if current.Kind == ast.KindLabeledStatement && (current.AsLabeledStatement()).Label.AsIdentifier().Text == labelText {
+				c.grammarErrorOnNode(labelNode, diagnostics.Duplicate_label_0, labelText)
+				return ast.FindAncestorTrue
+			}
+			return ast.FindAncestorFalse
+		})
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkThrowStatement(node *ast.Node) {
-	// !!!
-	node.ForEachChild(c.checkSourceElement)
+	throwExpr := node.AsThrowStatement().Expression
+
+	// Grammar checking
+	if !c.checkGrammarStatementInAmbientContext(node) {
+		if ast.IsIdentifier(throwExpr) && len(throwExpr.AsIdentifier().Text) == 0 {
+			c.grammarErrorAtPos(node, throwExpr.Pos(), 0 /*length*/, diagnostics.Line_break_not_permitted_here)
+		}
+	}
+
+	c.checkExpression(throwExpr)
 }
 
 func (c *Checker) checkTryStatement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkBindingElement(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarBindingElement(node.AsBindingElement())
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkClassDeclaration(node *ast.Node) {
+	classDecl := node.AsClassDeclaration()
+	var firstDecorator *ast.Node
+	if modifiers := classDecl.Modifiers(); modifiers != nil {
+		firstDecorator = core.Find(modifiers.NodeList.Nodes, ast.IsDecorator)
+	}
+	if c.legacyDecorators && firstDecorator != nil && core.Some(classDecl.Members.Nodes, func(p *ast.Node) bool {
+		return hasStaticModifier(p) && isPrivateIdentifierClassElementDeclaration(p)
+	}) {
+		c.grammarErrorOnNode(firstDecorator, diagnostics.Class_decorators_can_t_be_used_with_static_private_identifier_Consider_removing_the_experimental_decorator)
+	}
+	if node.Name() == nil && !hasSyntacticModifier(node, ast.ModifierFlagsDefault) {
+		c.grammarErrorOnFirstToken(node, diagnostics.A_class_declaration_without_the_default_modifier_must_have_a_name)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkInterfaceDeclaration(node *ast.Node) {
+	// Grammar checking
+	if !c.checkGrammarModifiers(node) {
+		c.checkGrammarInterfaceDeclaration(node.AsInterfaceDeclaration())
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkEnumDeclaration(node *ast.Node) {
+	// Grammar checking
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkModuleDeclaration(node *ast.Node) {
+	if body := node.AsModuleDeclaration().Body; body != nil {
+		c.checkSourceElement(body)
+		if !isGlobalScopeAugmentation(node) {
+			c.registerForUnusedIdentifiersCheck(node)
+		}
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkImportDeclaration(node *ast.Node) {
+	// Grammar checking
+	var diagnostic *diagnostics.Message
+	if isInJSFile(node) {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_module
+	} else {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
+	}
+	if c.checkGrammarModuleElementContext(node, diagnostic) {
+		// If we hit an import declaration in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	if !c.checkGrammarModifiers(node) && node.Modifiers() != nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.An_import_declaration_cannot_have_modifiers)
+	}
+
+	if importClause := node.AsImportDeclaration().ImportClause; importClause != nil && !c.checkGrammarImportClause(importClause.AsImportClause()) {
+		// !!!
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkImportEqualsDeclaration(node *ast.Node) {
+	// Grammar checking
+	var diagnostic *diagnostics.Message
+	if isInJSFile(node) {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_module
+	} else {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
+	}
+	if c.checkGrammarModuleElementContext(node, diagnostic) {
+		// If we hit an import declaration in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkExportDeclaration(node *ast.Node) {
+	// Grammar checking
+	var diagnostic *diagnostics.Message
+	if isInJSFile(node) {
+		diagnostic = diagnostics.An_export_declaration_can_only_be_used_at_the_top_level_of_a_module
+	} else {
+		diagnostic = diagnostics.An_export_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
+	}
+	if c.checkGrammarModuleElementContext(node, diagnostic) {
+		// If we hit an export in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	exportDecl := node.AsExportDeclaration()
+	if !c.checkGrammarModifiers(node) && exportDecl.Modifiers() != nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.An_export_declaration_cannot_have_modifiers)
+	}
+	c.checkGrammarExportDeclaration(exportDecl)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkExportAssignment(node *ast.Node) {
+	exportAssignment := node.AsExportAssignment()
+	isExportEquals := exportAssignment.IsExportEquals
+
+	// Grammar checking
+	var illegalContextMessage *diagnostics.Message
+	if isExportEquals {
+		illegalContextMessage = diagnostics.An_export_assignment_must_be_at_the_top_level_of_a_file_or_module_declaration
+	} else {
+		illegalContextMessage = diagnostics.A_default_export_must_be_at_the_top_level_of_a_file_or_module_declaration
+	}
+	if c.checkGrammarModuleElementContext(node, illegalContextMessage) {
+		// If we hit an export assignment in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	var container *ast.Node
+	if node.Parent.Kind == ast.KindSourceFile {
+		container = node.Parent
+	} else {
+		container = node.Parent.Parent
+	}
+	if container.Kind == ast.KindModuleDeclaration && !isAmbientModule(container) {
+		// TODO(danielr): should these be grammar errors?
+		if isExportEquals {
+			c.error(node, diagnostics.An_export_assignment_cannot_be_used_in_a_namespace)
+		} else {
+			c.error(node, diagnostics.A_default_export_can_only_be_used_in_an_ECMAScript_style_module)
+		}
+
+		return
+	}
+	if !c.checkGrammarModifiers(node) && exportAssignment.Modifiers() != nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.An_export_assignment_cannot_have_modifiers)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
@@ -1597,7 +1898,7 @@ func (c *Checker) checkVariableStatement(node *ast.Node) {
 	// !!!
 	varStatement := node.AsVariableStatement()
 	declarationList := varStatement.DeclarationList
-	// // Grammar checking
+	// Grammar checking
 	if !c.checkGrammarModifiers(node) && !c.checkGrammarVariableDeclarationList(declarationList.AsVariableDeclarationList()) {
 		c.checkGrammarForDisallowedBlockScopedVariableStatement(varStatement)
 	}
@@ -1614,7 +1915,8 @@ func (c *Checker) checkVariableDeclarationList(node *ast.Node) {
 }
 
 func (c *Checker) checkVariableDeclaration(node *ast.Node) {
-	// !!!
+	// !!! tracing
+
 	c.checkGrammarVariableDeclaration(node.AsVariableDeclaration())
 	c.checkVariableLikeDeclaration(node)
 }
@@ -1892,11 +2194,11 @@ func (c *Checker) areDeclarationFlagsIdentical(left *ast.Declaration, right *ast
 }
 
 func (c *Checker) checkTypeAliasDeclaration(node *ast.Node) {
-	// !!!
 	// Grammar checking
-	// c.checkGrammarModifiers(node)
+	c.checkGrammarModifiers(node)
 	c.checkTypeNameIsReserved(node.Name(), diagnostics.Type_alias_name_cannot_be_0)
 	c.checkExportsOnMergedDeclarations(node)
+
 	typeNode := node.AsTypeAliasDeclaration().Type
 	typeParameters := node.TypeParameters()
 	c.checkTypeParameters(typeParameters)
@@ -1926,6 +2228,10 @@ func (c *Checker) checkExportsOnMergedDeclarations(node *ast.Node) {
 
 func (c *Checker) checkTypeParameters(typeParameterDeclarations []*ast.Node) {
 	// !!!
+
+	for _, typeParameter := range typeParameterDeclarations {
+		typeParameter.ForEachChild(c.checkSourceElement)
+	}
 }
 
 func (c *Checker) registerForUnusedIdentifiersCheck(node *ast.Node) {
@@ -1933,7 +2239,9 @@ func (c *Checker) registerForUnusedIdentifiersCheck(node *ast.Node) {
 }
 
 func (c *Checker) checkExpressionStatement(node *ast.Node) {
-	// !!! Grammar checking
+	// Grammar checking
+	c.checkGrammarStatementInAmbientContext(node)
+
 	c.checkExpression(node.AsExpressionStatement().Expression)
 }
 
@@ -2107,10 +2415,10 @@ func (c *Checker) checkExpressionWorker(node *ast.Node, checkMode CheckMode) *Ty
 		// !!! Handle blockedStringType
 		return c.getFreshTypeOfLiteralType(c.getStringLiteralType(node.Text()))
 	case ast.KindNumericLiteral:
-		// !!! checkGrammarNumericLiteral(node as NumericLiteral)
-		return c.getFreshTypeOfLiteralType(c.getNumberLiteralType(core.StringToNumber(node.Text())))
+		c.checkGrammarNumericLiteral(node.AsNumericLiteral())
+		return c.getFreshTypeOfLiteralType(c.getNumberLiteralType(stringutil.ToNumber(node.Text())))
 	case ast.KindBigIntLiteral:
-		// !!! checkGrammarBigIntLiteral(node as BigIntLiteral);
+		c.checkGrammarBigIntLiteral(node.AsBigIntLiteral())
 		return c.getFreshTypeOfLiteralType(c.getBigIntLiteralType(PseudoBigInt{
 			negative:    false,
 			base10Value: parsePseudoBigInt(node.AsBigIntLiteral().Text),
@@ -2199,7 +2507,7 @@ func (c *Checker) checkExpressionWorker(node *ast.Node, checkMode CheckMode) *Ty
 }
 
 func (c *Checker) checkPrivateIdentifierExpression(node *ast.Node) *Type {
-	// !!! c.checkGrammarPrivateIdentifierExpression(node)
+	c.checkGrammarPrivateIdentifierExpression(node.AsPrivateIdentifier())
 	symbol := c.getSymbolForPrivateIdentifierExpression(node)
 	if symbol != nil {
 		c.markPropertyAsReferenced(symbol, nil /*nodeForCheckWriteOnly*/, false /*isSelfTypeAccess*/)
@@ -3868,8 +4176,9 @@ func (c *Checker) checkReferenceExpression(expr *ast.Node, invalidReferenceMessa
 
 func (c *Checker) checkObjectLiteral(node *ast.Node, checkMode CheckMode) *Type {
 	inDestructuringPattern := isAssignmentTarget(node)
-	// !!!
-	// // Grammar checking
+	// Grammar checking
+	c.checkGrammarObjectLiteralExpression(node.AsObjectLiteralExpression(), inDestructuringPattern)
+
 	// c.checkGrammarObjectLiteralExpression(node, inDestructuringPattern)
 	var allPropertiesTable ast.SymbolTable
 	if c.strictNullChecks {
@@ -7343,7 +7652,7 @@ func (c *Checker) tryGetNameFromType(t *Type) (name string, ok bool) {
 		s := t.AsLiteralType().value.(string)
 		return s, true
 	case t.flags&TypeFlagsNumberLiteral != 0:
-		s := core.NumberToString(t.AsLiteralType().value.(float64))
+		s := stringutil.FromNumber(t.AsLiteralType().value.(float64))
 		return s, true
 	default:
 		return "", false
@@ -11037,7 +11346,7 @@ func (c *Checker) evaluateEntity(expr *ast.Node, location *ast.Node) EvaluatorRe
 				// Technically we resolved a global lib file here, but the decision to treat this as numeric
 				// is more predicated on the fact that the single-file resolution *didn't* resolve to a
 				// different meaning of `Infinity` or `NaN`. Transpilers handle this no problem.
-				return evaluatorResult(core.StringToNumber(expr.Text()), false, false, false)
+				return evaluatorResult(stringutil.ToNumber(expr.Text()), false, false, false)
 			}
 		}
 		if symbol.Flags&ast.SymbolFlagsEnumMember != 0 {
@@ -13187,7 +13496,7 @@ func (c *Checker) getPropertyTypeForIndexType(originalObjectType *Type, objectTy
 			}
 		}
 		if everyType(objectType, isTupleType) && isNumericLiteralName(propName) {
-			index := core.StringToNumber(propName)
+			index := stringutil.ToNumber(propName)
 			if accessNode != nil && everyType(objectType, func(t *Type) bool {
 				return t.TargetTupleType().combinedFlags&ElementFlagsVariable == 0
 			}) && accessFlags&AccessFlagsAllowMissing == 0 {
@@ -13431,7 +13740,7 @@ func indexTypeLessThan(indexType *Type, limit int) bool {
 		if t.flags&TypeFlagsStringOrNumberLiteral != 0 {
 			propName := getPropertyNameFromType(t)
 			if isNumericLiteralName(propName) {
-				index := core.StringToNumber(propName)
+				index := stringutil.ToNumber(propName)
 				return index >= 0 && index < float64(limit)
 			}
 		}

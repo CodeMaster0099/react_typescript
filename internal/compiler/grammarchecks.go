@@ -9,6 +9,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/scanner"
+	"github.com/microsoft/typescript-go/internal/stringutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -49,7 +50,7 @@ func (c *Checker) grammarErrorOnNode(node *ast.Node, message *diagnostics.Messag
 	return false
 }
 
-func (c *Checker) checkGrammarRegularExpressionLiteral(node *ast.RegularExpressionLiteral) bool {
+func (c *Checker) checkGrammarRegularExpressionLiteral(_ *ast.RegularExpressionLiteral) bool {
 	// !!!
 	// Unclear if this is needed until regular expression parsing is more thoroughly implemented.
 	return false
@@ -88,7 +89,7 @@ func (c *Checker) checkGrammarRegularExpressionLiteral(node *ast.RegularExpressi
 	// return false
 }
 
-func (c *Checker) checkGrammarPrivateIdentifierExpression(privId ast.PrivateIdentifier) bool {
+func (c *Checker) checkGrammarPrivateIdentifierExpression(privId *ast.PrivateIdentifier) bool {
 	privIdAsNode := privId.AsNode()
 	if getContainingClass(privId.AsNode()) == nil {
 		return c.grammarErrorOnNode(privId.AsNode(), diagnostics.Private_identifiers_are_not_allowed_outside_class_bodies)
@@ -184,7 +185,7 @@ func (c *Checker) checkGrammarDecorator(decorator *ast.Decorator) bool {
 
 	return false
 }
-func (c *Checker) checkGrammarExportDeclaration(node ast.ExportDeclaration) bool {
+func (c *Checker) checkGrammarExportDeclaration(node *ast.ExportDeclaration) bool {
 	if node.IsTypeOnly && node.ExportClause != nil && node.ExportClause.Kind == ast.KindNamedExports {
 		return c.checkGrammarTypeOnlyNamedImportsOrExports(node.ExportClause)
 	}
@@ -562,7 +563,6 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 		}
 		if flags&ast.ModifierFlagsOverride != 0 {
 			return c.grammarErrorOnNode(lastOverride, diagnostics.X_0_modifier_cannot_appear_on_a_constructor_declaration, "override")
-			// TODO: GH#18217
 		}
 		if flags&ast.ModifierFlagsAsync != 0 {
 			return c.grammarErrorOnNode(lastAsync, diagnostics.X_0_modifier_cannot_appear_on_a_constructor_declaration, "async")
@@ -581,7 +581,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 	return false
 }
 
-func isJSDocTypedefTag(node *ast.Node) bool {
+func isJSDocTypedefTag(_ *ast.Node) bool {
 	// !!!
 	return false
 }
@@ -592,7 +592,7 @@ func isJSDocTypedefTag(node *ast.Node) bool {
  */
 
 func (c *Checker) reportObviousModifierErrors(node *ast.Node) core.Tristate {
-	modifiers := node.Modifiers
+	modifiers := node.Modifiers()
 	if modifiers == nil {
 		return core.TSFalse
 	}
@@ -832,7 +832,7 @@ func (c *Checker) checkGrammarArrowFunction(node *ast.Node, file *ast.SourceFile
 			len(typeParamNodes) == 1 && typeParamNodes[0].AsTypeParameter().Constraint == nil ||
 			typeParameters.HasTrailingComma() {
 			if tspath.FileExtensionIsOneOf(file.FileName(), []string{tspath.ExtensionMts, tspath.ExtensionCts}) {
-				// TODO: should we return early here?
+				// TODO(danielr): should we return early here?
 				c.grammarErrorOnNode(typeParameters.Nodes[0], diagnostics.This_syntax_is_reserved_in_files_with_the_mts_or_cts_extension_Add_a_trailing_comma_or_explicit_constraint)
 			}
 		}
@@ -921,7 +921,7 @@ func (c *Checker) checkGrammarHeritageClause(node *ast.HeritageClause) bool {
 	}
 	if types != nil && len(types.Nodes) == 0 {
 		listType := scanner.TokenToString(node.Token)
-		// TODO: why not error on the token?
+		// TODO(danielr): why not error on the token?
 		return c.grammarErrorAtPos(node.AsNode(), types.Pos(), 0, diagnostics.X_0_list_cannot_be_empty, listType)
 	}
 
@@ -987,7 +987,7 @@ func (c *Checker) checkGrammarClassDeclarationHeritageClauses(node *ast.ClassLik
 	return false
 }
 
-func (c *Checker) checkGrammarInterfaceDeclaration(node ast.InterfaceDeclaration) bool {
+func (c *Checker) checkGrammarInterfaceDeclaration(node *ast.InterfaceDeclaration) bool {
 	if node.HeritageClauses != nil {
 		seenExtendsClause := false
 		for _, heritageClauseNode := range node.HeritageClauses.Nodes {
@@ -1391,7 +1391,7 @@ func (c *Checker) checkGrammarAccessor(accessor *ast.AccessorDeclaration) bool {
 			panic("Return value does not match parameter count assertion.")
 		}
 		parameter := parameterNode.AsParameterDeclaration()
-		if parameter != nil {
+		if parameter.DotDotDotToken != nil {
 			return c.grammarErrorOnNode(parameter.DotDotDotToken, diagnostics.A_set_accessor_cannot_have_rest_parameter)
 		}
 		if parameter.QuestionToken != nil {
@@ -1972,16 +1972,14 @@ func (c *Checker) checkGrammarProperty(node *ast.Node /*Union[PropertyDeclaratio
 		propDecl := node.AsPropertyDeclaration()
 		postfixToken := propDecl.PostfixToken
 		if postfixToken != nil && postfixToken.Kind == ast.KindExclamationToken {
-			var message *diagnostics.Message
 			switch {
 			case propDecl.Initializer != nil:
-				message = diagnostics.Declarations_with_initializers_cannot_also_have_definite_assignment_assertions
+				return c.grammarErrorOnNode(postfixToken, diagnostics.Declarations_with_initializers_cannot_also_have_definite_assignment_assertions)
 			case propDecl.Type == nil:
-				message = diagnostics.Declarations_with_definite_assignment_assertions_must_also_have_type_annotations
+				return c.grammarErrorOnNode(postfixToken, diagnostics.Declarations_with_definite_assignment_assertions_must_also_have_type_annotations)
 			case !ast.IsClassLike(node.Parent) || node.Flags&ast.NodeFlagsAmbient != 0 || isStatic(node) || hasAbstractModifier(node):
-				message = diagnostics.A_definite_assignment_assertion_is_not_permitted_in_this_context
+				return c.grammarErrorOnNode(postfixToken, diagnostics.A_definite_assignment_assertion_is_not_permitted_in_this_context)
 			}
-			return c.grammarErrorOnNode(postfixToken, message)
 		}
 	}
 
@@ -2142,7 +2140,7 @@ func (c *Checker) checkGrammarNumericLiteral(node *ast.NumericLiteral) {
 	// 1) when `node` represents an integer <= 2 ** 53 - 1, `node.text` is its exact string representation and thus `value` precisely represents the integer.
 	// 2) otherwise, although `node.text` may be imprecise string representation, its mathematical value and consequently `value` cannot be less than 2 ** 53,
 	//    thus the result of the predicate won't be affected.
-	value := core.StringToNumber(node.Text)
+	value := stringutil.ToNumber(node.Text)
 	if value <= math.Pow(2, 53-1) {
 		return
 	}

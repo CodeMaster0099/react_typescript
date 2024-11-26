@@ -1,5 +1,11 @@
 package core
 
+import (
+	"strings"
+
+	"github.com/microsoft/typescript-go/internal/tspath"
+)
+
 //go:generate go run golang.org/x/tools/cmd/stringer -type=ModuleKind,ScriptTarget -output=compileroptions_stringer_generated.go
 
 type CompilerOptions struct {
@@ -81,16 +87,12 @@ func (options *CompilerOptions) GetModuleResolutionKind() ModuleResolutionKind {
 		return options.ModuleResolution
 	}
 	switch options.GetEmitModuleKind() {
-	case ModuleKindCommonJS:
-		return ModuleResolutionKindBundler
 	case ModuleKindNode16:
 		return ModuleResolutionKindNode16
 	case ModuleKindNodeNext:
 		return ModuleResolutionKindNodeNext
-	case ModuleKindPreserve:
-		return ModuleResolutionKindBundler
 	default:
-		panic("Unhandled case in GetModuleResolutionKind")
+		return ModuleResolutionKindBundler
 	}
 }
 
@@ -132,6 +134,30 @@ func (options *CompilerOptions) GetAllowJs() bool {
 func (options *CompilerOptions) GetJSXTransformEnabled() bool {
 	jsx := options.Jsx
 	return jsx == JsxEmitReact || jsx == JsxEmitReactJSX || jsx == JsxEmitReactJSXDev
+}
+
+func (options *CompilerOptions) GetEffectiveTypeRoots(currentDirectory string) (result []string, fromConfig bool) {
+	if options.TypeRoots != nil {
+		return options.TypeRoots, true
+	}
+	var baseDir string
+	if options.ConfigFilePath != "" {
+		baseDir = tspath.GetDirectoryPath(options.ConfigFilePath)
+	} else {
+		baseDir = currentDirectory
+		if baseDir == "" {
+			// This was accounted for in the TS codebase, but only for third-party API usage
+			// where the module resolution host does not provide a getCurrentDirectory().
+			panic("cannot get effective type roots without a config file path or current directory")
+		}
+	}
+
+	typeRoots := make([]string, 0, strings.Count(baseDir, "/"))
+	tspath.ForEachAncestorDirectory(baseDir, func(dir string) (any, bool) {
+		typeRoots = append(typeRoots, tspath.CombinePaths(dir, "node_modules", "@types"))
+		return nil, false
+	})
+	return typeRoots, false
 }
 
 type ModuleKind int32

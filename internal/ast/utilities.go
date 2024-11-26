@@ -406,7 +406,7 @@ func IsTypeNode(node *Node) bool {
 	return IsTypeNodeKind(node.Kind)
 }
 
-func isJSDocTypeAssertion(node *Node) bool {
+func isJSDocTypeAssertion(_ *Node) bool {
 	return false // !!!
 }
 
