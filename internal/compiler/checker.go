@@ -1118,6 +1118,9 @@ func (c *Checker) getSymbol(symbols ast.SymbolTable, name string, meaning ast.Sy
 func (c *Checker) checkSourceFile(sourceFile *ast.SourceFile) {
 	links := c.sourceFileLinks.get(sourceFile)
 	if !links.typeChecked {
+		// Grammar checking
+		c.checkGrammarSourceFile(sourceFile)
+
 		// !!!
 		c.checkSourceElements(sourceFile.Statements.Nodes)
 		c.checkDeferredNodes(sourceFile)
@@ -1772,7 +1775,7 @@ func (c *Checker) checkEnumDeclaration(node *ast.Node) {
 }
 
 func (c *Checker) checkModuleDeclaration(node *ast.Node) {
-	if body := getBodyOfNode(node); body != nil {
+	if body := node.AsModuleDeclaration().Body; body != nil {
 		c.checkSourceElement(body)
 		if !isGlobalScopeAugmentation(node) {
 			c.registerForUnusedIdentifiersCheck(node)
@@ -1784,24 +1787,55 @@ func (c *Checker) checkModuleDeclaration(node *ast.Node) {
 }
 
 func (c *Checker) checkImportDeclaration(node *ast.Node) {
+	// Grammar checking
+	var diagnostic *diagnostics.Message
+	if isInJSFile(node) {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_module
+	} else {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
+	}
+	if c.checkGrammarModuleElementContext(node, diagnostic) {
+		// If we hit an import declaration in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	if !c.checkGrammarModifiers(node) && node.Modifiers() != nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.An_import_declaration_cannot_have_modifiers)
+	}
+
+	if importClause := node.AsImportDeclaration().ImportClause; importClause != nil && !c.checkGrammarImportClause(importClause.AsImportClause()) {
+		// !!!
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkImportEqualsDeclaration(node *ast.Node) {
+	// Grammar checking
+	var diagnostic *diagnostics.Message
+	if isInJSFile(node) {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_module
+	} else {
+		diagnostic = diagnostics.An_import_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
+	}
+	if c.checkGrammarModuleElementContext(node, diagnostic) {
+		// If we hit an import declaration in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	c.checkGrammarModifiers(node)
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
 
 func (c *Checker) checkExportDeclaration(node *ast.Node) {
+	// Grammar checking
 	var diagnostic *diagnostics.Message
 	if isInJSFile(node) {
 		diagnostic = diagnostics.An_export_declaration_can_only_be_used_at_the_top_level_of_a_module
 	} else {
 		diagnostic = diagnostics.An_export_declaration_can_only_be_used_at_the_top_level_of_a_namespace_or_module
 	}
-
-	// Grammar checking
 	if c.checkGrammarModuleElementContext(node, diagnostic) {
 		// If we hit an export in an illegal context, just bail out to avoid cascading errors.
 		return
@@ -1817,6 +1851,40 @@ func (c *Checker) checkExportDeclaration(node *ast.Node) {
 }
 
 func (c *Checker) checkExportAssignment(node *ast.Node) {
+	exportAssignment := node.AsExportAssignment()
+	isExportEquals := exportAssignment.IsExportEquals
+
+	// Grammar checking
+	var illegalContextMessage *diagnostics.Message
+	if isExportEquals {
+		illegalContextMessage = diagnostics.An_export_assignment_must_be_at_the_top_level_of_a_file_or_module_declaration
+	} else {
+		illegalContextMessage = diagnostics.A_default_export_must_be_at_the_top_level_of_a_file_or_module_declaration
+	}
+	if c.checkGrammarModuleElementContext(node, illegalContextMessage) {
+		// If we hit an export assignment in an illegal context, just bail out to avoid cascading errors.
+		return
+	}
+	var container *ast.Node
+	if node.Parent.Kind == ast.KindSourceFile {
+		container = node.Parent
+	} else {
+		container = node.Parent.Parent
+	}
+	if container.Kind == ast.KindModuleDeclaration && !isAmbientModule(container) {
+		// TODO(danielr): should these be grammar errors?
+		if isExportEquals {
+			c.error(node, diagnostics.An_export_assignment_cannot_be_used_in_a_namespace)
+		} else {
+			c.error(node, diagnostics.A_default_export_can_only_be_used_in_an_ECMAScript_style_module)
+		}
+
+		return
+	}
+	if !c.checkGrammarModifiers(node) && exportAssignment.Modifiers() != nil {
+		c.grammarErrorOnFirstToken(node, diagnostics.An_export_assignment_cannot_have_modifiers)
+	}
+
 	// !!!
 	node.ForEachChild(c.checkSourceElement)
 }
