@@ -49,7 +49,7 @@ func (c *Checker) grammarErrorOnNode(node *ast.Node, message *diagnostics.Messag
 	return false
 }
 
-func (c *Checker) checkGrammarRegularExpressionLiteral(node *ast.RegularExpressionLiteral) bool {
+func (c *Checker) checkGrammarRegularExpressionLiteral(_ *ast.RegularExpressionLiteral) bool {
 	// !!!
 	// Unclear if this is needed until regular expression parsing is more thoroughly implemented.
 	return false
