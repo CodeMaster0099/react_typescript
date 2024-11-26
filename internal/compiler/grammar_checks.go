@@ -550,7 +550,6 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 		}
 		if flags&ast.ModifierFlagsOverride != 0 {
 			return c.grammarErrorOnNode(lastOverride, diagnostics.X_0_modifier_cannot_appear_on_a_constructor_declaration, "override")
-			// TODO: GH#18217
 		}
 		if flags&ast.ModifierFlagsAsync != 0 {
 			return c.grammarErrorOnNode(lastAsync, diagnostics.X_0_modifier_cannot_appear_on_a_constructor_declaration, "async")
@@ -569,7 +568,7 @@ func (c *Checker) checkGrammarModifiers(node *ast.Node /*Union[HasModifiers, Has
 	return false
 }
 
-func isJSDocTypedefTag(node *ast.Node) bool {
+func isJSDocTypedefTag(_ *ast.Node) bool {
 	// !!!
 	return false
 }
@@ -580,7 +579,7 @@ func isJSDocTypedefTag(node *ast.Node) bool {
  */
 
 func (c *Checker) reportObviousModifierErrors(node *ast.Node) core.Tristate {
-	modifiers := node.Modifiers
+	modifiers := node.Modifiers()
 	if modifiers == nil {
 		return core.TSFalse
 	}
@@ -820,7 +819,7 @@ func (c *Checker) checkGrammarArrowFunction(node *ast.Node, file *ast.SourceFile
 			len(typeParamNodes) == 1 && typeParamNodes[0].AsTypeParameter().Constraint == nil ||
 			typeParameters.HasTrailingComma() {
 			if tspath.FileExtensionIsOneOf(file.FileName(), []string{tspath.ExtensionMts, tspath.ExtensionCts}) {
-				// TODO: should we return early here?
+				// TODO(danielr): should we return early here?
 				c.grammarErrorOnNode(typeParameters.Nodes[0], diagnostics.This_syntax_is_reserved_in_files_with_the_mts_or_cts_extension_Add_a_trailing_comma_or_explicit_constraint)
 			}
 		}
@@ -909,7 +908,7 @@ func (c *Checker) checkGrammarHeritageClause(node *ast.HeritageClause) bool {
 	}
 	if types != nil && len(types.Nodes) == 0 {
 		listType := scanner.TokenToString(node.Token)
-		// TODO: why not error on the token?
+		// TODO(danielr): why not error on the token?
 		return c.grammarErrorAtPos(node.AsNode(), types.Pos(), 0, diagnostics.X_0_list_cannot_be_empty, listType)
 	}
 

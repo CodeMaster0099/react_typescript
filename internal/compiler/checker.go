@@ -1688,7 +1688,7 @@ func (c *Checker) checkLabeledStatement(node *ast.Node) {
 	labelText := labelNode.AsIdentifier().Text
 	// Grammar checking
 	if !c.checkGrammarStatementInAmbientContext(node) {
-		// TODO: why is this not just a loop?
+		// TODO(danielr): why is this not just a loop?
 		ast.FindAncestorOrQuit(node.Parent, func(current *ast.Node) ast.FindAncestorResult {
 			if ast.IsFunctionLike(current) {
 				return ast.FindAncestorQuit
