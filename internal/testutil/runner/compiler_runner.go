@@ -286,19 +286,24 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 		configuration:   configuration,
 	}
 
+	harnessConfig := testCaseContentWithConfig.configuration
+	currentDirectory := harnessConfig["currentDirectory"]
+	if currentDirectory == "" {
+		currentDirectory = srcFolder
+	}
+
 	units := testCaseContentWithConfig.testUnitData
 	var toBeCompiled []*baseline.TestFile
 	var otherFiles []*baseline.TestFile
 	var tsConfigOptions *core.CompilerOptions
 	hasNonDtsFiles := core.Some(units, func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, tspath.ExtensionDts) })
-	harnessConfig := testCaseContentWithConfig.configuration
 	// var tsConfigFiles []*baseline.TestFile // !!!
 	if testCaseContentWithConfig.tsConfig != nil {
 		// !!!
 	} else {
 		baseUrl, ok := harnessConfig["baseUrl"]
 		if ok && !tspath.IsRootedDiskPath(baseUrl) {
-			harnessConfig["baseUrl"] = tspath.GetNormalizedAbsolutePath(baseUrl, srcFolder)
+			harnessConfig["baseUrl"] = tspath.GetNormalizedAbsolutePath(baseUrl, currentDirectory)
 		}
 
 		lastUnit := units[len(units)-1]
@@ -309,22 +314,17 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 		if testCaseContentWithConfig.configuration["noImplicitReferences"] != "" ||
 			requireRegex.MatchString(lastUnit.content) ||
 			referencesRegex.MatchString(lastUnit.content) {
-			toBeCompiled = append(toBeCompiled, createHarnessTestFile(lastUnit))
+			toBeCompiled = append(toBeCompiled, createHarnessTestFile(lastUnit, currentDirectory))
 			for _, unit := range units[:len(units)-1] {
-				otherFiles = append(otherFiles, createHarnessTestFile(unit))
+				otherFiles = append(otherFiles, createHarnessTestFile(unit, currentDirectory))
 			}
 		} else {
-			toBeCompiled = core.Map(units, createHarnessTestFile)
+			toBeCompiled = core.Map(units, func(unit *testUnit) *baseline.TestFile { return createHarnessTestFile(unit, currentDirectory) })
 		}
 	}
 
 	if tsConfigOptions != nil && tsConfigOptions.ConfigFilePath != "" {
 		// tsConfigOptions.configFile!.fileName = tsConfigOptions.configFilePath; // !!!
-	}
-
-	currentDirectory := harnessConfig["currentDirectory"]
-	if currentDirectory == "" {
-		currentDirectory = srcFolder
 	}
 
 	result := compileFiles(
@@ -356,9 +356,9 @@ func (c *compilerTest) VerifyDiagnostics(t *testing.T) {
 	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty)
 }
 
-func createHarnessTestFile(unit *testUnit) *baseline.TestFile {
+func createHarnessTestFile(unit *testUnit, currentDirectory string) *baseline.TestFile {
 	return &baseline.TestFile{
-		UnitName:    tspath.GetNormalizedAbsolutePath(unit.name, srcFolder),
+		UnitName:    tspath.GetNormalizedAbsolutePath(unit.name, currentDirectory),
 		Content:     unit.content,
 		FileOptions: unit.fileOptions,
 	}
@@ -449,6 +449,7 @@ func compileFiles(
 	// !!! Port vfs usage closer to original
 
 	// Create fake FS for testing
+	// Note: the code below assumes a single root, since an FS in Go always has a single root.
 	testfs := fstest.MapFS{}
 	for _, file := range inputFiles {
 		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
@@ -623,7 +624,7 @@ func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *c
 		Host:           host,
 		Options:        options,
 		SingleThreaded: true,
-		RootPath:       host.GetCurrentDirectory(),
+		RootPath:       "/", // Include all files while we don't have a way to specify root files
 	}
 	program := compiler.NewProgram(programOptions)
 	return program
