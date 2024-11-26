@@ -114,21 +114,21 @@ func (p *InfoCacheEntry) Exists() bool {
 }
 
 type InfoCache struct {
-	IsReadonly                bool
-	cache                     map[tspath.Path]InfoCacheEntry
-	currentDirectory          string
-	useCaseSensitiveFileNames bool
+	IsReadonly       bool
+	cache            map[tspath.Path]InfoCacheEntry
+	currentDirectory string
+	caseSensitivity  tspath.CaseSensitivity
 }
 
-func NewInfoCache(currentDirectory string, useCaseSensitiveFileNames bool) *InfoCache {
+func NewInfoCache(currentDirectory string, caseSensitivity tspath.CaseSensitivity) *InfoCache {
 	return &InfoCache{
-		currentDirectory:          currentDirectory,
-		useCaseSensitiveFileNames: useCaseSensitiveFileNames,
+		currentDirectory: currentDirectory,
+		caseSensitivity:  caseSensitivity,
 	}
 }
 
 func (p *InfoCache) Get(packageJsonPath string) *InfoCacheEntry {
-	key := tspath.ToPath(packageJsonPath, p.currentDirectory, p.useCaseSensitiveFileNames)
+	key := tspath.ToPath(packageJsonPath, p.currentDirectory, p.caseSensitivity)
 	if p.cache == nil {
 		p.cache = make(map[tspath.Path]InfoCacheEntry)
 		return nil
@@ -141,7 +141,7 @@ func (p *InfoCache) Get(packageJsonPath string) *InfoCacheEntry {
 }
 
 func (p *InfoCache) Set(packageJsonPath string, info *InfoCacheEntry) {
-	key := tspath.ToPath(packageJsonPath, p.currentDirectory, p.useCaseSensitiveFileNames)
+	key := tspath.ToPath(packageJsonPath, p.currentDirectory, p.caseSensitivity)
 	if p.cache == nil {
 		p.cache = make(map[tspath.Path]InfoCacheEntry)
 	}

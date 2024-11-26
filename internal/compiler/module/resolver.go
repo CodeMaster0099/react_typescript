@@ -726,8 +726,8 @@ func (r *resolutionState) createResolvedTypeReferenceDirectiveWithFailedLookupLo
 func (r *resolutionState) getOriginalAndResolvedFileName(fileName string) (string, string) {
 	resolvedFileName := r.realPath(fileName)
 	comparePathsOptions := tspath.ComparePathsOptions{
-		UseCaseSensitiveFileNames: r.resolver.host.FS().UseCaseSensitiveFileNames(),
-		CurrentDirectory:          r.resolver.host.GetCurrentDirectory(),
+		CaseSensitivity:  r.resolver.host.FS().CaseSensitivity(),
+		CurrentDirectory: r.resolver.host.GetCurrentDirectory(),
 	}
 	if tspath.ComparePaths(fileName, resolvedFileName, comparePathsOptions) == 0 {
 		// If the fileName and realpath are differing only in casing, prefer fileName

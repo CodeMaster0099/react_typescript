@@ -60,7 +60,7 @@ func main() {
 		os.Exit(1)
 	}
 	fs := vfs.FromOS()
-	useCaseSensitiveFileNames := fs.UseCaseSensitiveFileNames()
+	caseSensitivity := fs.CaseSensitivity()
 	host := ts.NewCompilerHost(compilerOptions, singleThreaded, currentDirectory, fs)
 
 	normalizedRootPath := tspath.ResolvePath(currentDirectory, rootPath)
@@ -96,8 +96,8 @@ func main() {
 			formatOpts := ts.DiagnosticsFormattingOptions{
 				NewLine: "\n",
 				ComparePathsOptions: tspath.ComparePathsOptions{
-					CurrentDirectory:          currentDirectory,
-					UseCaseSensitiveFileNames: useCaseSensitiveFileNames,
+					CurrentDirectory: currentDirectory,
+					CaseSensitivity:  caseSensitivity,
 				},
 			}
 			ts.FormatDiagnosticsWithColorAndContext(&output, diagnostics, &formatOpts)

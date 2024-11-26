@@ -312,7 +312,7 @@ func newVFSModuleResolutionHost(files map[string]string) *vfsModuleResolutionHos
 		}
 	}
 	return &vfsModuleResolutionHost{
-		fs:               vfs.FromIOFS(false, fs),
+		fs:               vfs.FromIOFS(tspath.CaseInsensitive, fs),
 		currentDirectory: "/",
 	}
 }
@@ -331,9 +331,9 @@ func (v *vfsModuleResolutionHost) Trace(msg string) {
 	v.traces = append(v.traces, msg)
 }
 
-// UseCaseSensitiveFileNames implements ModuleResolutionHost.
-func (v *vfsModuleResolutionHost) UseCaseSensitiveFileNames() bool {
-	return false
+// CaseSensitivity implements ModuleResolutionHost.
+func (v *vfsModuleResolutionHost) CaseSensitivity() tspath.CaseSensitivity {
+	return tspath.CaseInsensitive
 }
 
 type functionCall struct {

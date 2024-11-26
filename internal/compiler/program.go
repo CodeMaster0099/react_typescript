@@ -90,7 +90,7 @@ func (p *Program) parseSourceFiles(fileInfos []FileInfo) {
 			fileName := fileInfos[i].Name
 			text, _ := p.host.FS().ReadFile(fileName)
 			sourceFile := ParseSourceFile(fileName, text, p.options.GetEmitScriptTarget())
-			path := tspath.ToPath(fileName, p.host.GetCurrentDirectory(), p.host.FS().UseCaseSensitiveFileNames())
+			path := tspath.ToPath(fileName, p.host.GetCurrentDirectory(), p.host.FS().CaseSensitivity())
 			sourceFile.SetPath(path)
 			p.collectExternalModuleReferences(sourceFile)
 			p.files[i] = sourceFile
@@ -125,7 +125,7 @@ func (p *Program) getResolvedModule(currentSourceFile *ast.SourceFile, moduleRef
 func (p *Program) findSourceFile(candidate string) *ast.SourceFile {
 	extensionless := tspath.RemoveFileExtension(candidate)
 	for _, ext := range []string{tspath.ExtensionTs, tspath.ExtensionTsx, tspath.ExtensionDts} {
-		path := tspath.ToPath(extensionless+ext, p.host.GetCurrentDirectory(), p.host.FS().UseCaseSensitiveFileNames())
+		path := tspath.ToPath(extensionless+ext, p.host.GetCurrentDirectory(), p.host.FS().CaseSensitivity())
 		if result, ok := p.filesByPath[path]; ok {
 			return result
 		}
@@ -158,7 +158,7 @@ func (p *Program) tryLoadNodeModule(modulePath string) *ast.SourceFile {
 			}
 			if fileName, ok := typesValue.(string); ok {
 				path := tspath.CombinePaths(modulePath, fileName)
-				return p.filesByPath[tspath.ToPath(path, p.host.GetCurrentDirectory(), p.host.FS().UseCaseSensitiveFileNames())]
+				return p.filesByPath[tspath.ToPath(path, p.host.GetCurrentDirectory(), p.host.FS().CaseSensitivity())]
 			}
 		}
 	}

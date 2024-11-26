@@ -18,8 +18,7 @@ import (
 
 // FS is a file system abstraction.
 type FS interface {
-	// UseCaseSensitiveFileNames returns true if the file system is case-sensitive.
-	UseCaseSensitiveFileNames() bool
+	CaseSensitivity() tspath.CaseSensitivity
 
 	// FileExists returns true if the file exists.
 	FileExists(path string) bool
@@ -67,11 +66,11 @@ var _ FS = (*vfs)(nil)
 
 // FromIOFS creates a new FS from an [fs.FS].
 // For paths like `c:/foo/bar`, fsys will be used as though it's rooted at `/` and the path is `/c:/foo/bar`.
-func FromIOFS(useCaseSensitiveFileNames bool, fsys fs.FS) FS {
+func FromIOFS(caseSensitivity tspath.CaseSensitivity, fsys fs.FS) FS {
 	return &vfs{
 		readSema: osReadSema,
 		// !!! The passed in FS may not actually respect case insensitive file names.
-		useCaseSensitiveFileNames: useCaseSensitiveFileNames,
+		caseSensitivity: caseSensitivity,
 		rootFor: func(root string) fs.FS {
 			if root == "/" {
 				return fsys
@@ -93,10 +92,10 @@ func FromIOFS(useCaseSensitiveFileNames bool, fsys fs.FS) FS {
 
 // FromOS creates a new FS from the OS file system.
 func FromOS() FS {
-	useCaseSensitiveFileNames := isFileSystemCaseSensitive()
+	caseSensitivity := osCaseSensitivity()
 	return &vfs{
-		useCaseSensitiveFileNames: useCaseSensitiveFileNames,
-		rootFor:                   os.DirFS,
+		caseSensitivity: caseSensitivity,
+		rootFor:         os.DirFS,
 		realpath: func(path string) (string, error) {
 			// TODO: replace once https://go.dev/cl/385534 is available
 			path = filepath.FromSlash(path)
@@ -115,17 +114,17 @@ func FromOS() FS {
 
 var osReadSema = make(chan struct{}, 128)
 
-var isFileSystemCaseSensitive = sync.OnceValue(func() bool {
+var osCaseSensitivity = sync.OnceValue(func() tspath.CaseSensitivity {
 	// win32/win64 are case insensitive platforms
 	if runtime.GOOS == "windows" {
-		return false
+		return tspath.CaseInsensitive
 	}
 
 	// If the current executable exists under a different case, we must be case-insensitve.
 	if _, err := os.Stat(swapCase(os.Args[0])); os.IsNotExist(err) {
-		return false
+		return tspath.CaseInsensitive
 	}
-	return true
+	return tspath.CaseSensitive
 })
 
 // Convert all lowercase chars to uppercase, and vice-versa
@@ -143,14 +142,14 @@ func swapCase(str string) string {
 type vfs struct {
 	readSema chan struct{}
 
-	useCaseSensitiveFileNames bool
+	caseSensitivity tspath.CaseSensitivity
 
 	rootFor  func(root string) fs.FS
 	realpath func(path string) (string, error)
 }
 
-func (v *vfs) UseCaseSensitiveFileNames() bool {
-	return v.useCaseSensitiveFileNames
+func (v *vfs) CaseSensitivity() tspath.CaseSensitivity {
+	return v.caseSensitivity
 }
 
 func rootLength(p string) int {

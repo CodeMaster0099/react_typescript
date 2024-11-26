@@ -307,7 +307,7 @@ func TestToFileNameLowerCase(t *testing.T) {
 
 func TestToPath(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, string(ToPath("file.ext", "path/to", false /*useCaseSensitiveFileNames*/)), "path/to/file.ext")
-	assert.Equal(t, string(ToPath("file.ext", "/path/to", true /*useCaseSensitiveFileNames*/)), "/path/to/file.ext")
-	assert.Equal(t, string(ToPath("/path/to/../file.ext", "path/to", true /*useCaseSensitiveFileNames*/)), "/path/file.ext")
+	assert.Equal(t, string(ToPath("file.ext", "path/to", CaseInsensitive)), "path/to/file.ext")
+	assert.Equal(t, string(ToPath("file.ext", "/path/to", CaseSensitive)), "/path/to/file.ext")
+	assert.Equal(t, string(ToPath("/path/to/../file.ext", "path/to", CaseSensitive)), "/path/file.ext")
 }
