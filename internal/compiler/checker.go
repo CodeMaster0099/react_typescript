@@ -7652,7 +7652,7 @@ func (c *Checker) tryGetNameFromType(t *Type) (name string, ok bool) {
 		s := t.AsLiteralType().value.(string)
 		return s, true
 	case t.flags&TypeFlagsNumberLiteral != 0:
-		s := core.NumberToString(t.AsLiteralType().value.(float64))
+		s := stringutil.FromNumber(t.AsLiteralType().value.(float64))
 		return s, true
 	default:
 		return "", false
