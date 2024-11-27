@@ -9,7 +9,6 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler"
-	"github.com/microsoft/typescript-go/internal/compiler/stringutil"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"gotest.tools/v3/assert"
@@ -29,7 +28,6 @@ var formatOpts = &compiler.DiagnosticsFormattingOptions{
 	NewLine: harnessNewLine,
 }
 
-// !!! Move this somewhere else for reuse in runners
 type TestFile struct {
 	UnitName    string
 	Content     string
@@ -165,7 +163,7 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 		// Filter down to the errors in the file
 		fileErrors := core.Filter(diagnostics, func(e *ast.Diagnostic) bool {
 			return e.File() != nil &&
-				tspath.ComparePaths(removeTestPathPrefixes(e.File().FileName(), false), removeTestPathPrefixes(inputFile.UnitName, false), tspath.ComparePathsOptions{}) == core.ComparisonEqual
+				tspath.ComparePaths(removeTestPathPrefixes(e.File().FileName(), false), removeTestPathPrefixes(inputFile.UnitName, false), tspath.ComparePathsOptions{}) == 0
 		})
 
 		// Header
@@ -180,7 +178,7 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 		markedErrorCount := 0
 		// For each line, emit the line followed by any error squiggles matching this line
 
-		lineStarts := stringutil.ComputeLineStarts(inputFile.Content)
+		lineStarts := core.ComputeLineStarts(inputFile.Content)
 		lines := lineDelimiter.Split(inputFile.Content, -1)
 
 		for lineIndex, line := range lines {

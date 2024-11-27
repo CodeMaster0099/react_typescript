@@ -267,20 +267,21 @@ const (
 // Common links
 
 type NodeLinks struct {
-	flags                          NodeCheckFlags // Set of flags specific to Node
-	declarationRequiresScopeChange core.Tristate
+	flags                                NodeCheckFlags // Set of flags specific to Node
+	declarationRequiresScopeChange       core.Tristate  // Set by `useOuterVariableScopeInParameter` in checker when downlevel emit would change the name resolution scope inside of a parameter.
+	hasReportedStatementInAmbientContext bool           // Cache boolean if we report statements in ambient context
 }
 
 type TypeNodeLinks struct {
 	resolvedType        *Type       // Cached type of type node
 	resolvedSymbol      *ast.Symbol // Cached name resolution result
-	outerTypeParameters []*Type
+	outerTypeParameters []*Type     // Outer type parameters of anonymous object type
 }
 
 // Links for enum members
 
 type EnumMemberLinks struct {
-	value EvaluatorResult
+	value EvaluatorResult // Constant value of enum member
 }
 
 // SourceFile links
@@ -293,8 +294,8 @@ type SourceFileLinks struct {
 // Signature specific links
 
 type SignatureLinks struct {
-	resolvedSignature *Signature
-	effectsSignature  *Signature
+	resolvedSignature *Signature // Cached signature of signature node or call expression
+	effectsSignature  *Signature // Signature with possible control flow effects
 }
 
 // jsxFlag: JsxOpeningElement | JsxClosingElement
@@ -536,6 +537,7 @@ func (t *Type) AsInstantiationExpressionType() *InstantiationExpressionType {
 }
 func (t *Type) AsMappedType() *MappedType                   { return t.data.(*MappedType) }
 func (t *Type) AsReverseMappedType() *ReverseMappedType     { return t.data.(*ReverseMappedType) }
+func (t *Type) AsEvolvingArrayType() *EvolvingArrayType     { return t.data.(*EvolvingArrayType) }
 func (t *Type) AsTypeParameter() *TypeParameter             { return t.data.(*TypeParameter) }
 func (t *Type) AsUnionType() *UnionType                     { return t.data.(*UnionType) }
 func (t *Type) AsIntersectionType() *IntersectionType       { return t.data.(*IntersectionType) }
@@ -707,6 +709,7 @@ func (t *StructuredType) ConstructSignatures() []*Signature {
 //   InstantiationExpressionType (ObjectFlagsAnonymous|ObjectFlagsInstantiationExpressionType)
 //   MappedType (ObjectFlagsAnonymous|ObjectFlagsMapped)
 //   ReverseMapped (ObjectFlagsReverseMapped)
+//   EvolvingArray (ObjectFlagsEvolvingArray)
 
 type ObjectType struct {
 	StructuredType
@@ -832,6 +835,14 @@ type ReverseMappedType struct {
 	source         *Type
 	mappedType     *Type
 	constraintType *Type
+}
+
+// EvolvingArrayType
+
+type EvolvingArrayType struct {
+	ObjectType
+	elementType    *Type
+	finalArrayType *Type
 }
 
 // UnionOrIntersectionTypeData
