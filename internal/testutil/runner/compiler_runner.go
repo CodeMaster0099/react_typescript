@@ -56,7 +56,6 @@ func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunne
 	} else {
 		testSuitName = "conformance"
 	}
-	// !!! Basepath has to account for the fact that the cwd is the package root when the tests are run
 	basePath := fmt.Sprintf("tests/cases/%s", testSuitName)
 	return &CompilerBaselineRunner{
 		basePath:     basePath,
@@ -88,14 +87,20 @@ var compilerVaryBy []string
 
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	test := getCompilerFileBasedTest(filename)
+	relativeName := tspath.ConvertToRelativePath(
+		filename,
+		tspath.ComparePathsOptions{
+			UseCaseSensitiveFileNames: true, // !!!
+			CurrentDirectory:          repo.TestDataPath,
+		},
+	)
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
 			description := "" // !!!
-			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, filename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
+			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, relativeName, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
 		}
 	} else {
-		// !!! Fix filename for printing
-		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, filename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
+		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, relativeName), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
 	}
 }
 
@@ -183,7 +188,7 @@ func splitOptionValues(value string, option string) []string {
 	}
 
 	// !!! We should dedupe the variations by their normalized values instead of by name
-	var variations map[string]struct{}
+	variations := make(map[string]struct{})
 
 	// add (and deduplicate) all included entries
 	for _, include := range includes {
@@ -502,8 +507,8 @@ func compileFiles(
 }
 
 func getHarnessOptions(harnessConfig fileBasedTestConfiguration) harnessOptions {
-	// !!!
-	// >> TODO: split and trim libFiles by comma
+	// !!! Implement this once we have command line options
+	// !!! Split and trim `libFiles` by comma here
 	return harnessOptions{}
 }
 
@@ -516,7 +521,7 @@ func setCompilerOptionsFromHarnessConfig(harnessConfig fileBasedTestConfiguratio
 			continue
 		}
 
-		// !!! Implement this once command line parsing is done
+		// !!! Implement this once we have command line options
 		// const option = getCommandLineOption(name);
 		// if (option) {
 		// 	const errors: ts.Diagnostic[] = [];
@@ -528,6 +533,7 @@ func setCompilerOptionsFromHarnessConfig(harnessConfig fileBasedTestConfiguratio
 		// else {
 		// 	throw new Error(`Unknown compiler option '${name}'.`);
 		// }
+		// !!! Validate that all options present in harness config are either compiler or harness options
 	}
 }
 
