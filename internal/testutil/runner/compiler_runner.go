@@ -87,20 +87,14 @@ var compilerVaryBy []string
 
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	test := getCompilerFileBasedTest(filename)
-	relativeName := tspath.ConvertToRelativePath(
-		filename,
-		tspath.ComparePathsOptions{
-			UseCaseSensitiveFileNames: true, // !!!
-			CurrentDirectory:          repo.TestDataPath,
-		},
-	)
+	basename := tspath.GetBaseFileName(filename)
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
-			description := "" // !!!
-			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, relativeName, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
+			description := getFileBasedTestConfigurationDescription(config)
+			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, basename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
 		}
 	} else {
-		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, relativeName), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
+		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, basename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
 	}
 }
 
@@ -110,7 +104,7 @@ func runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config fileB
 	compilerTest := NewCompilerTest(test.filename, &payload, config)
 
 	compilerTest.VerifyDiagnostics(t)
-	// !!! Verify all baselines
+	// !!! Verify all baselines; make each kind of baseline a separate subtest
 }
 
 type fileBasedTestConfiguration = map[string]string
@@ -134,6 +128,18 @@ func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
 		content:        content,
 		configurations: configurations,
 	}
+}
+
+func getFileBasedTestConfigurationDescription(config fileBasedTestConfiguration) string {
+	var output strings.Builder
+	keys := slices.Sorted(maps.Keys(config))
+	for i, key := range keys {
+		if i > 0 {
+			output.WriteString(", ")
+		}
+		fmt.Fprintf(&output, "@%s: %s", key, config[key])
+	}
+	return output.String()
 }
 
 func getFileBasedTestConfigurations(settings map[string]string, option []string) []fileBasedTestConfiguration {
