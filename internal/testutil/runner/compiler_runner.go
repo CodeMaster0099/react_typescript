@@ -47,7 +47,7 @@ type CompilerBaselineRunner struct {
 	testSuitName string
 }
 
-var _ runner = (*CompilerBaselineRunner)(nil)
+var _ Runner = (*CompilerBaselineRunner)(nil)
 
 func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunner {
 	var testSuitName string
@@ -63,7 +63,6 @@ func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunne
 	}
 }
 
-// >> TODO: right now, this returns absolute, normalized file paths, but maybe we want paths relative to the cwd i.e. test folder
 func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 	if len(r.testFiles) > 0 {
 		return r.testFiles
@@ -83,7 +82,7 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	}
 }
 
-var compilerVaryBy []string
+var compilerVaryBy []string // !!! Add this when we have real compiler options parsing
 
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	test := getCompilerFileBasedTest(filename)
@@ -101,12 +100,19 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 func runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config fileBasedTestConfiguration) {
 	t.Parallel()
 	payload := makeUnitsFromTest(test.content, test.filename)
-	compilerTest := NewCompilerTest(test.filename, &payload, config)
+	compilerTest := newCompilerTest(test.filename, &payload, config)
 
-	compilerTest.VerifyDiagnostics(t)
+	compilerTest.verifyDiagnostics(t)
 	// !!! Verify all baselines; make each kind of baseline a separate subtest
 }
 
+// This maps a compiler setting to its string value, after splitting by commas,
+// handling includions and exclusions, and deduplicating.
+// For example, if a test file contains:
+//
+//	// @target: esnext, es2015
+//
+// Then the map will map "target" to "esnext", and another map will map "target" to "es2015".
 type fileBasedTestConfiguration = map[string]string
 
 type compilerFileBasedTest struct {
@@ -130,6 +136,9 @@ func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
 	}
 }
 
+// #region Extract compiler settings
+
+// >> Reused by `transpileRunner` and `compilerRunner`
 func getFileBasedTestConfigurationDescription(config fileBasedTestConfiguration) string {
 	var output strings.Builder
 	keys := slices.Sorted(maps.Keys(config))
@@ -142,6 +151,7 @@ func getFileBasedTestConfigurationDescription(config fileBasedTestConfiguration)
 	return output.String()
 }
 
+// >> Reused by `transpileRunner` and `compilerRunner`
 func getFileBasedTestConfigurations(settings map[string]string, option []string) []fileBasedTestConfiguration {
 	var optionEntries [][]string
 	variationCount := 1
@@ -252,7 +262,7 @@ func computeFileBasedTestConfigurationVariationsWorker(
 	}
 }
 
-// >> End of utils/common stuff to move
+// #endregion
 
 type compilerTest struct {
 	filename       string
@@ -271,7 +281,7 @@ type testCaseContentWithConfig struct {
 	configuration fileBasedTestConfiguration
 }
 
-func NewCompilerTest(filename string, testContent *testCaseContent, configuration fileBasedTestConfiguration) *compilerTest {
+func newCompilerTest(filename string, testContent *testCaseContent, configuration fileBasedTestConfiguration) *compilerTest {
 	basename := tspath.GetBaseFileName(filename)
 	configuredName := basename
 	if configuration != nil {
@@ -360,8 +370,8 @@ func NewCompilerTest(filename string, testContent *testCaseContent, configuratio
 	}
 }
 
-func (c *compilerTest) VerifyDiagnostics(t *testing.T) {
-	// pretty := c.options.pretty
+func (c *compilerTest) verifyDiagnostics(t *testing.T) {
+	// pretty := c.result.options.pretty
 	pretty := false // !!! Add `pretty` to compiler options
 	files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
 	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty)
@@ -386,8 +396,9 @@ type harnessOptions struct {
 	captureSuggestions        bool
 }
 
-// >> TODO: also move this to common harness
-
+// #region compile files
+// >> This is used broadly, e.g. by `evaluator` in evaluation unit tests, besides runner usage.
+// >> TODO: move?
 type CompileFilesResult struct {
 	Diagnostics []*ast.Diagnostic
 }
@@ -641,3 +652,5 @@ func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *c
 	program := compiler.NewProgram(programOptions)
 	return program
 }
+
+// #endregion
