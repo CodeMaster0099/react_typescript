@@ -15,8 +15,8 @@ type Path string
 type CaseSensitivity uint8
 
 const (
-	CaseSensitive CaseSensitivity = iota
-	CaseInsensitive
+	CaseInsensitive CaseSensitivity = iota
+	CaseSensitive
 )
 
 func (c CaseSensitivity) IsCaseSensitive() bool {

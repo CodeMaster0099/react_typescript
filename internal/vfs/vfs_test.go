@@ -34,7 +34,7 @@ func TestIOFS(t *testing.T) {
 		},
 	}
 
-	fs := vfs.FromIOFS(true, testfs)
+	fs := vfs.FromIOFS(tspath.CaseSensitive, testfs)
 
 	t.Run("ReadFile", func(t *testing.T) {
 		t.Parallel()
@@ -151,7 +151,7 @@ func TestIOFSWindows(t *testing.T) {
 		},
 	}
 
-	fs := vfs.FromIOFS(true, testfs)
+	fs := vfs.FromIOFS(tspath.CaseSensitive, testfs)
 
 	t.Run("ReadFile", func(t *testing.T) {
 		t.Parallel()
@@ -232,7 +232,7 @@ func TestBOM(t *testing.T) {
 				},
 			}
 
-			fs := vfs.FromIOFS(true, testfs)
+			fs := vfs.FromIOFS(tspath.CaseSensitive, testfs)
 
 			content, ok := fs.ReadFile("/foo.ts")
 			assert.Assert(t, ok)
@@ -249,7 +249,7 @@ func TestBOM(t *testing.T) {
 			},
 		}
 
-		fs := vfs.FromIOFS(true, testfs)
+		fs := vfs.FromIOFS(tspath.CaseSensitive, testfs)
 
 		content, ok := fs.ReadFile("/foo.ts")
 		assert.Assert(t, ok)

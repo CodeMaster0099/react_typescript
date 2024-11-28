@@ -8,13 +8,13 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[CaseSensitive-0]
-	_ = x[CaseInsensitive-1]
+	_ = x[CaseInsensitive-0]
+	_ = x[CaseSensitive-1]
 }
 
-const _CaseSensitivity_name = "CaseSensitiveCaseInsensitive"
+const _CaseSensitivity_name = "CaseInsensitiveCaseSensitive"
 
-var _CaseSensitivity_index = [...]uint8{0, 13, 28}
+var _CaseSensitivity_index = [...]uint8{0, 15, 28}
 
 func (i CaseSensitivity) String() string {
 	if i >= CaseSensitivity(len(_CaseSensitivity_index)-1) {
