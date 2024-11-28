@@ -68,7 +68,6 @@ var _ FS = (*vfs)(nil)
 // For paths like `c:/foo/bar`, fsys will be used as though it's rooted at `/` and the path is `/c:/foo/bar`.
 func FromIOFS(caseSensitivity tspath.CaseSensitivity, fsys fs.FS) FS {
 	return &vfs{
-		readSema: osReadSema,
 		// !!! The passed in FS may not actually respect case insensitive file names.
 		caseSensitivity: caseSensitivity,
 		rootFor: func(root string) fs.FS {
@@ -94,6 +93,7 @@ func FromIOFS(caseSensitivity tspath.CaseSensitivity, fsys fs.FS) FS {
 func FromOS() FS {
 	caseSensitivity := osCaseSensitivity()
 	return &vfs{
+		readSema:        osReadSema,
 		caseSensitivity: caseSensitivity,
 		rootFor:         os.DirFS,
 		realpath: func(path string) (string, error) {
