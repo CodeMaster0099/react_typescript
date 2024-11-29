@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -41,6 +42,13 @@ const (
 	Regression
 )
 
+func (t *CompilerTestType) String() string {
+	if *t == Regression {
+		return "compiler"
+	}
+	return "conformance"
+}
+
 type CompilerBaselineRunner struct {
 	testFiles    []string
 	basePath     string
@@ -50,12 +58,7 @@ type CompilerBaselineRunner struct {
 var _ Runner = (*CompilerBaselineRunner)(nil)
 
 func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunner {
-	var testSuitName string
-	if testType == Regression {
-		testSuitName = "compiler"
-	} else {
-		testSuitName = "conformance"
-	}
+	testSuitName := testType.String()
 	basePath := fmt.Sprintf("tests/cases/%s", testSuitName)
 	return &CompilerBaselineRunner{
 		basePath:     basePath,
@@ -90,19 +93,19 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
 			description := getFileBasedTestConfigurationDescription(config)
-			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, basename, description), func(t *testing.T) { runSingleConfigTest(t, test, config) })
+			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, basename, description), func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
 		}
 	} else {
-		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, basename), func(t *testing.T) { runSingleConfigTest(t, test, nil) })
+		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, basename), func(t *testing.T) { r.runSingleConfigTest(t, test, nil) })
 	}
 }
 
-func runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config fileBasedTestConfiguration) {
+func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config fileBasedTestConfiguration) {
 	t.Parallel()
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(test.filename, &payload, config)
 
-	compilerTest.verifyDiagnostics(t)
+	compilerTest.verifyDiagnostics(t, r.testSuitName)
 	// !!! Verify all baselines; make each kind of baseline a separate subtest
 }
 
@@ -133,6 +136,16 @@ func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
 		filename:       filename,
 		content:        content,
 		configurations: configurations,
+	}
+}
+
+var localBasePath = filepath.Join(repo.TestDataPath, "baselines", "local")
+
+func cleanUpLocalCompilerTests(testType CompilerTestType) {
+	localPath := filepath.Join(localBasePath, testType.String())
+	err := os.RemoveAll(localPath)
+	if err != nil {
+		panic(fmt.Sprintf("Could not clean up local compiler tests: %s", err.Error()))
 	}
 }
 
@@ -370,11 +383,11 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 	}
 }
 
-func (c *compilerTest) verifyDiagnostics(t *testing.T) {
+func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string) {
 	// pretty := c.result.options.pretty
 	pretty := false // !!! Add `pretty` to compiler options
 	files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
-	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty)
+	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty, suiteName)
 }
 
 func createHarnessTestFile(unit *testUnit, currentDirectory string) *baseline.TestFile {

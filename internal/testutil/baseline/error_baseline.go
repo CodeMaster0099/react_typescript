@@ -37,7 +37,7 @@ type TestFile struct {
 var diagnosticsLocationPrefix = regexp.MustCompile(`(?im)^(lib.*\.d\.ts)\(\d+,\d+\)`)
 var diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
 
-func DoErrorBaseline(t testing.TB, baselinePath string, inputFiles []*TestFile, errors []*ast.Diagnostic, pretty bool) {
+func DoErrorBaseline(t testing.TB, baselinePath string, inputFiles []*TestFile, errors []*ast.Diagnostic, pretty bool, subfolder string) {
 	baselinePath = tsExtension.ReplaceAllString(baselinePath, ".errors.txt")
 	var errorBaseline string
 	if len(errors) > 0 {
@@ -45,7 +45,7 @@ func DoErrorBaseline(t testing.TB, baselinePath string, inputFiles []*TestFile, 
 	} else {
 		errorBaseline = NoContent
 	}
-	Run(t, baselinePath, errorBaseline, Options{})
+	Run(t, baselinePath, errorBaseline, Options{Subfolder: subfolder})
 }
 
 func minimalDiagnosticsToString(diagnostics []*ast.Diagnostic, pretty bool) string {
