@@ -39,7 +39,6 @@ linters:
     - unconvert
     - usestdlibvars
     - whitespace
-    - wrapcheck
 
     # Need to add headers
     # - goheader
@@ -56,10 +55,6 @@ linters:
     # - unused
 
 linters-settings:
-  wrapcheck:
-    ignorePackageGlobs:
-      - encoding/*
-      - github.com/go-json-experiment/*
 #   revive:
 #     enable-all-rules: true
 #     rules:

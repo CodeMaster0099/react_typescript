@@ -6,7 +6,7 @@ import (
 
 func TestCompilerBaselines(t *testing.T) {
 	t.Parallel()
-	testTypes := []CompilerTestType{Regression, Conformance}
+	testTypes := []CompilerTestType{TestTypeRegression, TestTypeConformance}
 	for _, testType := range testTypes {
 		cleanUpLocalCompilerTests(testType)
 		runner := NewCompilerBaselineRunner(testType)
