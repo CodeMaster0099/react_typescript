@@ -90,10 +90,10 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
 			description := testutil.GetFileBasedTestConfigurationDescription(config)
-			t.Run(fmt.Sprintf("%s tests for %s%s", r.testSuitName, basename, description), func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
+			t.Run(basename+description, func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
 		}
 	} else {
-		t.Run(fmt.Sprintf("%s tests for %s", r.testSuitName, basename), func(t *testing.T) { r.runSingleConfigTest(t, test, nil) })
+		t.Run(basename, func(t *testing.T) { r.runSingleConfigTest(t, test, nil) })
 	}
 }
 
