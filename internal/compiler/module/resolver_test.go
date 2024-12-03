@@ -278,7 +278,6 @@ var skip = []string{
 
 type vfsModuleResolutionHost struct {
 	fs               vfs.FS
-	caseSensitivity  tspath.CaseSensitivity
 	currentDirectory string
 	traces           []string
 }
@@ -302,10 +301,8 @@ func newVFSModuleResolutionHost(files map[string]string) *vfsModuleResolutionHos
 		}
 	}
 
-	const caseSensitivity = tspath.CaseSensitive
-
 	return &vfsModuleResolutionHost{
-		fs:               vfstest.FromMapFS(fs, caseSensitivity),
+		fs:               vfstest.FromMapFS(fs, tspath.CaseSensitive),
 		currentDirectory: "/",
 	}
 }
