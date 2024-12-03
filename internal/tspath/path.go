@@ -367,7 +367,7 @@ func NormalizePath(path string) string {
 	return normalized
 }
 
-func getCanonicalFileName(fileName string, caseSensitivty CaseSensitivity) string {
+func GetCanonicalFileName(fileName string, caseSensitivty CaseSensitivity) string {
 	if caseSensitivty.IsCaseSensitive() {
 		return fileName
 	}
@@ -385,7 +385,7 @@ func ToPath(fileName string, basePath string, caseSensitivity CaseSensitivity) P
 	} else {
 		nonCanonicalizedPath = GetNormalizedAbsolutePath(fileName, basePath)
 	}
-	return Path(getCanonicalFileName(nonCanonicalizedPath, caseSensitivity))
+	return Path(GetCanonicalFileName(nonCanonicalizedPath, caseSensitivity))
 }
 
 func RemoveTrailingDirectorySeparator(path string) string {
