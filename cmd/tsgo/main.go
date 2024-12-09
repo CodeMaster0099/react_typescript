@@ -56,24 +56,34 @@ func main() {
 	flag.StringVar(&pprofDir, "pprofdir", "", "Generate pprof CPU/memory profiles to the given directory")
 	flag.Parse()
 
-	rootPath := flag.Arg(0)
+	rootPaths := flag.Args()
 	compilerOptions := &core.CompilerOptions{Strict: core.TSTrue, Target: core.ScriptTargetESNext, ModuleKind: core.ModuleKindNodeNext}
+
 	currentDirectory, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
 		os.Exit(1)
 	}
+
 	fs := vfs.FromOS()
 	useCaseSensitiveFileNames := fs.UseCaseSensitiveFileNames()
 	host := ts.NewCompilerHost(compilerOptions, singleThreaded, currentDirectory, fs)
 
-	normalizedRootPath := tspath.ResolvePath(currentDirectory, rootPath)
-	if !fs.DirectoryExists(normalizedRootPath) {
-		fmt.Fprintf(os.Stderr, "Error: The directory %v does not exist.\n", normalizedRootPath)
-		os.Exit(1)
-	}
+	normalizedRootPaths := core.Map(rootPaths, func(rootPath string) string {
+		normalizedRootPath := tspath.ResolvePath(currentDirectory, rootPath)
+		if !fs.DirectoryExists(normalizedRootPath) && !fs.FileExists(normalizedRootPath) {
+			fmt.Fprintf(os.Stdout, "Error: Could not a file or directory with the path %v.\n", normalizedRootPath)
+			os.Exit(1)
+		}
+		return normalizedRootPath
+	})
 
-	programOptions := ts.ProgramOptions{RootPath: normalizedRootPath, Options: compilerOptions, SingleThreaded: singleThreaded, Host: host}
+	programOptions := ts.ProgramOptions{
+		RootPaths:      normalizedRootPaths,
+		Options:        compilerOptions,
+		SingleThreaded: singleThreaded,
+		Host:           host,
+	}
 
 	if pprofDir != "" {
 		profileSession := beginProfiling(pprofDir)

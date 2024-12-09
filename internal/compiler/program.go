@@ -13,7 +13,7 @@ import (
 )
 
 type ProgramOptions struct {
-	RootPath       string
+	RootPaths      []string
 	Host           CompilerHost
 	Options        *core.CompilerOptions
 	SingleThreaded bool
@@ -43,15 +43,38 @@ func NewProgram(options ProgramOptions) *Program {
 	if p.host == nil {
 		panic("host required")
 	}
-	p.rootPath = options.RootPath
-	if p.rootPath == "" {
-		panic("root path required")
+
+	if len(options.RootPaths) == 0 {
+		panic("root paths required")
 	}
-	fileInfos := readFileInfos(p.host.FS(), p.rootPath, extensions)
+
+	// !!!
+	// This isn't really a concept, but this is just
+	// to preserve existing functionality around node_modules lookups.
+	if len(options.RootPaths) == 1 {
+		p.rootPath = options.RootPaths[0]
+	} else {
+		p.rootPath = p.host.GetCurrentDirectory()
+	}
+
+	// Make sure that we don't duplicate files.
+	var fileInfos []FileInfo
+	for _, rootPath := range options.RootPaths {
+		curFileInfos := readFileInfos(p.host.FS(), rootPath, extensions)
+		fileInfos = append(fileInfos, curFileInfos...)
+	}
+
 	// Sort files by descending file size
 	slices.SortFunc(fileInfos, func(a FileInfo, b FileInfo) int {
-		return int(b.Size) - int(a.Size)
+		sizeDiff := int(b.Size) - int(a.Size)
+		if sizeDiff != 0 {
+			return sizeDiff
+		}
+		return strings.Compare(b.Name, a.Name)
 	})
+	// Make sure that we don't duplicate files.
+	fileInfos = slices.Compact(fileInfos)
+
 	p.parseSourceFiles(fileInfos)
 	return p
 }
