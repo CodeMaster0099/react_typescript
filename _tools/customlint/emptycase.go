@@ -3,7 +3,6 @@ package customlint
 import (
 	"go/ast"
 	"go/token"
-	"slices"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
@@ -85,7 +84,7 @@ func checkCaseStatement(pass *analysis.Pass, file *ast.File, stmt ast.Stmt, next
 	}
 
 	afterColon := colon + 1
-	if _, found := slices.BinarySearchFunc(file.Comments, posRange{afterColon, nextCasePos}, posRangeCmp); found {
+	if _, found := findComment(file, posRange{afterColon, nextCasePos}); found {
 		return
 	}
 
@@ -94,18 +93,4 @@ func checkCaseStatement(pass *analysis.Pass, file *ast.File, stmt ast.Stmt, next
 		End:     afterColon,
 		Message: "this case block is empty and will do nothing",
 	})
-}
-
-type posRange struct {
-	start, end token.Pos
-}
-
-func posRangeCmp(c *ast.CommentGroup, target posRange) int {
-	if c.End() < target.start {
-		return -1
-	}
-	if c.Pos() >= target.end {
-		return 1
-	}
-	return 0
 }
