@@ -1,15 +1,21 @@
 package baseline
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
-var testPathPrefix = regexp.MustCompile(`(?:(file:\/{3})|\/)\.(?:ts|lib|src)\/`)
-var testPathCharacters = regexp.MustCompile(`[\^<>:"|?*%]`)
-var testPathDotDot = regexp.MustCompile(`\.\.\/`)
+var (
+	lineDelimiter      = regexp.MustCompile("\r?\n")
+	nonWhitespace      = regexp.MustCompile(`\S`)
+	tsExtension        = regexp.MustCompile(`\.tsx?$`)
+	testPathPrefix     = regexp.MustCompile(`(?:(file:\/{3})|\/)\.(?:ts|lib|src)\/`)
+	testPathCharacters = regexp.MustCompile(`[\^<>:"|?*%]`)
+	testPathDotDot     = regexp.MustCompile(`\.\.\/`)
+)
 
 var libFolder = "built/local/"
 var builtFolder = "/.ts"
@@ -46,4 +52,17 @@ func sanitizeTestFilePath(name string) string {
 	path = testPathDotDot.ReplaceAllString(path, "__dotdot/")
 	path = string(tspath.ToPath(path, "", false /*useCaseSensitiveFileNames*/))
 	return strings.TrimPrefix(path, "/")
+}
+
+func checkDuplicatedFileName(resultName string, dupeCase map[string]int) string {
+	resultName = sanitizeTestFilePath(resultName)
+	if _, ok := dupeCase[resultName]; ok {
+		// A different baseline filename should be manufactured if the names differ only in case, for windows compat
+		count := 1 + dupeCase[resultName]
+		dupeCase[resultName] = count
+		resultName = fmt.Sprintf("%s.dupe%d", resultName, count)
+	} else {
+		dupeCase[resultName] = 0
+	}
+	return resultName
 }

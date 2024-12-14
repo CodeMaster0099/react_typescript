@@ -992,7 +992,7 @@ func isValidTypeOnlyAliasUseSite(useSite *ast.Node) bool {
 		ast.IsPartOfTypeQuery(useSite) ||
 		isIdentifierInNonEmittingHeritageClause(useSite) ||
 		isPartOfPossiblyValidTypeOrAbstractComputedPropertyName(useSite) ||
-		!(isExpressionNode(useSite) || isShorthandPropertyNameUseSite(useSite))
+		!(IsExpressionNode(useSite) || isShorthandPropertyNameUseSite(useSite))
 }
 
 func isIdentifierInNonEmittingHeritageClause(node *ast.Node) bool {
@@ -1061,7 +1061,7 @@ func nodeCanBeDecorated(useLegacyDecorators bool, node *ast.Node, parent *ast.No
 	return false
 }
 
-func isExpressionNode(node *ast.Node) bool {
+func IsExpressionNode(node *ast.Node) bool {
 	switch node.Kind {
 	case ast.KindSuperKeyword, ast.KindNullKeyword, ast.KindTrueKeyword, ast.KindFalseKeyword, ast.KindRegularExpressionLiteral,
 		ast.KindArrayLiteralExpression, ast.KindObjectLiteralExpression, ast.KindPropertyAccessExpression, ast.KindElementAccessExpression,
@@ -1153,7 +1153,7 @@ func isInExpressionContext(node *ast.Node) bool {
 	case ast.KindSatisfiesExpression:
 		return parent.AsSatisfiesExpression().Expression == node
 	default:
-		return isExpressionNode(parent)
+		return IsExpressionNode(parent)
 	}
 }
 
