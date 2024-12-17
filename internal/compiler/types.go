@@ -86,7 +86,8 @@ type ValueSymbolLinks struct {
 	target         *ast.Symbol
 	mapper         *TypeMapper
 	nameType       *Type
-	containingType *Type // Containing union or intersection type for synthetic property
+	keyType        *Type // Key type for mapped type member
+	containingType *Type // Mapped type for mapped type property, containing union or intersection type for synthetic property
 }
 
 // Links for alias symbols
@@ -105,6 +106,12 @@ type ModuleSymbolLinks struct {
 	resolvedExports       ast.SymbolTable      // Resolved exports of module or combined early- and late-bound static members of a class.
 	cjsExportMerged       *ast.Symbol          // Version of the symbol with all non export= exports merged with the export= target
 	typeOnlyExportStarMap map[string]*ast.Node // Set on a module symbol when some of its exports were resolved through a 'export type * from "mod"' declaration
+}
+
+// Links for late-bound symbols
+
+type LateBoundLinks struct {
+	lateSymbol *ast.Symbol
 }
 
 // Links for export type symbols
@@ -126,6 +133,31 @@ type TypeAliasLinks struct {
 
 type DeclaredTypeLinks struct {
 	declaredType *Type
+}
+
+// Links for switch clauses
+
+type ExhaustiveState byte
+
+const (
+	ExhaustiveStateUnknown   ExhaustiveState = iota // Exhaustive state not computed
+	ExhaustiveStateComputing                        // Exhaustive state computation in progress
+	ExhaustiveStateFalse                            // Switch statement is not exhaustive
+	ExhaustiveStateTrue                             // Switch statement is exhaustive
+)
+
+type SwitchStatementLinks struct {
+	exhaustiveState     ExhaustiveState // Switch statement exhaustiveness
+	switchTypesComputed bool
+	witnessesComputed   bool
+	switchTypes         []*Type
+	witnesses           []string
+}
+
+type ArrayLiteralLinks struct {
+	indicesComputed  bool
+	firstSpreadIndex int // Index of first spread expression (or -1 if none)
+	lastSpreadIndex  int // Index of last spread expression (or -1 if none)
 }
 
 // Links for late-binding containers
@@ -165,6 +197,10 @@ const (
 	VarianceFlagsUnreliable               VarianceFlags = 1 << 4                                                                                                  // Variance result is unreliable - checking may produce false negatives, but not false positives
 	VarianceFlagsAllowsStructuralFallback               = VarianceFlagsUnmeasurable | VarianceFlagsUnreliable
 )
+
+type IndexSymbolLinks struct {
+	filteredIndexSymbolCache map[string]*ast.Symbol // Symbol with applicable declarations
+}
 
 type AccessFlags uint32
 
@@ -210,30 +246,6 @@ const (
 	AssignmentDeclarationKindObjectDefinePrototypeProperty
 )
 
-const InternalSymbolNamePrefix = "\xFE" // Invalid UTF8 sequence, will never occur as IdentifierName
-
-const (
-	InternalSymbolNameCall                    = InternalSymbolNamePrefix + "call"                    // Call signatures
-	InternalSymbolNameConstructor             = InternalSymbolNamePrefix + "constructor"             // Constructor implementations
-	InternalSymbolNameNew                     = InternalSymbolNamePrefix + "new"                     // Constructor signatures
-	InternalSymbolNameIndex                   = InternalSymbolNamePrefix + "index"                   // Index signatures
-	InternalSymbolNameExportStar              = InternalSymbolNamePrefix + "export"                  // Module export * declarations
-	InternalSymbolNameGlobal                  = InternalSymbolNamePrefix + "global"                  // Global self-reference
-	InternalSymbolNameMissing                 = InternalSymbolNamePrefix + "missing"                 // Indicates missing symbol
-	InternalSymbolNameType                    = InternalSymbolNamePrefix + "type"                    // Anonymous type literal symbol
-	InternalSymbolNameObject                  = InternalSymbolNamePrefix + "object"                  // Anonymous object literal declaration
-	InternalSymbolNameJSXAttributes           = InternalSymbolNamePrefix + "jsxAttributes"           // Anonymous JSX attributes object literal declaration
-	InternalSymbolNameClass                   = InternalSymbolNamePrefix + "class"                   // Unnamed class expression
-	InternalSymbolNameFunction                = InternalSymbolNamePrefix + "function"                // Unnamed function expression
-	InternalSymbolNameComputed                = InternalSymbolNamePrefix + "computed"                // Computed property name declaration with dynamic name
-	InternalSymbolNameResolving               = InternalSymbolNamePrefix + "resolving"               // Indicator symbol used to mark partially resolved type aliases
-	InternalSymbolNameExportEquals            = InternalSymbolNamePrefix + "export="                 // Export assignment symbol
-	InternalSymbolNameInstantiationExpression = InternalSymbolNamePrefix + "instantiationExpression" // Instantiation expressions
-	InternalSymbolNameImportAttributes        = InternalSymbolNamePrefix + "importAttributes"
-	InternalSymbolNameDefault                 = "default" // Default export symbol (technically not wholly internal, but included here for usability)
-	InternalSymbolNameThis                    = "this"
-)
-
 type NodeCheckFlags uint32
 
 const (
@@ -262,6 +274,8 @@ const (
 	NodeCheckFlagsContainsSuperPropertyInStaticInitializer NodeCheckFlags = 1 << 21 // Marked on all block-scoped containers containing a static initializer with 'super.x' or 'super[x]'.
 	NodeCheckFlagsInCheckIdentifier                        NodeCheckFlags = 1 << 22
 	NodeCheckFlagsPartiallyTypeChecked                     NodeCheckFlags = 1 << 23 // Node has been partially type checked
+	NodeCheckFlagsInitializerIsUndefined                   NodeCheckFlags = 1 << 24
+	NodeCheckFlagsInitializerIsUndefinedComputed           NodeCheckFlags = 1 << 25
 )
 
 // Common links
@@ -818,7 +832,7 @@ type InstantiationExpressionType struct {
 
 type MappedType struct {
 	ObjectType
-	declaration          ast.MappedTypeNode
+	declaration          *ast.MappedTypeNode
 	typeParameter        *Type
 	constraintType       *Type
 	nameType             *Type
@@ -934,7 +948,7 @@ type SubstitutionType struct {
 }
 
 type ConditionalRoot struct {
-	node                *ast.Node // ConditionalTypeNode
+	node                *ast.ConditionalTypeNode
 	checkType           *Type
 	extendsType         *Type
 	isDistributive      bool
@@ -956,6 +970,12 @@ type ConditionalType struct {
 	resolvedConstraintOfDistributive *Type
 	mapper                           *TypeMapper
 	combinedMapper                   *TypeMapper
+}
+
+type IterationTypes struct {
+	yieldType  *Type
+	returnType *Type
+	nextType   *Type
 }
 
 // SignatureFlags
@@ -1001,8 +1021,8 @@ type Signature struct {
 }
 
 type CompositeSignature struct {
-	flags      TypeFlags // TypeFlagsUnion | TypeFlagsIntersection
-	signatures []*Signature
+	isUnion    bool         // True for union, false for intersection
+	signatures []*Signature // Individual signatures
 }
 
 type TypePredicateKind int32
@@ -1121,4 +1141,29 @@ var LanguageFeatureMinimumTarget = LanguageFeatureMinimumTargetMap{
 	UsingAndAwaitUsing:                core.ScriptTargetESNext,
 	ClassAndClassElementDecorators:    core.ScriptTargetESNext,
 	RegularExpressionFlagsUnicodeSets: core.ScriptTargetESNext,
+}
+
+type ProjectReference struct {
+	path         string
+	originalPath string
+	circular     bool
+}
+
+type FileIncludeKind int
+
+const (
+	FileIncludeKindRootFile FileIncludeKind = iota
+	FileIncludeKindSourceFromProjectReference
+	FileIncludeKindOutputFromProjectReference
+	FileIncludeKindImport
+	FileIncludeKindReferenceFile
+	FileIncludeKindTypeReferenceDirective
+	FileIncludeKindLibFile
+	FileIncludeKindLibReferenceDirective
+	FileIncludeKindAutomaticTypeDirectiveFile
+)
+
+type FileIncludeReason struct {
+	Kind  FileIncludeKind
+	Index int
 }

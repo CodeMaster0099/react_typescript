@@ -103,6 +103,7 @@ type Node struct {
 // type switches. Either approach is fine. Interface methods are likely more performant, but have higher
 // code size costs because we have hundreds of implementations of the NodeData interface.
 
+func (n *Node) AsNode() *Node                             { return n }
 func (n *Node) Pos() int                                  { return n.Loc.Pos() }
 func (n *Node) End() int                                  { return n.Loc.End() }
 func (n *Node) ForEachChild(v Visitor) bool               { return n.data.ForEachChild(v) }
@@ -119,8 +120,12 @@ func (n *Node) FunctionLikeData() *FunctionLikeBase       { return n.data.Functi
 func (n *Node) Parameters() []*ParameterDeclarationNode {
 	return n.data.FunctionLikeData().Parameters.Nodes
 }
-func (n *Node) ClassLikeData() *ClassLikeBase { return n.data.ClassLikeData() }
-func (n *Node) BodyData() *BodyBase           { return n.data.BodyData() }
+func (n *Node) ClassLikeData() *ClassLikeBase     { return n.data.ClassLikeData() }
+func (n *Node) BodyData() *BodyBase               { return n.data.BodyData() }
+func (n *Node) LiteralLikeData() *LiteralLikeBase { return n.data.LiteralLikeData() }
+func (n *Node) TemplateLiteralLikeData() *TemplateLiteralLikeBase {
+	return n.data.TemplateLiteralLikeData()
+}
 
 func (n *Node) Text() string {
 	switch n.Kind {
@@ -190,70 +195,89 @@ func (n *Node) Expression() *Node {
 		return n.AsYieldExpression().Expression
 	case KindForInStatement, KindForOfStatement:
 		return n.AsForInOrOfStatement().Expression
+	case KindSwitchStatement:
+		return n.AsSwitchStatement().Expression
+	case KindCaseClause:
+		return n.AsCaseOrDefaultClause().Expression
+	case KindExpressionStatement:
+		return n.AsExpressionStatement().Expression
+	case KindReturnStatement:
+		return n.AsReturnStatement().Expression
 	}
 	panic("Unhandled case in Node.Expression")
 }
 
-func (n *Node) Arguments() []*Node {
-	var list *NodeList
+func (n *Node) ArgumentList() *NodeList {
 	switch n.Kind {
 	case KindCallExpression:
-		list = n.AsCallExpression().Arguments
+		return n.AsCallExpression().Arguments
 	case KindNewExpression:
-		list = n.AsNewExpression().Arguments
-	default:
-		panic("Unhandled case in Node.Arguments")
+		return n.AsNewExpression().Arguments
 	}
+	panic("Unhandled case in Node.Arguments")
+}
+
+func (n *Node) Arguments() []*Node {
+	list := n.ArgumentList()
 	if list != nil {
 		return list.Nodes
 	}
 	return nil
+}
+
+func (n *Node) TypeArgumentList() *NodeList {
+	switch n.Kind {
+	case KindCallExpression:
+		return n.AsCallExpression().TypeArguments
+	case KindNewExpression:
+		return n.AsNewExpression().TypeArguments
+	case KindTaggedTemplateExpression:
+		return n.AsTaggedTemplateExpression().TypeArguments
+	case KindTypeReference:
+		return n.AsTypeReference().TypeArguments
+	case KindExpressionWithTypeArguments:
+		return n.AsExpressionWithTypeArguments().TypeArguments
+	case KindImportType:
+		return n.AsImportTypeNode().TypeArguments
+	case KindTypeQuery:
+		return n.AsTypeQueryNode().TypeArguments
+	case KindJsxOpeningElement:
+		return n.AsJsxOpeningElement().TypeArguments
+	case KindJsxSelfClosingElement:
+		return n.AsJsxSelfClosingElement().TypeArguments
+	}
+	panic("Unhandled case in Node.TypeArguments")
 }
 
 func (n *Node) TypeArguments() []*Node {
-	var list *NodeList
-	switch n.Kind {
-	case KindCallExpression:
-		list = n.AsCallExpression().TypeArguments
-	case KindNewExpression:
-		list = n.AsNewExpression().TypeArguments
-	case KindTaggedTemplateExpression:
-		list = n.AsTaggedTemplateExpression().TypeArguments
-	case KindTypeReference:
-		list = n.AsTypeReference().TypeArguments
-	case KindExpressionWithTypeArguments:
-		list = n.AsExpressionWithTypeArguments().TypeArguments
-	case KindImportType:
-		list = n.AsImportTypeNode().TypeArguments
-	case KindTypeQuery:
-		list = n.AsTypeQueryNode().TypeArguments
-	default:
-		panic("Unhandled case in Node.TypeArguments")
-	}
+	list := n.TypeArgumentList()
 	if list != nil {
 		return list.Nodes
 	}
 	return nil
 }
 
-func (n *Node) TypeParameters() []*Node {
-	var list *NodeList
+func (n *Node) TypeParameterList() *NodeList {
 	switch n.Kind {
 	case KindClassDeclaration:
-		list = n.AsClassDeclaration().TypeParameters
+		return n.AsClassDeclaration().TypeParameters
 	case KindClassExpression:
-		list = n.AsClassExpression().TypeParameters
+		return n.AsClassExpression().TypeParameters
 	case KindInterfaceDeclaration:
-		list = n.AsInterfaceDeclaration().TypeParameters
+		return n.AsInterfaceDeclaration().TypeParameters
 	case KindTypeAliasDeclaration:
-		list = n.AsTypeAliasDeclaration().TypeParameters
+		return n.AsTypeAliasDeclaration().TypeParameters
 	default:
 		funcLike := n.FunctionLikeData()
-		if funcLike == nil {
-			panic("Unhandled case in Node.TypeParameters")
+		if funcLike != nil {
+			return funcLike.TypeParameters
 		}
-		list = funcLike.TypeParameters
 	}
+	panic("Unhandled case in Node.TypeParameters")
+}
+
+func (n *Node) TypeParameters() []*Node {
+	list := n.TypeParameterList()
 	if list != nil {
 		return list.Nodes
 	}
@@ -312,7 +336,7 @@ func (n *Node) Type() *Node {
 		return n.AsJSDocFunctionType().Type
 	case KindJSDocOptionalType:
 		return n.AsJSDocOptionalType().Type
-	case KindEnumMember, KindBindingElement:
+	case KindEnumMember, KindBindingElement, KindExportAssignment:
 		return nil
 	default:
 		funcLike := n.FunctionLikeData()
@@ -347,6 +371,31 @@ func (n *Node) Initializer() *Node {
 		return n.AsJsxAttribute().Initializer
 	}
 	panic("Unhandled case in Node.Initializer")
+}
+
+func (n *Node) TagName() *Node {
+	switch n.Kind {
+	case KindJsxOpeningElement:
+		return n.AsJsxOpeningElement().TagName
+	case KindJsxClosingElement:
+		return n.AsJsxClosingElement().TagName
+	case KindJsxSelfClosingElement:
+		return n.AsJsxSelfClosingElement().TagName
+		// !!! JSDoc tags
+	}
+	panic("Unhandled case in Node.TagName: " + n.Kind.String())
+}
+
+func (n *Node) PropertyName() *Node {
+	switch n.Kind {
+	case KindImportSpecifier:
+		return n.AsImportSpecifier().PropertyName
+	case KindExportSpecifier:
+		return n.AsExportSpecifier().PropertyName
+	case KindBindingElement:
+		return n.AsBindingElement().PropertyName
+	}
+	panic("Unhandled case in Node.PropertyName: " + n.Kind.String())
 }
 
 // Node casts
@@ -426,6 +475,18 @@ func (n *Node) AsBigIntLiteral() *BigIntLiteral {
 func (n *Node) AsNoSubstitutionTemplateLiteral() *NoSubstitutionTemplateLiteral {
 	return n.data.(*NoSubstitutionTemplateLiteral)
 }
+func (n *Node) AsRegularExpressionLiteral() *RegularExpressionLiteral {
+	return n.data.(*RegularExpressionLiteral)
+}
+func (n *Node) AsTemplateHead() *TemplateHead {
+	return n.data.(*TemplateHead)
+}
+func (n *Node) AsTemplateMiddle() *TemplateMiddle {
+	return n.data.(*TemplateMiddle)
+}
+func (n *Node) AsTemplateTail() *TemplateTail {
+	return n.data.(*TemplateTail)
+}
 func (n *Node) AsVariableDeclaration() *VariableDeclaration {
 	return n.data.(*VariableDeclaration)
 }
@@ -440,9 +501,6 @@ func (n *Node) AsIfStatement() *IfStatement {
 }
 func (n *Node) AsWhileStatement() *WhileStatement {
 	return n.data.(*WhileStatement)
-}
-func (n *Node) AsDecorator() *Decorator {
-	return n.data.(*Decorator)
 }
 func (n *Node) AsDoStatement() *DoStatement {
 	return n.data.(*DoStatement)
@@ -486,9 +544,6 @@ func (n *Node) AsTypeReference() *TypeReferenceNode {
 func (n *Node) AsConstructorDeclaration() *ConstructorDeclaration {
 	return n.data.(*ConstructorDeclaration)
 }
-func (n *Node) AsIndexSignatureDeclaration() *IndexSignatureDeclaration {
-	return n.data.(*IndexSignatureDeclaration)
-}
 func (n *Node) AsConditionalTypeNode() *ConditionalTypeNode {
 	return n.data.(*ConditionalTypeNode)
 }
@@ -503,6 +558,9 @@ func (n *Node) AsFunctionExpression() *FunctionExpression {
 }
 func (n *Node) AsParameterDeclaration() *ParameterDeclaration {
 	return n.data.(*ParameterDeclaration)
+}
+func (n *Node) AsDecorator() *Decorator {
+	return n.data.(*Decorator)
 }
 func (n *Node) AsInferTypeNode() *InferTypeNode {
 	return n.data.(*InferTypeNode)
@@ -570,6 +628,12 @@ func (n *Node) AsJsxSelfClosingElement() *JsxSelfClosingElement {
 func (n *Node) AsJsxClosingElement() *JsxClosingElement {
 	return n.data.(*JsxClosingElement)
 }
+func (n *Node) AsJsxOpeningFragment() *JsxOpeningFragment {
+	return n.data.(*JsxOpeningFragment)
+}
+func (n *Node) AsJsxClosingFragment() *JsxClosingFragment {
+	return n.data.(*JsxClosingFragment)
+}
 func (n *Node) AsImportDeclaration() *ImportDeclaration {
 	return n.data.(*ImportDeclaration)
 }
@@ -597,6 +661,21 @@ func (n *Node) AsJsxAttribute() *JsxAttribute {
 func (n *Node) AsJsxAttributes() *JsxAttributes {
 	return n.data.(*JsxAttributes)
 }
+func (n *Node) AsJsxSpreadAttribute() *JsxSpreadAttribute {
+	return n.data.(*JsxSpreadAttribute)
+}
+func (n *Node) AsJsxExpression() *JsxExpression {
+	return n.data.(*JsxExpression)
+}
+func (n *Node) AsJsxText() *JsxText {
+	return n.data.(*JsxText)
+}
+func (n *Node) AsKeywordTypeNode() *KeywordTypeNode {
+	return n.data.(*KeywordTypeNode)
+}
+func (n *Node) AsThisTypeNode() *ThisTypeNode {
+	return n.data.(*ThisTypeNode)
+}
 func (n *Node) AsParenthesizedTypeNode() *ParenthesizedTypeNode {
 	return n.data.(*ParenthesizedTypeNode)
 }
@@ -623,6 +702,9 @@ func (n *Node) AsTemplateLiteralTypeSpan() *TemplateLiteralTypeSpan {
 }
 func (n *Node) AsJsxElement() *JsxElement {
 	return n.data.(*JsxElement)
+}
+func (n *Node) AsJsxFragment() *JsxFragment {
+	return n.data.(*JsxFragment)
 }
 func (n *Node) AsKeywordExpression() *KeywordExpression {
 	return n.data.(*KeywordExpression)
@@ -666,6 +748,18 @@ func (n *Node) AsFunctionDeclaration() *FunctionDeclaration {
 func (n *Node) AsTypeOfExpression() *TypeOfExpression {
 	return n.data.(*TypeOfExpression)
 }
+func (n *Node) AsVoidExpression() *VoidExpression {
+	return n.data.(*VoidExpression)
+}
+func (n *Node) AsAwaitExpression() *AwaitExpression {
+	return n.data.(*AwaitExpression)
+}
+func (n *Node) AsTemplateExpression() *TemplateExpression {
+	return n.data.(*TemplateExpression)
+}
+func (n *Node) AsYieldExpression() *YieldExpression {
+	return n.data.(*YieldExpression)
+}
 func (n *Node) AsSpreadElement() *SpreadElement {
 	return n.data.(*SpreadElement)
 }
@@ -693,11 +787,23 @@ func (n *Node) AsNamedTupleMember() *NamedTupleMember {
 func (n *Node) AsOptionalTypeNode() *OptionalTypeNode {
 	return n.data.(*OptionalTypeNode)
 }
+func (n *Node) AsTemplateLiteralTypeNode() *TemplateLiteralTypeNode {
+	return n.data.(*TemplateLiteralTypeNode)
+}
 func (n *Node) AsTypeReferenceNode() *TypeReferenceNode {
 	return n.data.(*TypeReferenceNode)
 }
+func (n *Node) AsFunctionTypeNode() *FunctionTypeNode {
+	return n.data.(*FunctionTypeNode)
+}
+func (n *Node) AsConstructorTypeNode() *ConstructorTypeNode {
+	return n.data.(*ConstructorTypeNode)
+}
 func (n *Node) AsTypeQueryNode() *TypeQueryNode {
 	return n.data.(*TypeQueryNode)
+}
+func (n *Node) AsTypeLiteralNode() *TypeLiteralNode {
+	return n.data.(*TypeLiteralNode)
 }
 func (n *Node) AsIndexedAccessTypeNode() *IndexedAccessTypeNode {
 	return n.data.(*IndexedAccessTypeNode)
@@ -708,17 +814,26 @@ func (n *Node) AsGetAccessorDeclaration() *GetAccessorDeclaration {
 func (n *Node) AsSetAccessorDeclaration() *SetAccessorDeclaration {
 	return n.data.(*SetAccessorDeclaration)
 }
-func (n *Node) AsTemplateExpression() *TemplateExpression {
-	return n.data.(*TemplateExpression)
+func (n *Node) AsClassStaticBlockDeclaration() *ClassStaticBlockDeclaration {
+	return n.data.(*ClassStaticBlockDeclaration)
 }
-func (n *Node) AsTemplateHead() *TemplateHead {
-	return n.data.(*TemplateHead)
+func (n *Node) AsSemicolonClassElement() *SemicolonClassElement {
+	return n.data.(*SemicolonClassElement)
 }
-func (n *Node) AsTemplateMiddle() *TemplateMiddle {
-	return n.data.(*TemplateMiddle)
+func (n *Node) AsCallSignatureDeclaration() *CallSignatureDeclaration {
+	return n.data.(*CallSignatureDeclaration)
 }
-func (n *Node) AsTemplateTail() *TemplateTail {
-	return n.data.(*TemplateTail)
+func (n *Node) AsConstructSignatureDeclaration() *ConstructSignatureDeclaration {
+	return n.data.(*ConstructSignatureDeclaration)
+}
+func (n *Node) AsIndexSignatureDeclaration() *IndexSignatureDeclaration {
+	return n.data.(*IndexSignatureDeclaration)
+}
+func (n *Node) AsDebuggerStatement() *DebuggerStatement {
+	return n.data.(*DebuggerStatement)
+}
+func (n *Node) AsEmptyStatement() *EmptyStatement {
+	return n.data.(*EmptyStatement)
 }
 func (n *Node) AsEnumDeclaration() *EnumDeclaration {
 	return n.data.(*EnumDeclaration)
@@ -837,17 +952,14 @@ func (n *Node) AsJSDocSignature() *JSDocSignature {
 func (n *Node) AsJSDocNameReference() *JSDocNameReference {
 	return n.data.(*JSDocNameReference)
 }
-func (n *Node) AsTemplateLiteralTypeNode() *TemplateLiteralTypeNode {
-	return n.data.(*TemplateLiteralTypeNode)
+func (n *Node) AsNamespaceExport() *NamespaceExport {
+	return n.data.(*NamespaceExport)
 }
-func (n *Node) AsVoidExpression() *VoidExpression {
-	return n.data.(*VoidExpression)
+func (n *Node) AsImportAttribute() *ImportAttribute {
+	return n.data.(*ImportAttribute)
 }
-func (n *Node) AsAwaitExpression() *AwaitExpression {
-	return n.data.(*AwaitExpression)
-}
-func (n *Node) AsYieldExpression() *YieldExpression {
-	return n.data.(*YieldExpression)
+func (n *Node) AsImportAttributes() *ImportAttributes {
+	return n.data.(*ImportAttributes)
 }
 func (n *Node) AsFlowSwitchClauseData() *FlowSwitchClauseData {
 	return n.data.(*FlowSwitchClauseData)
@@ -855,8 +967,8 @@ func (n *Node) AsFlowSwitchClauseData() *FlowSwitchClauseData {
 func (n *Node) AsFlowReduceLabelData() *FlowReduceLabelData {
 	return n.data.(*FlowReduceLabelData)
 }
-func (n *Node) AsJsxExpression() *JsxExpression {
-	return n.data.(*JsxExpression)
+func (n *Node) AsSyntheticExpression() *SyntheticExpression {
+	return n.data.(*SyntheticExpression)
 }
 
 // NodeData
@@ -873,6 +985,8 @@ type nodeData interface {
 	FunctionLikeData() *FunctionLikeBase
 	ClassLikeData() *ClassLikeBase
 	BodyData() *BodyBase
+	LiteralLikeData() *LiteralLikeBase
+	TemplateLiteralLikeData() *TemplateLiteralLikeBase
 }
 
 // NodeDefault
@@ -881,17 +995,19 @@ type NodeDefault struct {
 	Node
 }
 
-func (node *NodeDefault) AsNode() *Node                             { return &node.Node }
-func (node *NodeDefault) ForEachChild(v Visitor) bool               { return false }
-func (node *NodeDefault) Name() *DeclarationName                    { return nil }
-func (node *NodeDefault) Modifiers() *ModifierList                  { return nil }
-func (node *NodeDefault) FlowNodeData() *FlowNodeBase               { return nil }
-func (node *NodeDefault) DeclarationData() *DeclarationBase         { return nil }
-func (node *NodeDefault) ExportableData() *ExportableBase           { return nil }
-func (node *NodeDefault) LocalsContainerData() *LocalsContainerBase { return nil }
-func (node *NodeDefault) FunctionLikeData() *FunctionLikeBase       { return nil }
-func (node *NodeDefault) ClassLikeData() *ClassLikeBase             { return nil }
-func (node *NodeDefault) BodyData() *BodyBase                       { return nil }
+func (node *NodeDefault) AsNode() *Node                                     { return &node.Node }
+func (node *NodeDefault) ForEachChild(v Visitor) bool                       { return false }
+func (node *NodeDefault) Name() *DeclarationName                            { return nil }
+func (node *NodeDefault) Modifiers() *ModifierList                          { return nil }
+func (node *NodeDefault) FlowNodeData() *FlowNodeBase                       { return nil }
+func (node *NodeDefault) DeclarationData() *DeclarationBase                 { return nil }
+func (node *NodeDefault) ExportableData() *ExportableBase                   { return nil }
+func (node *NodeDefault) LocalsContainerData() *LocalsContainerBase         { return nil }
+func (node *NodeDefault) FunctionLikeData() *FunctionLikeBase               { return nil }
+func (node *NodeDefault) ClassLikeData() *ClassLikeBase                     { return nil }
+func (node *NodeDefault) BodyData() *BodyBase                               { return nil }
+func (node *NodeDefault) LiteralLikeData() *LiteralLikeBase                 { return nil }
+func (node *NodeDefault) TemplateLiteralLikeData() *TemplateLiteralLikeBase { return nil }
 
 // NodeBase
 
@@ -942,6 +1058,7 @@ type ImportAttributeName = Node         // Identifier | StringLiteral
 type LeftHandSideExpression = Node      // subset of Expression
 type JSDocComment = Node                // JSDocText | JSDocLink | JSDocLinkCode | JSDocLinkPlain;
 type JSDocTag = Node                    // Node with JSDocTagBase
+type SignatureDeclaration = Node        // CallSignatureDeclaration | ConstructSignatureDeclaration | MethodSignature | IndexSignatureDeclaration | FunctionTypeNode | ConstructorTypeNode | JSDocFunctionType | FunctionDeclaration | MethodDeclaration | ConstructorDeclaration | AccessorDeclaration | FunctionExpression | ArrowFunction;
 
 // Aliases for node singletons
 
@@ -959,8 +1076,6 @@ type CaseOrDefaultClauseNode = Node
 type VariableDeclarationNode = Node
 type VariableDeclarationListNode = Node
 type BindingElementNode = Node
-type TypeParameterListNode = Node
-type TypeArgumentListNode = Node
 type TypeParameterDeclarationNode = Node
 type ParameterDeclarationNode = Node
 type HeritageClauseNode = Node
@@ -976,6 +1091,30 @@ type JsxOpeningElementNode = Node
 type JsxClosingElementNode = Node
 type JsxOpeningFragmentNode = Node
 type JsxClosingFragmentNode = Node
+
+type StatementList = NodeList                   // NodeList[*Statement]
+type CaseClausesList = NodeList                 // NodeList[*CaseOrDefaultClause]
+type VariableDeclarationNodeList = NodeList     // NodeList[*VariableDeclaration]
+type BindingElementList = NodeList              // NodeList[*BindingElement]
+type TypeParameterList = NodeList               // NodeList[*TypeParameterDeclaration]
+type ParameterList = NodeList                   // NodeList[*ParameterDeclaration]
+type HeritageClauseList = NodeList              // NodeList[*HeritageClause]
+type ClassElementList = NodeList                // NodeList[*ClassElement]
+type TypeElementList = NodeList                 // NodeList[*TypeElement]
+type ExpressionWithTypeArgumentsList = NodeList // NodeList[*ExpressionWithTypeArguments]
+type EnumMemberList = NodeList                  // NodeList[*EnumMember]
+type ImportSpecifierList = NodeList             // NodeList[*ImportSpecifier]
+type ExportSpecifierList = NodeList             // NodeList[*ExportSpecifier]
+type TypeArgumentList = NodeList                // NodeList[*TypeNode]
+type ArgumentList = NodeList                    // NodeList[*Expression]
+type TemplateSpanList = NodeList                // NodeList[*TemplateSpan]
+type ElementList = NodeList                     // NodeList[*Expression]
+type PropertyDefinitionList = NodeList          // NodeList[*ObjectLiteralElement]
+type TypeList = NodeList                        // NodeList[*TypeNode]
+type ImportAttributeList = NodeList             // NodeList[*ImportAttributeNode]
+type TemplateLiteralTypeSpanList = NodeList     // NodeList[*TemplateLiteralTypeSpan]
+type JsxChildList = NodeList                    // NodeList[*JsxChild]
+type JsxAttributeList = NodeList                // NodeList[*JsxAttributeLike]
 
 // DeclarationBase
 
@@ -1549,8 +1688,8 @@ func (node *TryStatement) ForEachChild(v Visitor) bool {
 type CatchClause struct {
 	NodeBase
 	LocalsContainerBase
-	VariableDeclaration *VariableDeclarationNode // Optional
-	Block               *BlockNode
+	VariableDeclaration *VariableDeclarationNode // VariableDeclarationNode. Optional
+	Block               *BlockNode               // BlockNode
 }
 
 func (f *NodeFactory) NewCatchClause(variableDeclaration *VariableDeclarationNode, block *BlockNode) *Node {
@@ -1810,7 +1949,7 @@ func (f *NodeFactory) NewBindingElement(dotDotDotToken *TokenNode, propertyName 
 }
 
 func (node *BindingElement) ForEachChild(v Visitor) bool {
-	return visit(v, node.PropertyName) || visit(v, node.DotDotDotToken) || visit(v, node.name) || visit(v, node.Initializer)
+	return visit(v, node.DotDotDotToken) || visit(v, node.PropertyName) || visit(v, node.name) || visit(v, node.Initializer)
 }
 
 func (node *BindingElement) Name() *DeclarationName {
@@ -2314,10 +2453,10 @@ func IsNamespaceImport(node *Node) bool {
 
 type NamedImports struct {
 	NodeBase
-	Elements *NodeList // NodeList[*ImportSpecifierNode]
+	Elements *ImportSpecifierList // NodeList[*ImportSpecifierNode]
 }
 
-func (f *NodeFactory) NewNamedImports(elements *NodeList) *Node {
+func (f *NodeFactory) NewNamedImports(elements *ImportSpecifierList) *Node {
 	data := &NamedImports{}
 	data.Elements = elements
 	return newNode(KindNamedImports, data)
@@ -2817,7 +2956,8 @@ type ClassStaticBlockDeclaration struct {
 	ModifiersBase
 	LocalsContainerBase
 	ClassElementBase
-	Body *BlockNode // BlockNode
+	Body           *BlockNode // BlockNode
+	ReturnFlowNode *FlowNode
 }
 
 func (f *NodeFactory) NewClassStaticBlockDeclaration(modifiers *ModifierList, body *BlockNode) *Node {
@@ -2869,8 +3009,11 @@ func (f *NodeFactory) NewKeywordExpression(kind Kind) *Node {
 // LiteralLikeBase
 
 type LiteralLikeBase struct {
-	Text string
+	Text       string
+	TokenFlags TokenFlags
 }
+
+func (node *LiteralLikeBase) LiteralLikeData() *LiteralLikeBase { return node }
 
 // StringLiteral
 
@@ -3146,6 +3289,10 @@ func (node *SatisfiesExpression) ForEachChild(v Visitor) bool {
 	return visit(v, node.Expression) || visit(v, node.Type)
 }
 
+func IsSatisfiesExpression(node *Node) bool {
+	return node.Kind == KindSatisfiesExpression
+}
+
 // ConditionalExpression
 
 type ConditionalExpression struct {
@@ -3307,6 +3454,7 @@ func (node *MetaProperty) ForEachChild(v Visitor) bool {
 func (node *MetaProperty) Name() *DeclarationName {
 	return node.name
 }
+
 func IsMetaProperty(node *Node) bool {
 	return node.Kind == KindMetaProperty
 }
@@ -3517,6 +3665,10 @@ func (f *NodeFactory) NewSpreadAssignment(expression *Expression) *Node {
 
 func (node *SpreadAssignment) ForEachChild(v Visitor) bool {
 	return visit(v, node.Expression)
+}
+
+func IsSpreadAssignment(node *Node) bool {
+	return node.Kind == KindSpreadAssignment
 }
 
 // PropertyAssignment
@@ -3983,6 +4135,10 @@ func (node *ImportAttribute) ForEachChild(v Visitor) bool {
 	return visit(v, node.name) || visit(v, node.Value)
 }
 
+func (node *ImportAttribute) Name() *ImportAttributeName {
+	return node.name
+}
+
 // ImportAttributes
 
 type ImportAttributes struct {
@@ -4002,6 +4158,10 @@ func (f *NodeFactory) NewImportAttributes(token Kind, attributes *NodeList, mult
 
 func (node *ImportAttributes) ForEachChild(v Visitor) bool {
 	return visitNodeList(v, node.Attributes)
+}
+
+func IsImportAttributes(node *Node) bool {
+	return node.Kind == KindImportAttributes
 }
 
 // TypeQueryNode
@@ -4100,6 +4260,10 @@ func (node *TupleTypeNode) ForEachChild(v Visitor) bool {
 	return visitNodeList(v, node.Elements)
 }
 
+func IsTupleTypeNode(node *Node) bool {
+	return node.Kind == KindTupleType
+}
+
 // NamedTupleTypeMember
 
 type NamedTupleMember struct {
@@ -4127,6 +4291,7 @@ func (node *NamedTupleMember) ForEachChild(v Visitor) bool {
 func (node *NamedTupleMember) Name() *DeclarationName {
 	return node.name
 }
+
 func IsNamedTupleMember(node *Node) bool {
 	return node.Kind == KindNamedTupleMember
 }
@@ -4148,6 +4313,10 @@ func (node *OptionalTypeNode) ForEachChild(v Visitor) bool {
 	return visit(v, node.Type)
 }
 
+func IsOptionalTypeNode(node *Node) bool {
+	return node.Kind == KindOptionalType
+}
+
 // RestTypeNode
 
 type RestTypeNode struct {
@@ -4163,6 +4332,10 @@ func (f *NodeFactory) NewRestTypeNode(typeNode *TypeNode) *Node {
 
 func (node *RestTypeNode) ForEachChild(v Visitor) bool {
 	return visit(v, node.Type)
+}
+
+func IsRestTypeNode(node *Node) bool {
+	return node.Kind == KindRestType
 }
 
 // ParenthesizedTypeNode
@@ -4243,6 +4416,9 @@ type TemplateLiteralLikeBase struct {
 	RawText       string
 	TemplateFlags TokenFlags
 }
+
+func (node *TemplateLiteralLikeBase) LiteralLikeData() *LiteralLikeBase                 { return &node.LiteralLikeBase }
+func (node *TemplateLiteralLikeBase) TemplateLiteralLikeData() *TemplateLiteralLikeBase { return node }
 
 // TemplateHead
 
@@ -4327,6 +4503,27 @@ func (node *TemplateLiteralTypeSpan) ForEachChild(v Visitor) bool {
 	return visit(v, node.Type) || visit(v, node.Literal)
 }
 
+// SyntheticExpression
+
+type SyntheticExpression struct {
+	ExpressionBase
+	Type            any
+	IsSpread        bool
+	TupleNameSource *Node
+}
+
+func (f *NodeFactory) NewSyntheticExpression(t any, isSpread bool, tupleNameSource *Node) *Node {
+	data := &SyntheticExpression{}
+	data.Type = t
+	data.IsSpread = isSpread
+	data.TupleNameSource = tupleNameSource
+	return newNode(KindSyntheticExpression, data)
+}
+
+func IsSyntheticExpression(node *Node) bool {
+	return node.Kind == KindSyntheticExpression
+}
+
 /// A JSX expression of the form <TagName attrs>...</TagName>
 
 type JsxElement struct {
@@ -4377,15 +4574,15 @@ type JsxNamespacedName struct {
 	Namespace *IdentifierNode // IdentifierNode
 }
 
-func (f *NodeFactory) NewJsxNamespacedName(name *IdentifierNode, namespace *IdentifierNode) *Node {
+func (f *NodeFactory) NewJsxNamespacedName(namespace *IdentifierNode, name *IdentifierNode) *Node {
 	data := &JsxNamespacedName{}
-	data.name = name
 	data.Namespace = namespace
+	data.name = name
 	return newNode(KindJsxNamespacedName, data)
 }
 
 func (node *JsxNamespacedName) ForEachChild(v Visitor) bool {
-	return visit(v, node.name) || visit(v, node.Namespace)
+	return visit(v, node.Namespace) || visit(v, node.name)
 }
 
 func (node *JsxNamespacedName) Name() *DeclarationName {
@@ -4505,6 +4702,10 @@ func (f *NodeFactory) NewJsxAttribute(name *JsxAttributeName, initializer *JsxAt
 	data.name = name
 	data.Initializer = initializer
 	return newNode(KindJsxAttribute, data)
+}
+
+func (node *JsxAttribute) Name() *JsxAttributeName {
+	return node.name
 }
 
 func (node *JsxAttribute) ForEachChild(v Visitor) bool {
@@ -4832,10 +5033,10 @@ func (f *NodeFactory) NewJSDocUnknownTag(tagName *IdentifierNode, comment *NodeL
 type JSDocTemplateTag struct {
 	JSDocTagBase
 	Constraint     *Node
-	typeParameters *TypeParameterListNode
+	typeParameters *TypeParameterList
 }
 
-func (f *NodeFactory) NewJSDocTemplateTag(tagName *IdentifierNode, constraint *Node, typeParameters *TypeParameterListNode, comment *NodeList) *Node {
+func (f *NodeFactory) NewJSDocTemplateTag(tagName *IdentifierNode, constraint *Node, typeParameters *TypeParameterList, comment *NodeList) *Node {
 	data := &JSDocTemplateTag{}
 	data.TagName = tagName
 	data.Constraint = constraint
@@ -4845,10 +5046,10 @@ func (f *NodeFactory) NewJSDocTemplateTag(tagName *IdentifierNode, constraint *N
 }
 
 func (node *JSDocTemplateTag) ForEachChild(v Visitor) bool {
-	return visit(v, node.TagName) || visit(v, node.Constraint) || visit(v, node.typeParameters) || visitNodeList(v, node.Comment)
+	return visit(v, node.TagName) || visit(v, node.Constraint) || visitNodeList(v, node.typeParameters) || visitNodeList(v, node.Comment)
 }
 
-func (node *JSDocTemplateTag) TypeParameters() *TypeParameterListNode { return node.typeParameters }
+func (node *JSDocTemplateTag) TypeParameters() *TypeParameterList { return node.typeParameters }
 
 // JSDocParameterTag
 
@@ -5203,12 +5404,12 @@ func (node *JSDocTypeLiteral) ForEachChild(v Visitor) bool {
 // JSDocSignature
 type JSDocSignature struct {
 	TypeNodeBase
-	typeParameters *TypeParameterListNode
+	typeParameters *TypeParameterList
 	Parameters     []*JSDocTag
 	Type           *JSDocTag
 }
 
-func NewJSDocSignature(typeParameters *TypeParameterListNode, parameters []*JSDocTag, typeNode *JSDocTag) *JSDocSignature {
+func NewJSDocSignature(typeParameters *TypeParameterList, parameters []*JSDocTag, typeNode *JSDocTag) *JSDocSignature {
 	data := &JSDocSignature{}
 	data.typeParameters = typeParameters
 	data.Parameters = parameters
@@ -5217,10 +5418,10 @@ func NewJSDocSignature(typeParameters *TypeParameterListNode, parameters []*JSDo
 }
 
 func (node *JSDocSignature) ForEachChild(v Visitor) bool {
-	return visit(v, node.typeParameters) || visitNodes(v, node.Parameters) || visit(v, node.Type)
+	return visitNodeList(v, node.typeParameters) || visitNodes(v, node.Parameters) || visit(v, node.Type)
 }
 
-func (node *JSDocSignature) TypeParameters() *TypeParameterListNode { return node.typeParameters }
+func (node *JSDocSignature) TypeParameters() *TypeParameterList { return node.typeParameters }
 
 // JSDocNameReference
 type JSDocNameReference struct {
@@ -5228,7 +5429,6 @@ type JSDocNameReference struct {
 	name *EntityName
 }
 
-// JSDocMemberName
 func NewJSDocNameReference(name *EntityName) *JSDocNameReference {
 	data := &JSDocNameReference{}
 	data.name = name
@@ -5282,6 +5482,10 @@ type SourceFile struct {
 	AmbientModuleNames          []string
 	HasNoDefaultLib             bool
 	jsdocCache                  map[*Node][]*Node
+	Pragmas                     []Pragma
+	ReferencedFiles             []*FileReference
+	TypeReferenceDirectives     []*FileReference
+	LibReferenceDirectives      []*FileReference
 }
 
 func (f *NodeFactory) NewSourceFile(text string, fileName string, statements *NodeList) *Node {
@@ -5327,4 +5531,62 @@ func (node *SourceFile) ForEachChild(v Visitor) bool {
 
 func IsSourceFile(node *Node) bool {
 	return node.Kind == KindSourceFile
+}
+
+type CommentRange struct {
+	core.TextRange
+	HasTrailingNewLine bool
+	Kind               Kind
+}
+
+func NewCommentRange(kind Kind, pos int, end int, hasTrailingNewLine bool) CommentRange {
+	return CommentRange{
+		TextRange:          core.NewTextRange(pos, end),
+		HasTrailingNewLine: hasTrailingNewLine,
+		Kind:               kind,
+	}
+}
+
+type FileReference struct {
+	core.TextRange
+	FileName       string
+	ResolutionMode core.ResolutionMode
+	Preserve       bool
+}
+
+type PragmaArgument struct {
+	core.TextRange
+	Name  string
+	Value string
+}
+
+type Pragma struct {
+	Name      string
+	Args      map[string]PragmaArgument
+	ArgsRange CommentRange
+}
+
+type PragmaKindFlags = uint8
+
+const (
+	PragmaKindFlagsNone PragmaKindFlags = iota
+	PragmaKindTripleSlashXML
+	PragmaKindSingleLine
+	PragmaKindMultiLine
+	PragmaKindAll     = PragmaKindTripleSlashXML | PragmaKindSingleLine | PragmaKindMultiLine
+	PragmaKindDefault = PragmaKindAll
+)
+
+type PragmaArgumentSpecification struct {
+	Name        string
+	Optional    bool
+	CaptureSpan bool
+}
+type PragmaSpecification struct {
+	Args []PragmaArgumentSpecification
+	Kind PragmaKindFlags
+}
+
+func (spec *PragmaSpecification) IsTripleSlash() bool {
+	return (spec.Kind & PragmaKindTripleSlashXML) > 0
 }

@@ -16,23 +16,30 @@ type CompilerOptions struct {
 	AllowUnusedLabels                  Tristate             `json:"allowUnusedLabels"`
 	CheckJs                            Tristate             `json:"checkJs"`
 	CustomConditions                   []string             `json:"customConditions"`
+	EmitDeclarationOnly                Tristate             `json:"emitDeclarationOnly"`
+	EmitBOM                            Tristate             `json:"emitBOM"`
+	DownlevelIteration                 Tristate             `json:"downlevelIteration"`
 	Declaration                        Tristate             `json:"declaration"`
 	ESModuleInterop                    Tristate             `json:"esModuleInterop"`
 	ExactOptionalPropertyTypes         Tristate             `json:"exactOptionalPropertyTypes"`
 	ExperimentalDecorators             Tristate             `json:"experimentalDecorators"`
 	IsolatedModules                    Tristate             `json:"isolatedModules"`
 	Jsx                                JsxEmit              `json:"jsx"`
+	Lib                                []string             `json:"lib"`
 	LegacyDecorators                   Tristate             `json:"legacyDecorators"`
 	ModuleKind                         ModuleKind           `json:"module"`
 	ModuleResolution                   ModuleResolutionKind `json:"moduleResolution"`
 	ModuleSuffixes                     []string             `json:"moduleSuffixes"`
+	ModuleDetection                    ModuleDetectionKind  `json:"moduleDetectionKind"`
 	NewLine                            NewLineKind          `json:"newLine"`
+	NoEmit                             Tristate             `json:"noEmit"`
 	NoErrorTruncation                  Tristate             `json:"noErrorTruncation"`
 	NoFallthroughCasesInSwitch         Tristate             `json:"noFallthroughCasesInSwitch"`
 	NoImplicitAny                      Tristate             `json:"noImplicitAny"`
 	NoImplicitThis                     Tristate             `json:"noImplicitThis"`
 	NoPropertyAccessFromIndexSignature Tristate             `json:"noPropertyAccessFromIndexSignature"`
 	NoUncheckedIndexedAccess           Tristate             `json:"noUncheckedIndexedAccess"`
+	OutDir                             string               `json:"outDir"`
 	Paths                              map[string][]string  `json:"paths"`
 	PreserveConstEnums                 Tristate             `json:"preserveConstEnums"`
 	PreserveSymlinks                   Tristate             `json:"preserveSymlinks"`
@@ -42,8 +49,9 @@ type CompilerOptions struct {
 	SkipLibCheck                       Tristate             `json:"skipLibCheck"`
 	Strict                             Tristate             `json:"strict"`
 	StrictBindCallApply                Tristate             `json:"strictBindCallApply"`
-	StrictNullChecks                   Tristate             `json:"strictNullChecks"`
 	StrictFunctionTypes                Tristate             `json:"strictFunctionTypes"`
+	StrictNullChecks                   Tristate             `json:"strictNullChecks"`
+	StrictPropertyInitialization       Tristate             `json:"strictPropertyInitialization"`
 	Target                             ScriptTarget         `json:"target"`
 	TraceResolution                    Tristate             `json:"traceResolution"`
 	TypeRoots                          []string             `json:"typeRoots"`
@@ -57,17 +65,6 @@ type CompilerOptions struct {
 	NoDtsResolution Tristate `json:"noDtsResolution"`
 	PathsBasePath   string   `json:"pathsBasePath"`
 }
-
-type JsxEmit int32
-
-const (
-	JsxEmitNone        JsxEmit = 0
-	JsxEmitPreserve    JsxEmit = 1
-	JsxEmitReact       JsxEmit = 2
-	JsxEmitReactNative JsxEmit = 3
-	JsxEmitReactJSX    JsxEmit = 4
-	JsxEmitReactJSXDev JsxEmit = 5
-)
 
 func (options *CompilerOptions) GetEmitScriptTarget() ScriptTarget {
 	if options.Target != ScriptTargetNone {
@@ -105,9 +102,7 @@ func (options *CompilerOptions) GetESModuleInterop() bool {
 		return options.ESModuleInterop == TSTrue
 	}
 	switch options.GetEmitModuleKind() {
-	case ModuleKindNode16:
-	case ModuleKindNodeNext:
-	case ModuleKindPreserve:
+	case ModuleKindNode16, ModuleKindNodeNext, ModuleKindPreserve:
 		return true
 	}
 	return false
@@ -126,6 +121,10 @@ func (options *CompilerOptions) GetResolveJsonModule() bool {
 		return options.ResolveJsonModule == TSTrue
 	}
 	return options.GetModuleResolutionKind() == ModuleResolutionKindBundler
+}
+
+func (options *CompilerOptions) ShouldPreserveConstEnums() bool {
+	return options.PreserveConstEnums == TSTrue || options.IsolatedModules == TSTrue
 }
 
 func (options *CompilerOptions) GetAllowJs() bool {
@@ -164,6 +163,25 @@ func (options *CompilerOptions) GetEffectiveTypeRoots(currentDirectory string) (
 	return typeRoots, false
 }
 
+func (options *CompilerOptions) GetEmitDeclarations() bool {
+	// !!!
+	return false
+}
+
+func (options *CompilerOptions) GetAreDeclarationMapsEnabled() bool {
+	// !!!
+	return false
+}
+
+type ModuleDetectionKind int32
+
+const (
+	ModuleDetectionKindNone   ModuleDetectionKind = 0
+	ModuleDetectionKindAuto   ModuleDetectionKind = 1
+	ModuleDetectionKindLegacy ModuleDetectionKind = 2
+	ModuleDetectionKindForce  ModuleDetectionKind = 3
+)
+
 type ModuleKind int32
 
 const (
@@ -191,7 +209,7 @@ type ResolutionMode = ModuleKind // ModuleKindNone | ModuleKindCommonJS | Module
 const (
 	ResolutionModeNone     = ModuleKindNone
 	ResolutionModeCommonJS = ModuleKindCommonJS
-	ResolutionModeESM      = ModuleKindES2015
+	ResolutionModeESM      = ModuleKindESNext
 )
 
 type ModuleResolutionKind int32
@@ -230,6 +248,23 @@ func (m ModuleResolutionKind) String() string {
 	}
 }
 
+type NewLineKind int32
+
+const (
+	NewLineKindNone NewLineKind = 0
+	NewLineKindCRLF NewLineKind = 1
+	NewLineKindLF   NewLineKind = 2
+)
+
+func (newLine NewLineKind) GetNewLineCharacter() string {
+	switch newLine {
+	case NewLineKindCRLF:
+		return "\r\n"
+	default:
+		return "\n"
+	}
+}
+
 type ScriptTarget int32
 
 const (
@@ -250,10 +285,13 @@ const (
 	ScriptTargetLatest ScriptTarget = ScriptTargetESNext
 )
 
-type NewLineKind int32
+type JsxEmit int32
 
 const (
-	NewLineKindNone NewLineKind = 0
-	NewLineKindCRLF NewLineKind = 1
-	NewLineKindLF   NewLineKind = 2
+	JsxEmitNone        JsxEmit = 0
+	JsxEmitPreserve    JsxEmit = 1
+	JsxEmitReactNative JsxEmit = 2
+	JsxEmitReact       JsxEmit = 3
+	JsxEmitReactJSX    JsxEmit = 4
+	JsxEmitReactJSXDev JsxEmit = 5
 )

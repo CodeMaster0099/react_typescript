@@ -2,6 +2,7 @@ package baseline
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"slices"
 	"strings"
@@ -107,7 +108,7 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*testutil.TestFile, inputDi
 		for _, info := range diag.RelatedInformation() {
 			var location string
 			if info.File() != nil {
-				location = " " + formatLocation(info.File(), info.Loc().Pos(), formatOpts, func(output *strings.Builder, text string, formatStyle string) { output.WriteString(text) })
+				location = " " + formatLocation(info.File(), info.Loc().Pos(), formatOpts, func(output io.Writer, text string, formatStyle string) { fmt.Fprint(output, text) })
 			}
 			location = removeTestPathPrefixes(location, false)
 			if len(location) > 0 && isDefaultLibraryFile(info.File().FileName()) {

@@ -2,24 +2,19 @@ package vfs_test
 
 import (
 	"encoding/binary"
-	"os"
-	"path/filepath"
-	"slices"
 	"testing"
 	"testing/fstest"
 	"unicode/utf16"
 
-	"github.com/microsoft/typescript-go/internal/repo"
-	"github.com/microsoft/typescript-go/internal/testutil"
-	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
+	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
 	"gotest.tools/v3/assert"
 )
 
-func TestIOFS(t *testing.T) {
+func TestVFSTestMapFS(t *testing.T) {
 	t.Parallel()
 
-	testfs := fstest.MapFS{
+	fs := vfstest.FromMapFS(fstest.MapFS{
 		"foo.ts": &fstest.MapFile{
 			Data: []byte("hello, world"),
 		},
@@ -32,9 +27,7 @@ func TestIOFS(t *testing.T) {
 		"dir2/file1.ts": &fstest.MapFile{
 			Data: []byte("export const foo = 42;"),
 		},
-	}
-
-	fs := vfs.FromIOFS(true, testfs)
+	}, false /*useCaseSensitiveFileNames*/)
 
 	t.Run("ReadFile", func(t *testing.T) {
 		t.Parallel()
@@ -48,95 +41,30 @@ func TestIOFS(t *testing.T) {
 		assert.Equal(t, content, "")
 	})
 
-	t.Run("ReadFileUnrooted", func(t *testing.T) {
-		t.Parallel()
-
-		testutil.AssertPanics(t, func() { fs.ReadFile("bar") }, `vfs: path "bar" is not absolute`)
-	})
-
-	t.Run("FileExists", func(t *testing.T) {
-		t.Parallel()
-
-		assert.Assert(t, fs.FileExists("/foo.ts"))
-		assert.Assert(t, !fs.FileExists("/bar"))
-	})
-
-	t.Run("DirectoryExists", func(t *testing.T) {
-		t.Parallel()
-
-		assert.Assert(t, fs.DirectoryExists("/"))
-		assert.Assert(t, fs.DirectoryExists("/dir1"))
-		assert.Assert(t, fs.DirectoryExists("/dir1/"))
-		assert.Assert(t, fs.DirectoryExists("/dir1/./"))
-		assert.Assert(t, !fs.DirectoryExists("/bar"))
-	})
-
-	t.Run("GetDirectories", func(t *testing.T) {
-		t.Parallel()
-
-		dirs := fs.GetDirectories("/")
-		slices.Sort(dirs)
-
-		assert.DeepEqual(t, dirs, []string{"dir1", "dir2"})
-	})
-
-	t.Run("WalkDir", func(t *testing.T) {
-		t.Parallel()
-
-		var files []string
-		err := fs.WalkDir("/", func(path string, d vfs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if !d.IsDir() {
-				files = append(files, path)
-			}
-			return nil
-		})
-		assert.NilError(t, err)
-
-		slices.Sort(files)
-
-		assert.DeepEqual(t, files, []string{"/dir1/file1.ts", "/dir1/file2.ts", "/dir2/file1.ts", "/foo.ts"})
-	})
-
-	t.Run("WalkDirSkip", func(t *testing.T) {
-		t.Parallel()
-
-		var files []string
-		err := fs.WalkDir("/", func(path string, d vfs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if !d.IsDir() {
-				files = append(files, path)
-			}
-
-			if path == "/" {
-				return nil
-			}
-
-			return vfs.SkipDir
-		})
-		assert.NilError(t, err)
-
-		slices.Sort(files)
-
-		assert.DeepEqual(t, files, []string{"/foo.ts"})
-	})
-
 	t.Run("Realpath", func(t *testing.T) {
 		t.Parallel()
 
 		realpath := fs.Realpath("/foo.ts")
 		assert.Equal(t, realpath, "/foo.ts")
+
+		realpath = fs.Realpath("/Foo.ts")
+		assert.Equal(t, realpath, "/foo.ts")
+
+		realpath = fs.Realpath("/does/not/exist.ts")
+		assert.Equal(t, realpath, "/does/not/exist.ts")
+	})
+
+	t.Run("UseCaseSensitiveFileNames", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Assert(t, !fs.UseCaseSensitiveFileNames())
 	})
 }
 
-func TestIOFSWindows(t *testing.T) {
+func TestVFSTestMapFSWindows(t *testing.T) {
 	t.Parallel()
 
-	testfs := fstest.MapFS{
+	fs := vfstest.FromMapFS(fstest.MapFS{
 		"c:/foo.ts": &fstest.MapFile{
 			Data: []byte("hello, world"),
 		},
@@ -149,9 +77,7 @@ func TestIOFSWindows(t *testing.T) {
 		"c:/dir2/file1.ts": &fstest.MapFile{
 			Data: []byte("export const foo = 42;"),
 		},
-	}
-
-	fs := vfs.FromIOFS(true, testfs)
+	}, false)
 
 	t.Run("ReadFile", func(t *testing.T) {
 		t.Parallel()
@@ -164,33 +90,18 @@ func TestIOFSWindows(t *testing.T) {
 		assert.Assert(t, !ok)
 		assert.Equal(t, content, "")
 	})
-}
-
-func TestOS(t *testing.T) {
-	t.Parallel()
-
-	fs := vfs.FromOS()
-
-	goMod := filepath.Join(repo.RootPath, "go.mod")
-	goModPath := tspath.NormalizePath(goMod)
-
-	t.Run("ReadFile", func(t *testing.T) {
-		t.Parallel()
-
-		expectedRaw, err := os.ReadFile(goMod)
-		assert.NilError(t, err)
-		expected := string(expectedRaw)
-
-		contents, ok := fs.ReadFile(goModPath)
-		assert.Assert(t, ok)
-		assert.Equal(t, contents, expected)
-	})
 
 	t.Run("Realpath", func(t *testing.T) {
 		t.Parallel()
 
-		realpath := fs.Realpath(goModPath)
-		assert.Equal(t, realpath, goModPath)
+		realpath := fs.Realpath("c:/foo.ts")
+		assert.Equal(t, realpath, "c:/foo.ts")
+
+		realpath = fs.Realpath("c:/Foo.ts")
+		assert.Equal(t, realpath, "c:/foo.ts")
+
+		realpath = fs.Realpath("c:/does/not/exist.ts")
+		assert.Equal(t, realpath, "c:/does/not/exist.ts")
 	})
 }
 
@@ -232,7 +143,7 @@ func TestBOM(t *testing.T) {
 				},
 			}
 
-			fs := vfs.FromIOFS(true, testfs)
+			fs := vfs.FromIOFS(testfs, true)
 
 			content, ok := fs.ReadFile("/foo.ts")
 			assert.Assert(t, ok)
@@ -249,7 +160,7 @@ func TestBOM(t *testing.T) {
 			},
 		}
 
-		fs := vfs.FromIOFS(true, testfs)
+		fs := vfs.FromIOFS(testfs, true)
 
 		content, ok := fs.ReadFile("/foo.ts")
 		assert.Assert(t, ok)
