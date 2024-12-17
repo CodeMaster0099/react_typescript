@@ -20,12 +20,6 @@ import (
 // IO
 const harnessNewLine = "\r\n"
 
-var (
-	lineDelimiter = regexp.MustCompile("\r?\n")
-	nonWhitespace = regexp.MustCompile(`\S`)
-	tsExtension   = regexp.MustCompile(`\.tsx?$`)
-)
-
 var formatOpts = &compiler.DiagnosticsFormattingOptions{
 	NewLine: harnessNewLine,
 }
@@ -244,19 +238,6 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*testutil.TestFile, inputDi
 	// Verify we didn't miss any errors in total
 	assert.Check(t, cmp.Equal(totalErrorsReportedInNonLibraryNonTsconfigFiles+numLibraryDiagnostics+numTsconfigDiagnostics, len(diagnostics)), "total number of errors")
 	return result
-}
-
-func checkDuplicatedFileName(resultName string, dupeCase map[string]int) string {
-	resultName = sanitizeTestFilePath(resultName)
-	if _, ok := dupeCase[resultName]; ok {
-		// A different baseline filename should be manufactured if the names differ only in case, for windows compat
-		count := 1 + dupeCase[resultName]
-		dupeCase[resultName] = count
-		resultName = fmt.Sprintf("%s.dupe%d", resultName, count)
-	} else {
-		dupeCase[resultName] = 0
-	}
-	return resultName
 }
 
 func flattenDiagnosticMessage(d *ast.Diagnostic, newLine string) string {
