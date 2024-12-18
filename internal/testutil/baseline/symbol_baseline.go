@@ -48,22 +48,8 @@ func DoTypeAndSymbolBaseline(
 
 	fullWalker := newTypeWriterWalker(program, hasErrorBaseline)
 
-	// Produce baselines.  The first gives the types for all expressions.
-	// The second gives symbols for all identifiers.
-	typesError := checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/, skipTypeBaselines)
-	symbolsError := checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/, skipSymbolBaselines)
-
-	if typesError != nil && symbolsError != nil {
-		panic(fmt.Sprintf("Both types and symbols baselines failed. Type baseline failure: %v\nSymbol baseline failure: %v", typesError, symbolsError))
-	}
-
-	if typesError != nil {
-		panic(typesError)
-	}
-
-	if symbolsError != nil {
-		panic(symbolsError)
-	}
+	checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/)
+	checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/)
 }
 
 func checkBaselines(
@@ -74,18 +60,11 @@ func checkBaselines(
 	header string,
 	opts *Options,
 	isSymbolBaseline bool,
-	skipBaseline bool,
-) (err interface{}) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = r
-		}
-	}()
+) {
 	fullExtension := core.IfElse(isSymbolBaseline, ".symbols", ".types")
 	outputFileName := tspath.RemoveFileExtension(baselinePath)
-	fullBaseline := generateBaseline(allFiles, fullWalker, header, isSymbolBaseline, skipBaseline)
+	fullBaseline := generateBaseline(allFiles, fullWalker, header, isSymbolBaseline)
 	Run(t, outputFileName+fullExtension, fullBaseline, *opts)
-	return nil
 }
 
 func generateBaseline(
@@ -93,13 +72,12 @@ func generateBaseline(
 	fullWalker *typeWriterWalker,
 	header string,
 	isSymbolBaseline bool,
-	skipBaseline bool,
 ) string {
 	var result strings.Builder
 	// !!! Perf baseline
 	var perfLines []string
 	// prePerformanceValues := getPerformanceBaselineValues()
-	baselines := iterateBaseline(allFiles, fullWalker, isSymbolBaseline, skipBaseline)
+	baselines := iterateBaseline(allFiles, fullWalker, isSymbolBaseline)
 	for _, value := range baselines {
 		result.WriteString(value.content)
 	}
@@ -146,11 +124,7 @@ type baselineResult struct {
 	content string
 }
 
-func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool, skipBaseline bool) []*baselineResult {
-	if skipBaseline {
-		return nil
-	}
-
+func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []*baselineResult {
 	var baselines []*baselineResult
 	dupeCase := make(map[string]int)
 
