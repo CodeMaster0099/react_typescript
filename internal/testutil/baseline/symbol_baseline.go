@@ -27,7 +27,7 @@ func DoTypeAndSymbolBaseline(
 	header string,
 	program *compiler.Program,
 	allFiles []*TestFile,
-	opts *Options,
+	opts Options,
 	skipTypeBaselines bool,
 	skipSymbolBaselines bool,
 	hasErrorBaseline bool) {
@@ -58,13 +58,13 @@ func checkBaselines(
 	allFiles []*TestFile,
 	fullWalker *typeWriterWalker,
 	header string,
-	opts *Options,
+	opts Options,
 	isSymbolBaseline bool,
 ) {
 	fullExtension := core.IfElse(isSymbolBaseline, ".symbols", ".types")
 	outputFileName := tspath.RemoveFileExtension(baselinePath)
 	fullBaseline := generateBaseline(allFiles, fullWalker, header, isSymbolBaseline)
-	Run(t, outputFileName+fullExtension, fullBaseline, *opts)
+	Run(t, outputFileName+fullExtension, fullBaseline, opts)
 }
 
 func generateBaseline(
