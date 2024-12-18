@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
+	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
 	"gotest.tools/v3/assert"
 )
 
@@ -44,6 +45,7 @@ type TestFile struct {
 
 type CompileFilesResult struct {
 	Diagnostics []*ast.Diagnostic
+	Program     *compiler.Program
 	// !!!
 }
 
@@ -168,7 +170,7 @@ func CompileFiles(
 			Data: data,
 		}
 	}
-	fs := vfs.FromIOFS(useCaseSensitiveFileNames, testfs)
+	fs := vfstest.FromMapFS(testfs, useCaseSensitiveFileNames)
 
 	host := createCompilerHost(fs, &options, currentDirectory)
 	result := compileFilesWithHost(host, programFileNames, &options, typescriptVersion, harnessOptions.captureSuggestions)
@@ -208,7 +210,7 @@ func setCompilerOptionsFromHarnessConfig(harnessConfig TestConfiguration, option
 }
 
 func createCompilerHost(fs vfs.FS, options *core.CompilerOptions, currentDirectory string) compiler.CompilerHost {
-	return compiler.NewCompilerHost(options, false, currentDirectory, fs)
+	return compiler.NewCompilerHost(options, currentDirectory, fs)
 }
 
 func compileFilesWithHost(
@@ -291,6 +293,7 @@ func compileFilesWithHost(
 	diagnostics = append(diagnostics, program.GetGlobalDiagnostics()...)
 	return &CompileFilesResult{
 		Diagnostics: diagnostics,
+		Program:     program,
 	}
 }
 

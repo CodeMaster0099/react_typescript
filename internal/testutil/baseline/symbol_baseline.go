@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/scanner"
+	"github.com/microsoft/typescript-go/internal/testutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -26,7 +27,7 @@ func DoTypeAndSymbolBaseline(
 	baselinePath string,
 	header string,
 	program *compiler.Program,
-	allFiles []*TestFile,
+	allFiles []*testutil.TestFile,
 	opts *Options,
 	skipTypeBaselines bool,
 	skipSymbolBaselines bool,
@@ -69,7 +70,7 @@ func DoTypeAndSymbolBaseline(
 func checkBaselines(
 	t testing.TB,
 	baselinePath string,
-	allFiles []*TestFile,
+	allFiles []*testutil.TestFile,
 	fullWalker *typeWriterWalker,
 	header string,
 	opts *Options,
@@ -89,7 +90,7 @@ func checkBaselines(
 }
 
 func generateBaseline(
-	allFiles []*TestFile,
+	allFiles []*testutil.TestFile,
 	fullWalker *typeWriterWalker,
 	header string,
 	isSymbolBaseline bool,
@@ -146,7 +147,7 @@ type baselineResult struct {
 	content string
 }
 
-func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool, skipBaseline bool) []*baselineResult {
+func iterateBaseline(allFiles []*testutil.TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool, skipBaseline bool) []*baselineResult {
 	if skipBaseline {
 		return nil
 	}
@@ -155,10 +156,10 @@ func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbo
 	dupeCase := make(map[string]int)
 
 	for _, file := range allFiles {
-		unitName := file.unitName
+		unitName := file.UnitName
 		var typeLines strings.Builder
 		typeLines.WriteString("=== " + unitName + " ===\r\n")
-		codeLines := codeLinesRegexp.Split(file.content, -1)
+		codeLines := codeLinesRegexp.Split(file.Content, -1)
 		var results []*typeWriterResult
 		if isSymbolBaseline {
 			results = fullWalker.getSymbols(unitName)

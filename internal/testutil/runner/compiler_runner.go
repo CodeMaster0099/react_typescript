@@ -103,6 +103,7 @@ func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compile
 	compilerTest := newCompilerTest(test.filename, &payload, config)
 
 	compilerTest.verifyDiagnostics(t, r.testSuitName)
+	compilerTest.verifyTypesAndSymbols(t, r.testSuitName)
 	// !!! Verify all baselines; make each kind of baseline a separate subtest
 }
 
@@ -248,6 +249,33 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string) {
 	pretty := false // !!! Add `pretty` to compiler options
 	files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
 	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty, suiteName)
+}
+
+func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
+	// !!! Needs harness settings
+	// const noTypesAndSymbols = this.harnessSettings.noTypesAndSymbols &&
+	// 	this.harnessSettings.noTypesAndSymbols.toLowerCase() === "true";
+	// if (noTypesAndSymbols) {
+	// 	return;
+	// }
+	program := c.result.Program
+	allFiles := core.Filter(
+		core.Concatenate(c.toBeCompiled, c.otherFiles),
+		func(f *testutil.TestFile) bool {
+			return program.GetSourceFile(f.UnitName) != nil // >> TODO: do we need normalized file name?
+		},
+	)
+	baseline.DoTypeAndSymbolBaseline(
+		t,
+		c.configuredName,
+		c.filename,
+		program,
+		allFiles,
+		nil, /*opts*/
+		false,
+		false,
+		len(c.result.Diagnostics) > 0,
+	)
 }
 
 func createHarnessTestFile(unit *testUnit, currentDirectory string) *testutil.TestFile {
