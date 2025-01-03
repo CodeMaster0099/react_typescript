@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	codeLinesRegexp  = regexp.MustCompile(`[\r\\u2028\\u2029]|\r?\n`)
+	codeLinesRegexp  = regexp.MustCompile("[\r\u2028\u2029]|\r?\n")
 	bracketLineRegex = regexp.MustCompile(`^\s*[{|}]\s*$`)
 	lineEndRegex     = regexp.MustCompile(`\r?\n`)
 )
