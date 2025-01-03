@@ -12,8 +12,8 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/repo"
-	"github.com/microsoft/typescript-go/internal/testutil"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
+	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -67,7 +67,7 @@ func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 	if len(r.testFiles) > 0 {
 		return r.testFiles
 	}
-	files, err := testutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true)
+	files, err := harnessutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true)
 	if err != nil {
 		panic("Could not read compiler test files: " + err.Error())
 	}
@@ -89,7 +89,7 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	basename := tspath.GetBaseFileName(filename)
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
-			description := testutil.GetFileBasedTestConfigurationDescription(config)
+			description := harnessutil.GetFileBasedTestConfigurationDescription(config)
 			t.Run(basename+description, func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
 		}
 	} else {
@@ -97,7 +97,7 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	}
 }
 
-func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config testutil.TestConfiguration) {
+func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config harnessutil.TestConfiguration) {
 	t.Parallel()
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(test.filename, &payload, config)
@@ -110,7 +110,7 @@ func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compile
 type compilerFileBasedTest struct {
 	filename       string
 	content        string
-	configurations []testutil.TestConfiguration
+	configurations []harnessutil.TestConfiguration
 }
 
 func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
@@ -120,7 +120,7 @@ func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
 	}
 	content := string(bytes)
 	settings := extractCompilerSettings(content)
-	configurations := testutil.GetFileBasedTestConfigurations(settings, compilerVaryBy)
+	configurations := harnessutil.GetFileBasedTestConfigurations(settings, compilerVaryBy)
 	return &compilerFileBasedTest{
 		filename:       filename,
 		content:        content,
@@ -143,19 +143,19 @@ type compilerTest struct {
 	basename       string
 	configuredName string // name with configuration description, e.g. `file`
 	options        *core.CompilerOptions
-	result         *testutil.CompileFilesResult
-	tsConfigFiles  []*testutil.TestFile
-	toBeCompiled   []*testutil.TestFile // equivalent to the files that will be passed on the command line
-	otherFiles     []*testutil.TestFile // equivalent to other files on the file system not directly passed to the compiler (ie things that are referenced by other files)
+	result         *harnessutil.CompileFilesResult
+	tsConfigFiles  []*harnessutil.TestFile
+	toBeCompiled   []*harnessutil.TestFile // equivalent to the files that will be passed on the command line
+	otherFiles     []*harnessutil.TestFile // equivalent to other files on the file system not directly passed to the compiler (ie things that are referenced by other files)
 	hasNonDtsFiles bool
 }
 
 type testCaseContentWithConfig struct {
 	testCaseContent
-	configuration testutil.TestConfiguration
+	configuration harnessutil.TestConfiguration
 }
 
-func newCompilerTest(filename string, testContent *testCaseContent, configuration testutil.TestConfiguration) *compilerTest {
+func newCompilerTest(filename string, testContent *testCaseContent, configuration harnessutil.TestConfiguration) *compilerTest {
 	basename := tspath.GetBaseFileName(filename)
 	configuredName := basename
 	if configuration != nil {
@@ -188,11 +188,11 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 	}
 
 	units := testCaseContentWithConfig.testUnitData
-	var toBeCompiled []*testutil.TestFile
-	var otherFiles []*testutil.TestFile
+	var toBeCompiled []*harnessutil.TestFile
+	var otherFiles []*harnessutil.TestFile
 	var tsConfigOptions *core.CompilerOptions
 	hasNonDtsFiles := core.Some(units, func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, tspath.ExtensionDts) })
-	// var tsConfigFiles []*testutil.TestFile // !!!
+	// var tsConfigFiles []*harnessutil.TestFile // !!!
 	if testCaseContentWithConfig.tsConfig != nil {
 		// !!!
 	} else {
@@ -214,7 +214,7 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 				otherFiles = append(otherFiles, createHarnessTestFile(unit, currentDirectory))
 			}
 		} else {
-			toBeCompiled = core.Map(units, func(unit *testUnit) *testutil.TestFile { return createHarnessTestFile(unit, currentDirectory) })
+			toBeCompiled = core.Map(units, func(unit *testUnit) *harnessutil.TestFile { return createHarnessTestFile(unit, currentDirectory) })
 		}
 	}
 
@@ -222,7 +222,7 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 		// tsConfigOptions.configFile!.fileName = tsConfigOptions.configFilePath; // !!!
 	}
 
-	result := testutil.CompileFiles(
+	result := harnessutil.CompileFiles(
 		toBeCompiled,
 		otherFiles,
 		harnessConfig,
@@ -261,7 +261,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 	program := c.result.Program
 	allFiles := core.Filter(
 		core.Concatenate(c.toBeCompiled, c.otherFiles),
-		func(f *testutil.TestFile) bool {
+		func(f *harnessutil.TestFile) bool {
 			return program.GetSourceFile(f.UnitName) != nil // >> TODO: do we need normalized file name?
 		},
 	)
@@ -278,8 +278,8 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 	)
 }
 
-func createHarnessTestFile(unit *testUnit, currentDirectory string) *testutil.TestFile {
-	return &testutil.TestFile{
+func createHarnessTestFile(unit *testUnit, currentDirectory string) *harnessutil.TestFile {
+	return &harnessutil.TestFile{
 		UnitName:    tspath.GetNormalizedAbsolutePath(unit.name, currentDirectory),
 		Content:     unit.content,
 		FileOptions: unit.fileOptions,

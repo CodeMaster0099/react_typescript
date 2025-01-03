@@ -11,7 +11,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
-	"github.com/microsoft/typescript-go/internal/testutil"
+	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"gotest.tools/v3/assert"
 	"gotest.tools/v3/assert/cmp"
@@ -29,7 +29,7 @@ var (
 	diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
 )
 
-func DoErrorBaseline(t *testing.T, baselinePath string, inputFiles []*testutil.TestFile, errors []*ast.Diagnostic, pretty bool, subfolder string) {
+func DoErrorBaseline(t *testing.T, baselinePath string, inputFiles []*harnessutil.TestFile, errors []*ast.Diagnostic, pretty bool, subfolder string) {
 	baselinePath = tsExtension.ReplaceAllString(baselinePath, ".errors.txt")
 	var errorBaseline string
 	if len(errors) > 0 {
@@ -50,7 +50,7 @@ func minimalDiagnosticsToString(diagnostics []*ast.Diagnostic, pretty bool) stri
 	return output.String()
 }
 
-func getErrorBaseline(t *testing.T, inputFiles []*testutil.TestFile, diagnostics []*ast.Diagnostic, pretty bool) string {
+func getErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, diagnostics []*ast.Diagnostic, pretty bool) string {
 	t.Helper()
 	outputLines := iterateErrorBaseline(t, inputFiles, diagnostics, pretty)
 
@@ -66,7 +66,7 @@ func getErrorBaseline(t *testing.T, inputFiles []*testutil.TestFile, diagnostics
 	return strings.Join(outputLines, "")
 }
 
-func iterateErrorBaseline(t *testing.T, inputFiles []*testutil.TestFile, inputDiagnostics []*ast.Diagnostic, pretty bool) []string {
+func iterateErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, inputDiagnostics []*ast.Diagnostic, pretty bool) []string {
 	t.Helper()
 	diagnostics := slices.Clone(inputDiagnostics)
 	slices.SortFunc(diagnostics, compiler.CompareDiagnostics)
@@ -150,7 +150,7 @@ func iterateErrorBaseline(t *testing.T, inputFiles []*testutil.TestFile, inputDi
 
 	// 'merge' the lines of each input file with any errors associated with it
 	dupeCase := map[string]int{}
-	nonEmptyFiles := core.Filter(inputFiles, func(f *testutil.TestFile) bool { return len(f.Content) > 0 })
+	nonEmptyFiles := core.Filter(inputFiles, func(f *harnessutil.TestFile) bool { return len(f.Content) > 0 })
 	for _, inputFile := range nonEmptyFiles {
 		// Filter down to the errors in the file
 		fileErrors := core.Filter(diagnostics, func(e *ast.Diagnostic) bool {

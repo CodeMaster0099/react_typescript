@@ -12,7 +12,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/scanner"
-	"github.com/microsoft/typescript-go/internal/testutil"
+	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -27,7 +27,7 @@ func DoTypeAndSymbolBaseline(
 	baselinePath string,
 	header string,
 	program *compiler.Program,
-	allFiles []*testutil.TestFile,
+	allFiles []*harnessutil.TestFile,
 	opts Options,
 	skipTypeBaselines bool,
 	skipSymbolBaselines bool,
@@ -61,7 +61,7 @@ func DoTypeAndSymbolBaseline(
 func checkBaselines(
 	t *testing.T,
 	baselinePath string,
-	allFiles []*testutil.TestFile,
+	allFiles []*harnessutil.TestFile,
 	fullWalker *typeWriterWalker,
 	header string,
 	opts Options,
@@ -74,7 +74,7 @@ func checkBaselines(
 }
 
 func generateBaseline(
-	allFiles []*testutil.TestFile,
+	allFiles []*harnessutil.TestFile,
 	fullWalker *typeWriterWalker,
 	header string,
 	isSymbolBaseline bool,
@@ -130,7 +130,7 @@ type baselineResult struct {
 	content string
 }
 
-func iterateBaseline(allFiles []*testutil.TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []*baselineResult {
+func iterateBaseline(allFiles []*harnessutil.TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []*baselineResult {
 	var baselines []*baselineResult
 	dupeCase := make(map[string]int)
 
