@@ -22,7 +22,7 @@ var (
 )
 
 func DoTypeAndSymbolBaseline(
-	t testing.TB,
+	t *testing.T,
 	baselinePath string,
 	header string,
 	program *compiler.Program,
@@ -53,7 +53,7 @@ func DoTypeAndSymbolBaseline(
 }
 
 func checkBaselines(
-	t testing.TB,
+	t *testing.T,
 	baselinePath string,
 	allFiles []*TestFile,
 	fullWalker *typeWriterWalker,
