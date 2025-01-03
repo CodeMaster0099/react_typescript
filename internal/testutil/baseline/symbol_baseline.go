@@ -30,7 +30,8 @@ func DoTypeAndSymbolBaseline(
 	opts Options,
 	skipTypeBaselines bool,
 	skipSymbolBaselines bool,
-	hasErrorBaseline bool) {
+	hasErrorBaseline bool,
+) {
 	// The full walker simulates the types that you would get from doing a full
 	// compile.  The pull walker simulates the types you get when you just do
 	// a type query for a random node (like how the LS would do it).  Most of the

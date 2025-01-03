@@ -33,7 +33,7 @@ foo.bar;`
 	}
 	p := NewProgram(opts)
 	p.bindSourceFiles()
-	c := p.getTypeChecker()
+	c := p.GetTypeChecker()
 	file := p.filesByPath["/foo.ts"]
 	interfaceId := file.Statements.Nodes[0].Name()
 	varId := file.Statements.Nodes[1].AsVariableStatement().DeclarationList.AsVariableDeclarationList().Declarations.Nodes[0].Name()
