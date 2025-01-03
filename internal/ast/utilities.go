@@ -7,8 +7,10 @@ import (
 
 // Atomic ids
 
-var nextNodeId atomic.Uint32
-var nextSymbolId atomic.Uint32
+var (
+	nextNodeId   atomic.Uint32
+	nextSymbolId atomic.Uint32
+)
 
 func GetNodeId(node *Node) NodeId {
 	if node.Id == 0 {
@@ -490,7 +492,6 @@ func isFunctionLikeKind(kind Kind) bool {
 		KindConstructSignature,
 		KindIndexSignature,
 		KindFunctionType,
-		KindJSDocFunctionType,
 		KindConstructorType:
 		return true
 	}
@@ -724,11 +725,9 @@ func IsTypeNodeKind(kind Kind) bool {
 		KindIntrinsicKeyword,
 		KindExpressionWithTypeArguments,
 		KindJSDocAllType,
-		KindJSDocUnknownType,
 		KindJSDocNullableType,
 		KindJSDocNonNullableType,
 		KindJSDocOptionalType,
-		KindJSDocFunctionType,
 		KindJSDocVariadicType:
 		return true
 	}

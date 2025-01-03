@@ -15,11 +15,11 @@ type Options struct {
 
 const NoContent = "<no content>"
 
-func Run(t testing.TB, fileName string, actual string, opts Options) {
+func Run(t *testing.T, fileName string, actual string, opts Options) {
 	writeComparison(t, actual, fileName, opts)
 }
 
-func writeComparison(t testing.TB, actual string, relativeFileName string, opts Options) {
+func writeComparison(t *testing.T, actual string, relativeFileName string, opts Options) {
 	if actual == "" {
 		panic("The generated content was \"\". Return 'baseline.NoContent' if no baselining is required.")
 	}
@@ -37,14 +37,14 @@ func writeComparison(t testing.TB, actual string, relativeFileName string, opts 
 		}
 	}
 	if actual != expected {
-		if err := os.MkdirAll(filepath.Dir(localFileName), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(localFileName), 0o755); err != nil {
 			t.Fatal(fmt.Errorf("failed to create directories for the local baseline file %s: %w", localFileName, err))
 		}
 		if actual == NoContent {
-			if err := os.WriteFile(localFileName+".delete", []byte{}, 0644); err != nil {
+			if err := os.WriteFile(localFileName+".delete", []byte{}, 0o644); err != nil {
 				t.Fatal(fmt.Errorf("failed to write the local baseline file %s: %w", localFileName+".delete", err))
 			}
-		} else if err := os.WriteFile(localFileName, []byte(actual), 0644); err != nil {
+		} else if err := os.WriteFile(localFileName, []byte(actual), 0o644); err != nil {
 			t.Fatal(fmt.Errorf("failed to write the local baseline file %s: %w", localFileName, err))
 		}
 

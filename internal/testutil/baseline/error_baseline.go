@@ -24,10 +24,12 @@ var formatOpts = &compiler.DiagnosticsFormattingOptions{
 	NewLine: harnessNewLine,
 }
 
-var diagnosticsLocationPrefix = regexp.MustCompile(`(?im)^(lib.*\.d\.ts)\(\d+,\d+\)`)
-var diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
+var (
+	diagnosticsLocationPrefix  = regexp.MustCompile(`(?im)^(lib.*\.d\.ts)\(\d+,\d+\)`)
+	diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
+)
 
-func DoErrorBaseline(t testing.TB, baselinePath string, inputFiles []*testutil.TestFile, errors []*ast.Diagnostic, pretty bool, subfolder string) {
+func DoErrorBaseline(t *testing.T, baselinePath string, inputFiles []*testutil.TestFile, errors []*ast.Diagnostic, pretty bool, subfolder string) {
 	baselinePath = tsExtension.ReplaceAllString(baselinePath, ".errors.txt")
 	var errorBaseline string
 	if len(errors) > 0 {
@@ -48,7 +50,7 @@ func minimalDiagnosticsToString(diagnostics []*ast.Diagnostic, pretty bool) stri
 	return output.String()
 }
 
-func getErrorBaseline(t testing.TB, inputFiles []*testutil.TestFile, diagnostics []*ast.Diagnostic, pretty bool) string {
+func getErrorBaseline(t *testing.T, inputFiles []*testutil.TestFile, diagnostics []*ast.Diagnostic, pretty bool) string {
 	t.Helper()
 	outputLines := iterateErrorBaseline(t, inputFiles, diagnostics, pretty)
 
@@ -64,7 +66,7 @@ func getErrorBaseline(t testing.TB, inputFiles []*testutil.TestFile, diagnostics
 	return strings.Join(outputLines, "")
 }
 
-func iterateErrorBaseline(t testing.TB, inputFiles []*testutil.TestFile, inputDiagnostics []*ast.Diagnostic, pretty bool) []string {
+func iterateErrorBaseline(t *testing.T, inputFiles []*testutil.TestFile, inputDiagnostics []*ast.Diagnostic, pretty bool) []string {
 	t.Helper()
 	diagnostics := slices.Clone(inputDiagnostics)
 	slices.SortFunc(diagnostics, compiler.CompareDiagnostics)

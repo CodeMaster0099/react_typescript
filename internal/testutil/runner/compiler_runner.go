@@ -271,7 +271,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 		c.filename,
 		program,
 		allFiles,
-		nil, /*opts*/
+		baseline.Options{},
 		false,
 		false,
 		len(c.result.Diagnostics) > 0,
