@@ -48,8 +48,12 @@ func DoTypeAndSymbolBaseline(
 
 	fullWalker := newTypeWriterWalker(program, hasErrorBaseline)
 
-	checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/)
-	checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/)
+	t.Run("type", func(t *testing.T) {
+		checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/)
+	})
+	t.Run("symbol", func(t *testing.T) {
+		checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/)
+	})
 }
 
 func checkBaselines(
