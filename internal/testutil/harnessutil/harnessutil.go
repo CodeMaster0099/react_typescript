@@ -11,6 +11,7 @@ import (
 	"testing/fstest"
 
 	"github.com/microsoft/typescript-go/internal/ast"
+	"github.com/microsoft/typescript-go/internal/bundled"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/repo"
@@ -154,6 +155,7 @@ func CompileFiles(
 		}
 	}
 	fs := vfstest.FromMapFS(testfs, useCaseSensitiveFileNames)
+	fs = bundled.WrapFS(fs)
 
 	host := createCompilerHost(fs, &options, currentDirectory)
 	result := compileFilesWithHost(host, programFileNames, &options, typescriptVersion, harnessOptions.captureSuggestions)
@@ -284,9 +286,10 @@ func compileFilesWithHost(
 // !!! Temporary while we don't have the real `createProgram`
 func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *compiler.Program {
 	programOptions := compiler.ProgramOptions{
-		RootPath: "/", // Include all files while we don't have a way to specify root files
-		Host:     host,
-		Options:  options,
+		RootPath:           "/", // Include all files while we don't have a way to specify root files
+		Host:               host,
+		Options:            options,
+		DefaultLibraryPath: bundled.LibPath(),
 	}
 	program := compiler.NewProgram(programOptions)
 	return program
