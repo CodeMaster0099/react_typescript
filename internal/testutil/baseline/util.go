@@ -17,8 +17,10 @@ var (
 	testPathDotDot     = regexp.MustCompile(`\.\.\/`)
 )
 
-var libFolder = "built/local/"
-var builtFolder = "/.ts"
+var (
+	libFolder   = "built/local/"
+	builtFolder = "/.ts"
+)
 
 func removeTestPathPrefixes(text string, retainTrailingDirectorySeparator bool) string {
 	testPathPrefix.ReplaceAllStringFunc(text, func(scheme string) string {

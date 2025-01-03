@@ -632,7 +632,7 @@ func (c *Checker) findMostOverlappyType(source *Type, unionTarget *Type) *Type {
 					// We only want to account for literal types otherwise.
 					// If we have a union of index types, it seems likely that we
 					// needed to elaborate between two generic mapped types anyway.
-					var length = 1
+					length := 1
 					if overlap.flags&TypeFlagsUnion != 0 {
 						length = core.CountWhere(overlap.Types(), isUnitType)
 					}
@@ -3797,7 +3797,7 @@ func (r *Relater) propertiesRelatedTo(source *Type, target *Type, reportErrors b
 			return TernaryFalse
 		}
 	}
-	requireOptionalProperties := (r.relation == r.c.subtypeRelation || r.relation == r.c.strictSubtypeRelation) && isObjectLiteralType(source) && !r.c.isEmptyArrayLiteralType(source) && !isTupleType(source)
+	requireOptionalProperties := (r.relation == r.c.subtypeRelation || r.relation == r.c.strictSubtypeRelation) && !isObjectLiteralType(source) && !r.c.isEmptyArrayLiteralType(source) && !isTupleType(source)
 	unmatchedProperty := r.c.getUnmatchedProperty(source, target, requireOptionalProperties, false /*matchDiscriminantProperties*/)
 	if unmatchedProperty != nil {
 		if reportErrors && r.c.shouldReportUnmatchedPropertyError(source, target) {

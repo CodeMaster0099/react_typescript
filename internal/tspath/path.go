@@ -13,8 +13,10 @@ type Path string
 // Internally, we represent paths as strings with '/' as the directory separator.
 // When we make system calls (eg: LanguageServiceHost.getDirectory()),
 // we expect the host to correctly handle paths in our specified format.
-const directorySeparator = '/'
-const urlSchemeSeparator = "://"
+const (
+	directorySeparator = '/'
+	urlSchemeSeparator = "://"
+)
 
 //// Path Tests
 
@@ -229,6 +231,7 @@ func GetDirectoryPath(path string) string {
 	path = RemoveTrailingDirectorySeparator(path)
 	return path[:max(rootLength, strings.LastIndex(path, "/"))]
 }
+
 func (p Path) GetDirectoryPath() Path {
 	return Path(GetDirectoryPath(string(p)))
 }
@@ -353,7 +356,7 @@ func GetCanonicalFileName(fileName string, useCaseSensitiveFileNames bool) strin
 	if useCaseSensitiveFileNames {
 		return fileName
 	}
-	return toFileNameLowerCase(fileName)
+	return ToFileNameLowerCase(fileName)
 }
 
 // We convert the file names to lower case as key for file name on case insensitive file system
@@ -376,7 +379,7 @@ func GetCanonicalFileName(fileName string, useCaseSensitiveFileNames bool) strin
 // Rest special characters are either already in lower case format or
 // they have corresponding upper case character so they dont need special handling
 
-func toFileNameLowerCase(fileName string) string {
+func ToFileNameLowerCase(fileName string) string {
 	return strings.Map(func(r rune) rune {
 		if r == '\u0130' {
 			return r
@@ -401,6 +404,7 @@ func RemoveTrailingDirectorySeparator(path string) string {
 	}
 	return path
 }
+
 func (p Path) RemoveTrailingDirectorySeparator() Path {
 	return Path(RemoveTrailingDirectorySeparator(string(p)))
 }
@@ -412,6 +416,7 @@ func EnsureTrailingDirectorySeparator(path string) string {
 
 	return path
 }
+
 func (p Path) EnsureTrailingDirectorySeparator() Path {
 	return Path(EnsureTrailingDirectorySeparator(string(p)))
 }
