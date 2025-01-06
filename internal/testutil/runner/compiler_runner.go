@@ -265,10 +265,12 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 			return program.GetSourceFile(f.UnitName) != nil
 		},
 	)
+
+	header := tspath.GetRelativePathFromDirectory(repo.TestDataPath, c.filename, tspath.ComparePathsOptions{})
 	baseline.DoTypeAndSymbolBaseline(
 		t,
 		c.configuredName,
-		c.filename,
+		header,
 		program,
 		allFiles,
 		baseline.Options{Subfolder: suiteName},

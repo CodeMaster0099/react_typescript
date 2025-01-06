@@ -1,4 +1,4 @@
-//// [C:/Users/gabrielaa/code/typescript-go/testdata/tests/cases/compiler/simpleTestMultiFile.ts] ////
+//// [tests/cases/compiler/simpleTestMultiFile.ts] ////
 
 === /src/foo.ts ===
 const x: number = "";
