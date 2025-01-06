@@ -104,7 +104,7 @@ func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compile
 
 	compilerTest.verifyDiagnostics(t, r.testSuitName)
 	compilerTest.verifyTypesAndSymbols(t, r.testSuitName)
-	// !!! Verify all baselines; make each kind of baseline a separate subtest
+	// !!! Verify all baselines
 }
 
 type compilerFileBasedTest struct {
@@ -252,7 +252,7 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string) {
 }
 
 func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
-	// !!! Needs harness settings
+	// !!! Needs harness settings parsing
 	// const noTypesAndSymbols = this.harnessSettings.noTypesAndSymbols &&
 	// 	this.harnessSettings.noTypesAndSymbols.toLowerCase() === "true";
 	// if (noTypesAndSymbols) {
@@ -262,7 +262,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 	allFiles := core.Filter(
 		core.Concatenate(c.toBeCompiled, c.otherFiles),
 		func(f *harnessutil.TestFile) bool {
-			return program.GetSourceFile(f.UnitName) != nil // >> TODO: do we need normalized file name?
+			return program.GetSourceFile(f.UnitName) != nil
 		},
 	)
 	baseline.DoTypeAndSymbolBaseline(

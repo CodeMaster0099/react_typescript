@@ -130,30 +130,6 @@ func CompileFiles(
 		}
 	}
 
-	// !!! Copy lib files for now; remove later
-	libFiles, err := listFiles("lib", nil, false)
-	if err != nil {
-		panic("Could not list lib files: " + err.Error())
-	}
-	for _, libFile := range libFiles {
-		relativeLibFile := tspath.ConvertToRelativePath(
-			libFile,
-			tspath.ComparePathsOptions{
-				UseCaseSensitiveFileNames: useCaseSensitiveFileNames,
-				CurrentDirectory:          repo.TestDataPath,
-			},
-		)
-		fileName := tspath.GetNormalizedAbsolutePath(relativeLibFile, currentDirectory)
-		rootLen := tspath.GetRootLength(fileName)
-		fileName = fileName[rootLen:]
-		data, err := os.ReadFile(libFile)
-		if err != nil {
-			panic(fmt.Sprintf("Could not read lib file %s: %s", libFile, err.Error()))
-		}
-		testfs[fileName] = &fstest.MapFile{
-			Data: data,
-		}
-	}
 	fs := vfstest.FromMapFS(testfs, useCaseSensitiveFileNames)
 	fs = bundled.WrapFS(fs)
 
