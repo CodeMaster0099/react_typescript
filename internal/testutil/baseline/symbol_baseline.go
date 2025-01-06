@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	codeLinesRegexp  = regexp.MustCompile(`[\r\\u2028\\u2029]|\r?\n`)
+	codeLinesRegexp  = regexp.MustCompile("[\r\u2028\u2029]|\r?\n")
 	bracketLineRegex = regexp.MustCompile(`^\s*[{|}]\s*$`)
 	lineEndRegex     = regexp.MustCompile(`\r?\n`)
 )
@@ -85,7 +85,7 @@ func generateBaseline(
 	// prePerformanceValues := getPerformanceBaselineValues()
 	baselines := iterateBaseline(allFiles, fullWalker, isSymbolBaseline)
 	for _, value := range baselines {
-		result.WriteString(value.content)
+		result.WriteString(value)
 	}
 	// postPerformanceValues := getPerformanceBaselineValues()
 
@@ -125,14 +125,8 @@ func generateBaseline(
 	return result.String()
 }
 
-type baselineResult struct {
-	name    string
-	content string
-}
-
-func iterateBaseline(allFiles []*harnessutil.TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []*baselineResult {
-	var baselines []*baselineResult
-	dupeCase := make(map[string]int)
+func iterateBaseline(allFiles []*harnessutil.TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []string {
+	var baselines []string
 
 	for _, file := range allFiles {
 		unitName := file.UnitName
@@ -189,10 +183,8 @@ func iterateBaseline(allFiles []*harnessutil.TestFile, fullWalker *typeWriterWal
 
 		baselines = append(
 			baselines,
-			&baselineResult{
-				content: removeTestPathPrefixes(typeLines.String(), false /*retainTrailingDirectorySeparator*/),
-				name:    checkDuplicatedFileName(unitName, dupeCase),
-			})
+			removeTestPathPrefixes(typeLines.String(), false /*retainTrailingDirectorySeparator*/),
+		)
 	}
 
 	return baselines

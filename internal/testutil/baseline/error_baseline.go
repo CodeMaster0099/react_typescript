@@ -214,7 +214,6 @@ func iterateErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, inpu
 		// Verify we didn't miss any errors in this file
 		assert.Check(t, cmp.Equal(markedErrorCount, len(fileErrors)), "count of errors in "+inputFile.UnitName)
 		_, isDupe := dupeCase[sanitizeTestFilePath(inputFile.UnitName)]
-		checkDuplicatedFileName(inputFile.UnitName, dupeCase)
 		result = append(result, outputLines.String())
 		if isDupe {
 			// Case-duplicated files on a case-insensitive build will have errors reported in both the dupe and the original

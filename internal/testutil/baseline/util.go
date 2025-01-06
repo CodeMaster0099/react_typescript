@@ -1,7 +1,6 @@
 package baseline
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -54,17 +53,4 @@ func sanitizeTestFilePath(name string) string {
 	path = testPathDotDot.ReplaceAllString(path, "__dotdot/")
 	path = string(tspath.ToPath(path, "", false /*useCaseSensitiveFileNames*/))
 	return strings.TrimPrefix(path, "/")
-}
-
-func checkDuplicatedFileName(resultName string, dupeCase map[string]int) string {
-	resultName = sanitizeTestFilePath(resultName)
-	if _, ok := dupeCase[resultName]; ok {
-		// A different baseline filename should be manufactured if the names differ only in case, for windows compat
-		count := 1 + dupeCase[resultName]
-		dupeCase[resultName] = count
-		resultName = fmt.Sprintf("%s.dupe%d", resultName, count)
-	} else {
-		dupeCase[resultName] = 0
-	}
-	return resultName
 }
