@@ -84,7 +84,7 @@ func generateBaseline(
 	// prePerformanceValues := getPerformanceBaselineValues()
 	baselines := iterateBaseline(allFiles, fullWalker, isSymbolBaseline)
 	for _, value := range baselines {
-		result.WriteString(value.content)
+		result.WriteString(value)
 	}
 	// postPerformanceValues := getPerformanceBaselineValues()
 
@@ -124,14 +124,8 @@ func generateBaseline(
 	return result.String()
 }
 
-type baselineResult struct {
-	name    string
-	content string
-}
-
-func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []*baselineResult {
-	var baselines []*baselineResult
-	dupeCase := make(map[string]int)
+func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbolBaseline bool) []string {
+	var baselines []string
 
 	for _, file := range allFiles {
 		unitName := file.unitName
@@ -188,10 +182,8 @@ func iterateBaseline(allFiles []*TestFile, fullWalker *typeWriterWalker, isSymbo
 
 		baselines = append(
 			baselines,
-			&baselineResult{
-				content: removeTestPathPrefixes(typeLines.String(), false /*retainTrailingDirectorySeparator*/),
-				name:    checkDuplicatedFileName(unitName, dupeCase),
-			})
+			removeTestPathPrefixes(typeLines.String(), false /*retainTrailingDirectorySeparator*/),
+		)
 	}
 
 	return baselines
