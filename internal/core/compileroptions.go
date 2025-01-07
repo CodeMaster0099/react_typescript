@@ -16,6 +16,9 @@ type CompilerOptions struct {
 	AllowUnusedLabels                  Tristate             `json:"allowUnusedLabels"`
 	CheckJs                            Tristate             `json:"checkJs"`
 	CustomConditions                   []string             `json:"customConditions"`
+	EmitDeclarationOnly                Tristate             `json:"emitDeclarationOnly"`
+	EmitBOM                            Tristate             `json:"emitBOM"`
+	DownlevelIteration                 Tristate             `json:"downlevelIteration"`
 	ESModuleInterop                    Tristate             `json:"esModuleInterop"`
 	ExactOptionalPropertyTypes         Tristate             `json:"exactOptionalPropertyTypes"`
 	ExperimentalDecorators             Tristate             `json:"experimentalDecorators"`
@@ -27,11 +30,15 @@ type CompilerOptions struct {
 	ModuleResolution                   ModuleResolutionKind `json:"moduleResolution"`
 	ModuleSuffixes                     []string             `json:"moduleSuffixes"`
 	ModuleDetection                    ModuleDetectionKind  `json:"moduleDetectionKind"`
+	NewLine                            NewLineKind          `json:"newLine"`
+	NoEmit                             Tristate             `json:"noEmit"`
 	NoFallthroughCasesInSwitch         Tristate             `json:"noFallthroughCasesInSwitch"`
 	NoImplicitAny                      Tristate             `json:"noImplicitAny"`
 	NoImplicitThis                     Tristate             `json:"noImplicitThis"`
+	NoLib                              Tristate             `json:"noLib"`
 	NoPropertyAccessFromIndexSignature Tristate             `json:"noPropertyAccessFromIndexSignature"`
 	NoUncheckedIndexedAccess           Tristate             `json:"noUncheckedIndexedAccess"`
+	OutDir                             string               `json:"outDir"`
 	Paths                              map[string][]string  `json:"paths"`
 	PreserveConstEnums                 Tristate             `json:"preserveConstEnums"`
 	PreserveSymlinks                   Tristate             `json:"preserveSymlinks"`
@@ -40,6 +47,7 @@ type CompilerOptions struct {
 	ResolvePackageJsonImports          Tristate             `json:"resolvePackageJsonImports"`
 	Strict                             Tristate             `json:"strict"`
 	StrictBindCallApply                Tristate             `json:"strictBindCallApply"`
+	StrictBuiltinIteratorReturn        Tristate             `json:"strictBuiltinIteratorReturn"`
 	StrictFunctionTypes                Tristate             `json:"strictFunctionTypes"`
 	StrictNullChecks                   Tristate             `json:"strictNullChecks"`
 	StrictPropertyInitialization       Tristate             `json:"strictPropertyInitialization"`
@@ -98,6 +106,7 @@ func (options *CompilerOptions) GetESModuleInterop() bool {
 	}
 	return false
 }
+
 func (options *CompilerOptions) GetAllowSyntheticDefaultImports() bool {
 	if options.AllowSyntheticDefaultImports != TSUnknown {
 		return options.AllowSyntheticDefaultImports == TSTrue
@@ -112,6 +121,10 @@ func (options *CompilerOptions) GetResolveJsonModule() bool {
 		return options.ResolveJsonModule == TSTrue
 	}
 	return options.GetModuleResolutionKind() == ModuleResolutionKindBundler
+}
+
+func (options *CompilerOptions) ShouldPreserveConstEnums() bool {
+	return options.PreserveConstEnums == TSTrue || options.IsolatedModules == TSTrue
 }
 
 func (options *CompilerOptions) GetAllowJs() bool {
@@ -150,6 +163,16 @@ func (options *CompilerOptions) GetEffectiveTypeRoots(currentDirectory string) (
 	return typeRoots, false
 }
 
+func (options *CompilerOptions) GetEmitDeclarations() bool {
+	// !!!
+	return false
+}
+
+func (options *CompilerOptions) GetAreDeclarationMapsEnabled() bool {
+	// !!!
+	return false
+}
+
 type ModuleDetectionKind int32
 
 const (
@@ -186,7 +209,7 @@ type ResolutionMode = ModuleKind // ModuleKindNone | ModuleKindCommonJS | Module
 const (
 	ResolutionModeNone     = ModuleKindNone
 	ResolutionModeCommonJS = ModuleKindCommonJS
-	ResolutionModeESM      = ModuleKindES2015
+	ResolutionModeESM      = ModuleKindESNext
 )
 
 type ModuleResolutionKind int32
@@ -231,6 +254,15 @@ const (
 	NewLineKindCRLF NewLineKind = 0
 	NewLineKindLF   NewLineKind = 1
 )
+
+func (newLine NewLineKind) GetNewLineCharacter() string {
+	switch newLine {
+	case NewLineKindCRLF:
+		return "\r\n"
+	default:
+		return "\n"
+	}
+}
 
 type ScriptTarget int32
 

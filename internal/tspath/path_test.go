@@ -1,6 +1,8 @@
 package tspath
 
 import (
+	"regexp"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -270,6 +272,113 @@ func TestResolvePath(t *testing.T) {
 	assert.Equal(t, ResolvePath("a", "b", "../c"), "a/c")
 }
 
+func TestGetNormalizedAbsolutePath(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, GetNormalizedAbsolutePath("/", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/.", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/./", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/../", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a", ""), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/", ""), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/.", ""), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/foo.", ""), "/a/foo.")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/./", ""), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/./b", ""), "/a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/./b/", ""), "/a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/..", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/../", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/../", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/../b", ""), "/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/../b/", ""), "/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/..", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/..", "/"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/..", "b/"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/..", "/b"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/.", "b"), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/.", "."), "/a")
+
+	// Tests as above, but with backslashes.
+	assert.Equal(t, GetNormalizedAbsolutePath("\\", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\.", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\.\\", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\..\\", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\.\\", ""), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\.\\b", ""), "/a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\.\\b\\", ""), "/a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..\\", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..\\", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..\\b", ""), "/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..\\b\\", ""), "/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..", ""), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..", "\\"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..", "b\\"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\..", "\\b"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\.", "b"), "/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\.", "."), "/a")
+
+	// Relative paths on an empty currentDirectory.
+	assert.Equal(t, GetNormalizedAbsolutePath("", ""), "")
+	assert.Equal(t, GetNormalizedAbsolutePath(".", ""), "")
+	assert.Equal(t, GetNormalizedAbsolutePath("./", ""), "")
+	// Strangely, these do not normalize to the empty string.
+	assert.Equal(t, GetNormalizedAbsolutePath("..", ""), "..")
+	assert.Equal(t, GetNormalizedAbsolutePath("../", ""), "..")
+
+	// Interaction between relative paths and currentDirectory.
+	assert.Equal(t, GetNormalizedAbsolutePath("", "/home"), "/home")
+	assert.Equal(t, GetNormalizedAbsolutePath(".", "/home"), "/home")
+	assert.Equal(t, GetNormalizedAbsolutePath("./", "/home"), "/home")
+	assert.Equal(t, GetNormalizedAbsolutePath("..", "/home"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("../", "/home"), "/")
+	assert.Equal(t, GetNormalizedAbsolutePath("a", "b"), "b/a")
+	assert.Equal(t, GetNormalizedAbsolutePath("a", "b/c"), "b/c/a")
+
+	// Base names starting or ending with a dot do not affect normalization.
+	assert.Equal(t, GetNormalizedAbsolutePath(".a", ""), ".a")
+	assert.Equal(t, GetNormalizedAbsolutePath("..a", ""), "..a")
+	assert.Equal(t, GetNormalizedAbsolutePath("a.", ""), "a.")
+	assert.Equal(t, GetNormalizedAbsolutePath("a..", ""), "a..")
+
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/./.a", ""), "/base/.a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/../.a", ""), "/.a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/./..a", ""), "/base/..a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/../..a", ""), "/..a")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/./..a/b", ""), "/base/..a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/../..a/b", ""), "/..a/b")
+
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/./a.", ""), "/base/a.")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/../a.", ""), "/a.")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/./a..", ""), "/base/a..")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/../a..", ""), "/a..")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/./a../b", ""), "/base/a../b")
+	assert.Equal(t, GetNormalizedAbsolutePath("/base/../a../b", ""), "/a../b")
+
+	// Consecutive intermediate slashes are normalized to a single slash.
+	assert.Equal(t, GetNormalizedAbsolutePath("a//b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a///b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a/b//c", ""), "a/b/c")
+	assert.Equal(t, GetNormalizedAbsolutePath("/a/b//c", ""), "/a/b/c")
+	assert.Equal(t, GetNormalizedAbsolutePath("//a/b//c", ""), "//a/b/c")
+
+	// Backslashes are converted to slashes,
+	// and then consecutive intermediate slashes are normalized to a single slash
+	assert.Equal(t, GetNormalizedAbsolutePath("a\\\\b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a\\\\\\b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a\\b\\\\c", ""), "a/b/c")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\b\\\\c", ""), "/a/b/c")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\\\a\\b\\\\c", ""), "//a/b/c")
+
+	// The same occurs for mixed slashes.
+	assert.Equal(t, GetNormalizedAbsolutePath("a/\\b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a\\/b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a\\/\\b", ""), "a/b")
+	assert.Equal(t, GetNormalizedAbsolutePath("a\\b//c", ""), "a/b/c")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\a\\b\\\\c", ""), "/a/b/c")
+	assert.Equal(t, GetNormalizedAbsolutePath("\\\\a\\b\\\\c", ""), "//a/b/c")
+}
+
 func TestGetRelativePathToDirectoryOrUrl(t *testing.T) {
 	t.Parallel()
 	// !!!
@@ -299,10 +408,53 @@ func TestGetRelativePathToDirectoryOrUrl(t *testing.T) {
 
 func TestToFileNameLowerCase(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, toFileNameLowerCase("/user/UserName/projects/Project/file.ts"), "/user/username/projects/project/file.ts")
-	assert.Equal(t, toFileNameLowerCase("/user/UserName/projects/projectß/file.ts"), "/user/username/projects/projectß/file.ts")
-	assert.Equal(t, toFileNameLowerCase("/user/UserName/projects/İproject/file.ts"), "/user/username/projects/İproject/file.ts")
-	assert.Equal(t, toFileNameLowerCase("/user/UserName/projects/ı/file.ts"), "/user/username/projects/ı/file.ts")
+	assert.Equal(t, ToFileNameLowerCase("/user/UserName/projects/Project/file.ts"), "/user/username/projects/project/file.ts")
+	assert.Equal(t, ToFileNameLowerCase("/user/UserName/projects/projectß/file.ts"), "/user/username/projects/projectß/file.ts")
+	assert.Equal(t, ToFileNameLowerCase("/user/UserName/projects/İproject/file.ts"), "/user/username/projects/İproject/file.ts")
+	assert.Equal(t, ToFileNameLowerCase("/user/UserName/projects/ı/file.ts"), "/user/username/projects/ı/file.ts")
+}
+
+var toFileNameLowerCaseTests = []string{
+	"/path/to/file.ext",
+	"/PATH/TO/FILE.EXT",
+	"/path/to/FILE.EXT",
+	"/user/UserName/projects/Project/file.ts",
+	"/user/UserName/projects/projectß/file.ts",
+	"/user/UserName/projects/İproject/file.ts",
+	"/user/UserName/projects/ı/file.ts",
+	strings.Repeat("FoO/", 100),
+}
+
+// See [toFileNameLowerCase] for more info.
+//
+// To avoid having to do string building for most common cases, also ignore
+// a-z, 0-9, \u0131, \u00DF, \, /, ., : and space
+var fileNameLowerCaseRegExp = regexp.MustCompile(`[^\x{0130}\x{0131}\x{00DF}a-z0-9\\/:\-_. ]+`)
+
+func oldToFileNameLowerCase(fileName string) string {
+	return fileNameLowerCaseRegExp.ReplaceAllStringFunc(fileName, strings.ToLower)
+}
+
+func BenchmarkToFileNameLowerCase(b *testing.B) {
+	for _, test := range toFileNameLowerCaseTests {
+		name := shortenName(test)
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				ToFileNameLowerCase(test)
+			}
+		})
+	}
+}
+
+func FuzzToFileNameLowerCase(f *testing.F) {
+	for _, test := range toFileNameLowerCaseTests {
+		f.Add(test)
+	}
+
+	f.Fuzz(func(t *testing.T, p string) {
+		assert.Equal(t, oldToFileNameLowerCase(p), ToFileNameLowerCase(p))
+	})
 }
 
 func TestToPath(t *testing.T) {
@@ -310,4 +462,113 @@ func TestToPath(t *testing.T) {
 	assert.Equal(t, string(ToPath("file.ext", "path/to", CaseInsensitive)), "path/to/file.ext")
 	assert.Equal(t, string(ToPath("file.ext", "/path/to", CaseSensitive)), "/path/to/file.ext")
 	assert.Equal(t, string(ToPath("/path/to/../file.ext", "path/to", CaseSensitive)), "/path/file.ext")
+}
+
+var relativePathSegmentRegExp = regexp.MustCompile(`//|(?:^|/)\.\.?(?:$|/)`)
+
+func oldHasRelativePathSegment(p string) bool {
+	return relativePathSegmentRegExp.MatchString(p)
+}
+
+var hasRelativePathSegmentTests = []struct {
+	p     string
+	bench bool
+}{
+	{"//", false},
+	{"foo/bar/baz", true},
+	{"foo/./baz", false},
+	{"foo/../baz", false},
+	{"foo/bar/baz/.", false},
+	{"./some/path", true},
+	{"/foo//bar/", false},
+	{"/foo/./bar/../../.", true},
+	{strings.Repeat("foo/", 100) + "..", true},
+}
+
+func BenchmarkHasRelativePathSegment(b *testing.B) {
+	for _, tt := range hasRelativePathSegmentTests {
+		if !tt.bench {
+			continue
+		}
+		name := shortenName(tt.p)
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				hasRelativePathSegment(tt.p)
+			}
+		})
+	}
+}
+
+func FuzzHasRelativePathSegment(f *testing.F) {
+	for _, tt := range hasRelativePathSegmentTests {
+		f.Add(tt.p)
+	}
+
+	f.Fuzz(func(t *testing.T, p string) {
+		assert.Equal(t, oldHasRelativePathSegment(p), hasRelativePathSegment(p))
+	})
+}
+
+var pathIsRelativeTests = []struct {
+	p          string
+	isRelative bool
+	benchmark  bool
+}{
+	// relative
+	{".", true, false},
+	{"..", true, false},
+	{"./", true, false},
+	{"../", true, false},
+	{"./foo/bar", true, true},
+	{"../foo/bar", true, true},
+	{"../" + strings.Repeat("foo/", 100), true, true},
+	// non-relative
+	{"", false, false},
+	{"foo", false, false},
+	{"foo/bar", false, false},
+	{"/foo/bar", false, false},
+	{"c:/foo/bar", false, false},
+}
+
+func init() {
+	old := pathIsRelativeTests
+
+	for _, t := range old {
+		t.p = strings.ReplaceAll(t.p, "/", "\\")
+		pathIsRelativeTests = append(pathIsRelativeTests, t)
+	}
+}
+
+func TestPathIsRelative(t *testing.T) {
+	t.Parallel()
+	for _, tt := range pathIsRelativeTests {
+		name := shortenName(tt.p)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, PathIsRelative(tt.p), tt.isRelative)
+		})
+	}
+}
+
+func BenchmarkPathIsRelative(b *testing.B) {
+	for _, tt := range pathIsRelativeTests {
+		if !tt.benchmark {
+			continue
+		}
+		name := shortenName(tt.p)
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				PathIsRelative(tt.p)
+			}
+		})
+	}
+}
+
+func shortenName(name string) string {
+	if len(name) > 20 {
+		return name[:20] + "...etc"
+	}
+	return name
 }

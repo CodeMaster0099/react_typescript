@@ -14,48 +14,45 @@ var typeScriptVersion = semver.MustParse(core.Version)
 
 type PackageJson struct {
 	Fields
-	versionPaths *VersionPaths
+	versionPaths VersionPaths
 	once         sync.Once
 }
 
-func (p *PackageJson) GetVersionPaths(collectTraces bool) (value *VersionPaths, traces []string) {
+func (p *PackageJson) GetVersionPaths(trace func(string)) VersionPaths {
 	p.once.Do(func() {
 		if p.Fields.TypesVersions.Type == JSONValueTypeNotPresent {
-			p.versionPaths = &VersionPaths{}
-			if collectTraces {
-				traces = append(traces, diagnostics.X_package_json_does_not_have_a_0_field.Format("typesVersions"))
+			if trace != nil {
+				trace(diagnostics.X_package_json_does_not_have_a_0_field.Format("typesVersions"))
 			}
 			return
 		}
 		if p.Fields.TypesVersions.Type != JSONValueTypeObject {
-			p.versionPaths = &VersionPaths{}
-			if collectTraces {
-				traces = append(traces, diagnostics.Expected_type_of_0_field_in_package_json_to_be_1_got_2.Format("typesVersions", "object", p.Fields.TypesVersions.Type.String()))
+			if trace != nil {
+				trace(diagnostics.Expected_type_of_0_field_in_package_json_to_be_1_got_2.Format("typesVersions", "object", p.Fields.TypesVersions.Type.String()))
 			}
 			return
 		}
 
-		if collectTraces {
-			traces = append(traces, diagnostics.X_package_json_has_a_typesVersions_field_with_version_specific_path_mappings.Format("typesVersions"))
+		if trace != nil {
+			trace(diagnostics.X_package_json_has_a_typesVersions_field_with_version_specific_path_mappings.Format("typesVersions"))
 		}
 
 		for key, value := range p.Fields.TypesVersions.AsObject().Entries() {
 			keyRange, ok := semver.TryParseVersionRange(key)
 			if ok {
-				if collectTraces {
-					traces = append(traces, diagnostics.X_package_json_has_a_typesVersions_entry_0_that_is_not_a_valid_semver_range.Format(key))
+				if trace != nil {
+					trace(diagnostics.X_package_json_has_a_typesVersions_entry_0_that_is_not_a_valid_semver_range.Format(key))
 				}
 				continue
 			}
 			if keyRange.Test(&typeScriptVersion) {
 				if value.Type != JSONValueTypeObject {
-					if collectTraces {
-						traces = append(traces, diagnostics.Expected_type_of_0_field_in_package_json_to_be_1_got_2.Format("typesVersions['"+key+"']", "object", value.Type.String()))
+					if trace != nil {
+						trace(diagnostics.Expected_type_of_0_field_in_package_json_to_be_1_got_2.Format("typesVersions['"+key+"']", "object", value.Type.String()))
 					}
-					p.versionPaths = &VersionPaths{}
 					return
 				}
-				p.versionPaths = &VersionPaths{
+				p.versionPaths = VersionPaths{
 					Version:   key,
 					pathsJSON: value.AsObject(),
 				}
@@ -63,25 +60,25 @@ func (p *PackageJson) GetVersionPaths(collectTraces bool) (value *VersionPaths, 
 			}
 		}
 
-		if collectTraces {
-			traces = append(traces, diagnostics.X_package_json_does_not_have_a_typesVersions_entry_that_matches_version_0.Format(core.VersionMajorMinor))
+		if trace != nil {
+			trace(diagnostics.X_package_json_does_not_have_a_typesVersions_entry_that_matches_version_0.Format(core.VersionMajorMinor))
 		}
 	})
-	return p.versionPaths, traces
+	return p.versionPaths
 }
 
 type VersionPaths struct {
 	Version   string
-	pathsJSON *collections.OrderedMap[string, *JSONValue]
+	pathsJSON *collections.OrderedMap[string, JSONValue]
 	paths     map[string][]string
 }
 
-func (v *VersionPaths) IsValid() bool {
-	return v.pathsJSON != nil
+func (v *VersionPaths) Exists() bool {
+	return v != nil && v.Version != "" && v.pathsJSON != nil
 }
 
 func (v *VersionPaths) GetPaths() map[string][]string {
-	if !v.IsValid() {
+	if !v.Exists() {
 		return nil
 	}
 	if v.paths != nil {
@@ -114,6 +111,7 @@ func (p *InfoCacheEntry) Exists() bool {
 }
 
 type InfoCache struct {
+	mu               sync.RWMutex
 	IsReadonly       bool
 	cache            map[tspath.Path]InfoCacheEntry
 	currentDirectory string
@@ -128,11 +126,9 @@ func NewInfoCache(currentDirectory string, caseSensitivity tspath.CaseSensitivit
 }
 
 func (p *InfoCache) Get(packageJsonPath string) *InfoCacheEntry {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	key := tspath.ToPath(packageJsonPath, p.currentDirectory, p.caseSensitivity)
-	if p.cache == nil {
-		p.cache = make(map[tspath.Path]InfoCacheEntry)
-		return nil
-	}
 	entry, ok := p.cache[key]
 	if !ok {
 		return nil
@@ -141,6 +137,8 @@ func (p *InfoCache) Get(packageJsonPath string) *InfoCacheEntry {
 }
 
 func (p *InfoCache) Set(packageJsonPath string, info *InfoCacheEntry) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	key := tspath.ToPath(packageJsonPath, p.currentDirectory, p.caseSensitivity)
 	if p.cache == nil {
 		p.cache = make(map[tspath.Path]InfoCacheEntry)

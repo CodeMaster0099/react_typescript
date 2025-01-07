@@ -2,6 +2,7 @@ package baseline
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"slices"
 	"strings"
@@ -34,8 +35,10 @@ type TestFile struct {
 	fileOptions map[string]string
 }
 
-var diagnosticsLocationPrefix = regexp.MustCompile(`(?im)^(lib.*\.d\.ts)\(\d+,\d+\)`)
-var diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
+var (
+	diagnosticsLocationPrefix  = regexp.MustCompile(`(?im)^(lib.*\.d\.ts)\(\d+,\d+\)`)
+	diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
+)
 
 func DoErrorBaseline(t testing.TB, baselinePath string, inputFiles []*TestFile, errors []*ast.Diagnostic, pretty bool) {
 	baselinePath = tsExtension.ReplaceAllString(baselinePath, ".errors.txt")
@@ -112,7 +115,7 @@ func iterateErrorBaseline(t testing.TB, inputFiles []*TestFile, inputDiagnostics
 		for _, info := range diag.RelatedInformation() {
 			var location string
 			if info.File() != nil {
-				location = " " + formatLocation(info.File(), info.Loc().Pos(), formatOpts, func(output *strings.Builder, text string, formatStyle string) { output.WriteString(text) })
+				location = " " + formatLocation(info.File(), info.Loc().Pos(), formatOpts, func(output io.Writer, text string, formatStyle string) { fmt.Fprint(output, text) })
 			}
 			location = removeTestPathPrefixes(location, false)
 			if len(location) > 0 && isDefaultLibraryFile(info.File().FileName()) {

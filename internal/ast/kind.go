@@ -7,6 +7,10 @@ type Kind int16
 const (
 	KindUnknown Kind = iota
 	KindEndOfFile
+	KindSingleLineCommentTrivia
+	KindMultiLineCommentTrivia
+	KindNewLineTrivia
+	KindWhitespaceTrivia
 	KindConflictMarkerTrivia
 	KindNonTextFileMarkerTrivia
 	KindNumericLiteral
@@ -337,15 +341,12 @@ const (
 	// JSDoc nodes
 	KindJSDocTypeExpression
 	KindJSDocNameReference
-	KindJSDocMemberName  // C#p
-	KindJSDocAllType     // The * type
-	KindJSDocUnknownType // The ? type
+	KindJSDocMemberName // C#p
+	KindJSDocAllType    // The * type
 	KindJSDocNullableType
 	KindJSDocNonNullableType
 	KindJSDocOptionalType
-	KindJSDocFunctionType
 	KindJSDocVariadicType
-	KindJSDocNamepathType // https://jsdoc.app/about-namepaths.html
 	KindJSDoc
 	KindJSDocText
 	KindJSDocTypeLiteral
@@ -420,4 +421,5 @@ const (
 	KindLastJSDocTagNode        = KindJSDocImportTag
 	KindFirstContextualKeyword  = KindAbstractKeyword
 	KindLastContextualKeyword   = KindOfKeyword
+	KindComment                 = KindSingleLineCommentTrivia | KindMultiLineCommentTrivia
 )

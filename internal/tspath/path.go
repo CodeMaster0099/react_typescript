@@ -2,8 +2,8 @@ package tspath
 
 import (
 	"cmp"
-	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/microsoft/typescript-go/internal/stringutil"
 )
@@ -26,37 +26,10 @@ func (c CaseSensitivity) IsCaseSensitive() bool {
 // Internally, we represent paths as strings with '/' as the directory separator.
 // When we make system calls (eg: LanguageServiceHost.getDirectory()),
 // we expect the host to correctly handle paths in our specified format.
-const directorySeparator = '/'
-const urlSchemeSeparator = "://"
-
-// check path for these segments:
-//
-//	'', '.'. '..'
-var relativePathSegmentRegExp = regexp.MustCompile(`//|(?:^|/)\.\.?(?:$|/)`)
-
-// We convert the file names to lower case as key for file name on case insensitive file system
-// While doing so we need to handle special characters (eg \u0130) to ensure that we dont convert
-// it to lower case, fileName with its lowercase form can exist along side it.
-// Handle special characters and make those case sensitive instead
-//
-// |-#--|-Unicode--|-Char code-|-Desc-------------------------------------------------------------------|
-// | 1. | i        | 105       | Ascii i                                                                |
-// | 2. | I        | 73        | Ascii I                                                                |
-// |-------- Special characters ------------------------------------------------------------------------|
-// | 3. | \u0130   | 304       | Upper case I with dot above                                            |
-// | 4. | i,\u0307 | 105,775   | i, followed by 775: Lower case of (3rd item)                           |
-// | 5. | I,\u0307 | 73,775    | I, followed by 775: Upper case of (4th item), lower case is (4th item) |
-// | 6. | \u0131   | 305       | Lower case i without dot, upper case is I (2nd item)                   |
-// | 7. | \u00DF   | 223       | Lower case sharp s                                                     |
-//
-// Because item 3 is special where in its lowercase character has its own
-// upper case form we cant convert its case.
-// Rest special characters are either already in lower case format or
-// they have corresponding upper case character so they dont need special handling
-//
-// But to avoid having to do string building for most common cases, also ignore
-// a-z, 0-9, \u0131, \u00DF, \, /, ., : and space
-var fileNameLowerCaseRegExp = regexp.MustCompile(`[^\x{0130}\x{0131}\x{00DF}a-z0-9\\/:\-_. ]+`)
+const (
+	directorySeparator = '/'
+	urlSchemeSeparator = "://"
+)
 
 //// Path Tests
 
@@ -271,11 +244,12 @@ func GetDirectoryPath(path string) string {
 	path = RemoveTrailingDirectorySeparator(path)
 	return path[:max(rootLength, strings.LastIndex(path, "/"))]
 }
+
 func (p Path) GetDirectoryPath() Path {
 	return Path(GetDirectoryPath(string(p)))
 }
 
-func getPathFromPathComponents(pathComponents []string) string {
+func GetPathFromPathComponents(pathComponents []string) string {
 	if len(pathComponents) == 0 {
 		return ""
 	}
@@ -338,29 +312,53 @@ func ResolvePath(path string, paths ...string) string {
 	return NormalizePath(combinedPath)
 }
 
-func getNormalizedPathComponents(path string, currentDirectory string) []string {
+func GetNormalizedPathComponents(path string, currentDirectory string) []string {
 	return reducePathComponents(GetPathComponents(path, currentDirectory))
 }
 
 func GetNormalizedAbsolutePath(fileName string, currentDirectory string) string {
-	return getPathFromPathComponents(getNormalizedPathComponents(fileName, currentDirectory))
+	return GetPathFromPathComponents(GetNormalizedPathComponents(fileName, currentDirectory))
+}
+
+func hasRelativePathSegment(p string) bool {
+	if p == "." || p == ".." {
+		return true
+	}
+
+	if strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../") {
+		return true
+	}
+
+	if strings.HasSuffix(p, "/.") || strings.HasSuffix(p, "/..") {
+		return true
+	}
+
+	if strings.Contains(p, "//") {
+		return true
+	}
+
+	if strings.Contains(p, "/./") || strings.Contains(p, "/../") {
+		return true
+	}
+
+	return false
 }
 
 func NormalizePath(path string) string {
 	path = NormalizeSlashes(path)
 	// Most paths don't require normalization
-	if !relativePathSegmentRegExp.MatchString(path) {
+	if !hasRelativePathSegment(path) {
 		return path
 	}
 	// Some paths only require cleanup of `/./` or leading `./`
 	simplified := strings.ReplaceAll(path, "/./", "/")
 	simplified = strings.TrimPrefix(simplified, "./")
-	if simplified != path && !relativePathSegmentRegExp.MatchString(simplified) {
+	if simplified != path && !hasRelativePathSegment(simplified) {
 		path = simplified
 		return path
 	}
 	// Other paths require full normalization
-	normalized := getPathFromPathComponents(reducePathComponents(GetPathComponents(path, "")))
+	normalized := GetPathFromPathComponents(reducePathComponents(GetPathComponents(path, "")))
 	if normalized != "" && HasTrailingDirectorySeparator(path) {
 		normalized = EnsureTrailingDirectorySeparator(normalized)
 	}
@@ -371,11 +369,36 @@ func GetCanonicalFileName(fileName string, caseSensitivty CaseSensitivity) strin
 	if caseSensitivty.IsCaseSensitive() {
 		return fileName
 	}
-	return toFileNameLowerCase(fileName)
+	return ToFileNameLowerCase(fileName)
 }
 
-func toFileNameLowerCase(fileName string) string {
-	return fileNameLowerCaseRegExp.ReplaceAllStringFunc(fileName, strings.ToLower)
+// We convert the file names to lower case as key for file name on case insensitive file system
+// While doing so we need to handle special characters (eg \u0130) to ensure that we dont convert
+// it to lower case, fileName with its lowercase form can exist along side it.
+// Handle special characters and make those case sensitive instead
+//
+// |-#--|-Unicode--|-Char code-|-Desc-------------------------------------------------------------------|
+// | 1. | i        | 105       | Ascii i                                                                |
+// | 2. | I        | 73        | Ascii I                                                                |
+// |-------- Special characters ------------------------------------------------------------------------|
+// | 3. | \u0130   | 304       | Upper case I with dot above                                            |
+// | 4. | i,\u0307 | 105,775   | i, followed by 775: Lower case of (3rd item)                           |
+// | 5. | I,\u0307 | 73,775    | I, followed by 775: Upper case of (4th item), lower case is (4th item) |
+// | 6. | \u0131   | 305       | Lower case i without dot, upper case is I (2nd item)                   |
+// | 7. | \u00DF   | 223       | Lower case sharp s                                                     |
+//
+// Because item 3 is special where in its lowercase character has its own
+// upper case form we cant convert its case.
+// Rest special characters are either already in lower case format or
+// they have corresponding upper case character so they dont need special handling
+
+func ToFileNameLowerCase(fileName string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\u0130' {
+			return r
+		}
+		return unicode.ToLower(r)
+	}, fileName)
 }
 
 func ToPath(fileName string, basePath string, caseSensitivity CaseSensitivity) Path {
@@ -394,6 +417,7 @@ func RemoveTrailingDirectorySeparator(path string) string {
 	}
 	return path
 }
+
 func (p Path) RemoveTrailingDirectorySeparator() Path {
 	return Path(RemoveTrailingDirectorySeparator(string(p)))
 }
@@ -405,6 +429,7 @@ func EnsureTrailingDirectorySeparator(path string) string {
 
 	return path
 }
+
 func (p Path) EnsureTrailingDirectorySeparator() Path {
 	return Path(EnsureTrailingDirectorySeparator(string(p)))
 }
@@ -460,7 +485,7 @@ func GetRelativePathFromDirectory(fromDirectory string, to string, options Compa
 		panic("paths must either both be absolute or both be relative")
 	}
 	pathComponents := GetPathComponentsRelativeTo(fromDirectory, to, options)
-	return getPathFromPathComponents(pathComponents)
+	return GetPathFromPathComponents(pathComponents)
 }
 
 func ConvertToRelativePath(absoluteOrRelativePath string, options ComparePathsOptions) string {
@@ -489,7 +514,7 @@ func GetRelativePathToDirectoryOrUrl(directoryPathOrUrl string, relativeOrAbsolu
 		pathComponents[0] = prefix + firstComponent
 	}
 
-	return getPathFromPathComponents(pathComponents)
+	return GetPathFromPathComponents(pathComponents)
 }
 
 // Gets the portion of a path following the last (non-terminal) separator (`/`).
@@ -582,10 +607,22 @@ func tryGetExtensionFromPath(path string, extension string, stringEqualityCompar
 	return ""
 }
 
-var pathIsRelativeRegexp = regexp.MustCompile(`^\.\.?(?:$|[\\/])`)
-
 func PathIsRelative(path string) bool {
-	return pathIsRelativeRegexp.MatchString(path)
+	// True if path is ".", "..", or starts with "./", "../", ".\\", or "..\\".
+
+	if path == "." || path == ".." {
+		return true
+	}
+
+	if len(path) >= 2 && path[0] == '.' && (path[1] == '/' || path[1] == '\\') {
+		return true
+	}
+
+	if len(path) >= 3 && path[0] == '.' && path[1] == '.' && (path[2] == '/' || path[2] == '\\') {
+		return true
+	}
+
+	return false
 }
 
 func IsExternalModuleNameRelative(moduleName string) bool {
@@ -635,7 +672,7 @@ func ComparePaths(a string, b string, options ComparePathsOptions) int {
 	//       the non-root portion of the path
 	aRest := a[len(aRoot):]
 	bRest := b[len(bRoot):]
-	if !relativePathSegmentRegExp.MatchString(aRest) && !relativePathSegmentRegExp.MatchString(bRest) {
+	if !hasRelativePathSegment(aRest) && !hasRelativePathSegment(bRest) {
 		return options.GetComparer()(aRest, bRest)
 	}
 

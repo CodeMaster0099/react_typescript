@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/compiler/packagejson"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -23,36 +22,10 @@ type ModeAwareCacheKey struct {
 	mode core.ResolutionMode
 }
 
-type ModeAwareCache[T any] map[ModeAwareCacheKey]T
-
-type ParsedCommandLine struct {
-	Options *core.CompilerOptions
-}
-
 type ResolvedProjectReference struct {
-	CommandLine ParsedCommandLine
+	CommandLine core.ParsedOptions
 	SourceFile  *ast.SourceFile
 	References  []*ResolvedProjectReference
-}
-
-type PerDirectoryResolutionCache[T any] interface {
-	getFromDirectoryCache(nameAndMode ModeAwareCacheKey, directoryName string, compilerOptions *core.CompilerOptions) (T, bool)
-	getOrCreateCacheForDirectory(directoryName string, compilerOptions *core.CompilerOptions) ModeAwareCache[T]
-	clear()
-	isReadonly() bool
-	// update(options: CompilerOptions): void
-	// /** @internal */ directoryToModuleNameMap: CacheWithRedirects<Path, ModeAwareCache<T>>;
-}
-
-type NonRelativeNameResolutionCache[T any] interface {
-	getFromNonRelativeNameCache(nameAndMode ModeAwareCacheKey, directoryName string, compilerOptions *core.CompilerOptions) (T, bool)
-	getOrCreateCacheForNonRelativeName(nameAndMode ModeAwareCacheKey, compilerOptions *core.CompilerOptions) map[string]T
-}
-
-type ResolutionCache[T any] interface {
-	PerDirectoryResolutionCache[T]
-	NonRelativeNameResolutionCache[T]
-	getPackageJsonInfoCache() *packagejson.InfoCache
 }
 
 type NodeResolutionFeatures int32
@@ -88,7 +61,7 @@ func (p *PackageId) PackageName() string {
 	return p.Name
 }
 
-type WithFailedLookupLocations struct {
+type LookupLocations struct {
 	FailedLookupLocations []string
 	AffectingLocations    []string
 	ResolutionDiagnostics []ast.Diagnostic
@@ -103,13 +76,8 @@ type ResolvedModule struct {
 	IsExternalLibraryImport  bool
 }
 
-type ResolvedModuleWithFailedLookupLocations struct {
-	WithFailedLookupLocations
-	ResolvedModule
-}
-
-func (r *ResolvedModuleWithFailedLookupLocations) IsResolved() bool {
-	return r.ResolvedModule.ResolvedFileName != ""
+func (r *ResolvedModule) IsResolved() bool {
+	return r.ResolvedFileName != ""
 }
 
 type ResolvedTypeReferenceDirective struct {
@@ -120,13 +88,8 @@ type ResolvedTypeReferenceDirective struct {
 	IsExternalLibraryImport bool
 }
 
-type ResolvedTypeReferenceDirectiveWithFailedLookupLocations struct {
-	WithFailedLookupLocations
-	ResolvedTypeReferenceDirective
-}
-
-func (r *ResolvedTypeReferenceDirectiveWithFailedLookupLocations) IsResolved() bool {
-	return r.ResolvedTypeReferenceDirective.ResolvedFileName != ""
+func (r *ResolvedTypeReferenceDirective) IsResolved() bool {
+	return r.ResolvedFileName != ""
 }
 
 type extensions int32

@@ -4,11 +4,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
-var RootPath string
-var TypeScriptSubmodulePath string
-var TestDataPath string
+var (
+	RootPath                string
+	TypeScriptSubmodulePath string
+	TestDataPath            string
+)
 
 func init() {
 	_, filename, _, ok := runtime.Caller(0)
@@ -30,4 +33,27 @@ func findGoMod(dir string) string {
 		dir = filepath.Dir(dir)
 	}
 	panic("could not find go.mod")
+}
+
+var typeScriptSubmoduleExists = sync.OnceValue(func() bool {
+	p := filepath.Join(TypeScriptSubmodulePath, "package.json")
+	if _, err := os.Stat(p); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		panic(err)
+	}
+	return true
+})
+
+type skippable interface {
+	Helper()
+	Skipf(format string, args ...any)
+}
+
+func SkipIfNoTypeScriptSubmodule(t skippable) {
+	t.Helper()
+	if !typeScriptSubmoduleExists() {
+		t.Skipf("TypeScript submodule does not exist")
+	}
 }
