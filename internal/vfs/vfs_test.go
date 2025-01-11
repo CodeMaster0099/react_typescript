@@ -58,7 +58,7 @@ func TestVFSTestMapFS(t *testing.T) {
 	t.Run("CaseSensitivity", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Assert(t, !fs.CaseSensitivity().IsCaseSensitive())
+		assert.Equal(t, fs.CaseSensitivity(), tspath.CaseInsensitive)
 	})
 }
 

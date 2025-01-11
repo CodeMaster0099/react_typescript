@@ -46,7 +46,7 @@ func TestOS(t *testing.T) {
 		fs.CaseSensitivity()
 
 		if runtime.GOOS == "windows" {
-			assert.Assert(t, !fs.CaseSensitivity().IsCaseSensitive())
+			assert.Equal(t, fs.CaseSensitivity(), tspath.CaseInsensitive)
 		}
 	})
 }
