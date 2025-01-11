@@ -19,10 +19,6 @@ const (
 	CaseSensitive
 )
 
-func (c CaseSensitivity) IsCaseSensitive() bool {
-	return c == CaseSensitive
-}
-
 // Internally, we represent paths as strings with '/' as the directory separator.
 // When we make system calls (eg: LanguageServiceHost.getDirectory()),
 // we expect the host to correctly handle paths in our specified format.
@@ -365,8 +361,8 @@ func NormalizePath(path string) string {
 	return normalized
 }
 
-func GetCanonicalFileName(fileName string, caseSensitivty CaseSensitivity) string {
-	if caseSensitivty.IsCaseSensitive() {
+func GetCanonicalFileName(fileName string, caseSensitivity CaseSensitivity) string {
+	if caseSensitivity == CaseSensitive {
 		return fileName
 	}
 	return ToFileNameLowerCase(fileName)
@@ -638,11 +634,11 @@ type ComparePathsOptions struct {
 }
 
 func (o ComparePathsOptions) GetComparer() func(a, b string) int {
-	return stringutil.GetStringComparer(!o.CaseSensitivity.IsCaseSensitive())
+	return stringutil.GetStringComparer(o.CaseSensitivity == CaseInsensitive)
 }
 
 func (o ComparePathsOptions) getEqualityComparer() func(a, b string) bool {
-	return stringutil.GetStringEqualityComparer(!o.CaseSensitivity.IsCaseSensitive())
+	return stringutil.GetStringEqualityComparer(o.CaseSensitivity == CaseInsensitive)
 }
 
 func ComparePaths(a string, b string, options ComparePathsOptions) int {
