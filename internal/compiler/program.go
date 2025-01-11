@@ -836,6 +836,6 @@ func (p *Program) Emit(options *EmitOptions) *EmitResult {
 }
 
 func (p *Program) GetSourceFile(filename string) *ast.SourceFile {
-	path := tspath.ToPath(filename, p.host.GetCurrentDirectory(), p.host.FS().UseCaseSensitiveFileNames())
+	path := tspath.ToPath(filename, p.host.GetCurrentDirectory(), p.host.FS().CaseSensitivity())
 	return p.filesByPath[path]
 }

@@ -73,7 +73,7 @@ func CompileFiles(
 		typescriptVersion = rawHarnessConfig["typescriptVersion"]
 	}
 
-	useCaseSensitiveFileNames := true // !!! Get this from harness options; default to true
+	caseSensitivity := tspath.CaseSensitive // !!! Get this from harness options; default to true
 	var programFileNames []string
 	for _, file := range inputFiles {
 		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
@@ -130,7 +130,7 @@ func CompileFiles(
 		}
 	}
 
-	fs := vfstest.FromMapFS(testfs, useCaseSensitiveFileNames)
+	fs := vfstest.FromMapFS(testfs, caseSensitivity)
 	fs = bundled.WrapFS(fs)
 
 	host := createCompilerHost(fs, &options, currentDirectory)
