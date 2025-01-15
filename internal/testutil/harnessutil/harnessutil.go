@@ -12,8 +12,8 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/bundled"
-	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/program"
 	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -28,7 +28,7 @@ type TestFile struct {
 
 type CompileFilesResult struct {
 	Diagnostics []*ast.Diagnostic
-	Program     *compiler.Program
+	Program     *program.Program
 	// !!!
 }
 
@@ -170,12 +170,12 @@ func setCompilerOptionsFromHarnessConfig(harnessConfig TestConfiguration, option
 	}
 }
 
-func createCompilerHost(fs vfs.FS, options *core.CompilerOptions, currentDirectory string) compiler.CompilerHost {
-	return compiler.NewCompilerHost(options, currentDirectory, fs)
+func createCompilerHost(fs vfs.FS, options *core.CompilerOptions, currentDirectory string) program.CompilerHost {
+	return program.NewCompilerHost(options, currentDirectory, fs)
 }
 
 func compileFilesWithHost(
-	host compiler.CompilerHost,
+	host program.CompilerHost,
 	rootFiles []string,
 	options *core.CompilerOptions,
 	typescriptVersion string,
@@ -211,7 +211,7 @@ func compileFilesWithHost(
 	// pre-emit/post-emit error comparison requires declaration emit twice, which can be slow. If it's unlikely to flag any error consistency issues
 	// and if the test is running `skipLibCheck` - an indicator that we want the tets to run quickly - skip the before/after error comparison, too
 	// skipErrorComparison := len(rootFiles) >= 100 || options.SkipLibCheck == core.TSTrue && options.Declaration == core.TSTrue
-	// var preProgram *compiler.Program
+	// var preProgram *program.Program
 	// if !skipErrorComparison {
 	// !!! Need actual program for this
 	// preProgram = ts.createProgram({ rootNames: rootFiles || [], options: { ...compilerOptions, configFile: compilerOptions.configFile, traceResolution: false }, host, typeScriptVersion })
@@ -260,14 +260,14 @@ func compileFilesWithHost(
 }
 
 // !!! Temporary while we don't have the real `createProgram`
-func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *compiler.Program {
-	programOptions := compiler.ProgramOptions{
+func createProgram(host program.CompilerHost, options *core.CompilerOptions) *program.Program {
+	programOptions := program.ProgramOptions{
 		RootPath:           "/", // Include all files while we don't have a way to specify root files
 		Host:               host,
 		Options:            options,
 		DefaultLibraryPath: bundled.LibPath(),
 	}
-	program := compiler.NewProgram(programOptions)
+	program := program.NewProgram(programOptions)
 	return program
 }
 

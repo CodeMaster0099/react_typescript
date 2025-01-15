@@ -6,7 +6,7 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/bundled"
-	"github.com/microsoft/typescript-go/internal/compiler"
+	"github.com/microsoft/typescript-go/internal/program"
 	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
 )
 
@@ -26,13 +26,13 @@ foo.bar;`
 	fs = bundled.WrapFS(fs)
 
 	cd := "/"
-	host := compiler.NewCompilerHost(nil, "/", fs)
-	opts := compiler.ProgramOptions{
+	host := program.NewCompilerHost(nil, "/", fs)
+	opts := program.ProgramOptions{
 		Host:               host,
 		RootPath:           cd,
 		DefaultLibraryPath: bundled.LibPath(),
 	}
-	p := compiler.NewProgram(opts)
+	p := program.NewProgram(opts)
 	p.BindSourceFiles()
 	c := p.GetTypeChecker()
 	file := p.GetSourceFile("/foo.ts")

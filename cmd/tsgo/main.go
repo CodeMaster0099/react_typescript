@@ -13,9 +13,9 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/bundled"
-	ts "github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
+	"github.com/microsoft/typescript-go/internal/program"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -86,7 +86,7 @@ func main() {
 
 	fs := bundled.WrapFS(vfs.FromOS())
 	useCaseSensitiveFileNames := fs.UseCaseSensitiveFileNames()
-	host := ts.NewCompilerHost(compilerOptions, currentDirectory, fs)
+	host := program.NewCompilerHost(compilerOptions, currentDirectory, fs)
 
 	normalizedRootPath := tspath.ResolvePath(currentDirectory, rootPath)
 	if !fs.DirectoryExists(normalizedRootPath) {
@@ -95,7 +95,7 @@ func main() {
 	}
 	compilerOptions.ConfigFilePath = normalizedRootPath // This matters for type reference directive resolution
 
-	programOptions := ts.ProgramOptions{
+	programOptions := program.ProgramOptions{
 		RootPath:           normalizedRootPath,
 		Options:            compilerOptions,
 		SingleThreaded:     singleThreaded,
@@ -109,16 +109,16 @@ func main() {
 	}
 
 	startTime := time.Now()
-	program := ts.NewProgram(programOptions)
-	diagnostics := program.GetSyntacticDiagnostics(nil)
+	prog := program.NewProgram(programOptions)
+	diagnostics := prog.GetSyntacticDiagnostics(nil)
 	if len(diagnostics) == 0 {
 		if parseAndBindOnly {
-			diagnostics = program.GetBindDiagnostics(nil)
+			diagnostics = prog.GetBindDiagnostics(nil)
 		} else {
 			if printTypes {
-				program.PrintSourceFileWithTypes()
+				prog.PrintSourceFileWithTypes()
 			} else {
-				diagnostics = program.GetSemanticDiagnostics(nil)
+				diagnostics = prog.GetSemanticDiagnostics(nil)
 			}
 		}
 	}
@@ -126,7 +126,7 @@ func main() {
 
 	startTime = time.Now()
 	if len(outDir) > 0 {
-		result := program.Emit(&ts.EmitOptions{})
+		result := prog.Emit(&program.EmitOptions{})
 		diagnostics = append(diagnostics, result.Diagnostics...)
 	}
 	emitTime := time.Since(startTime)
@@ -157,13 +157,13 @@ func main() {
 	}
 
 	if listFiles {
-		for _, file := range program.SourceFiles() {
+		for _, file := range prog.SourceFiles() {
 			fmt.Println(file.FileName())
 		}
 	}
 
-	fmt.Printf("Files:         %v\n", len(program.SourceFiles()))
-	fmt.Printf("Types:         %v\n", program.TypeCount())
+	fmt.Printf("Files:         %v\n", len(prog.SourceFiles()))
+	fmt.Printf("Types:         %v\n", prog.TypeCount())
 	fmt.Printf("Compile time:  %v\n", compileTime)
 	fmt.Printf("Emit time:     %v\n", emitTime)
 	fmt.Printf("Memory used:   %vK\n", memStats.Alloc/1024)
