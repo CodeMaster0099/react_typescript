@@ -1,6 +1,6 @@
 package tsoptions
 
-import "github.com/microsoft/typescript-go/internal/compiler/diagnostics"
+import "github.com/microsoft/typescript-go/internal/diagnostics"
 
 var tscBuildOption = CommandLineOption{
 	Name:                     "build",

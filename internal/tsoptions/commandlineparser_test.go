@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/diagnostics"
 	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/testutil/filefixture"
 	"github.com/microsoft/typescript-go/internal/vfs"
