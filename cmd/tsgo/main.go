@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"strings"
 	"time"
 
@@ -64,6 +66,7 @@ type cliOptions struct {
 		singleThreaded bool
 		printTypes     bool
 		pprofDir       string
+		traceDir       string
 	}
 }
 
@@ -107,19 +110,27 @@ func parseArgs() *cliOptions {
 	flag.BoolVar(&opts.devel.singleThreaded, "singleThreaded", false, "Run in single threaded mode.")
 	flag.BoolVar(&opts.devel.printTypes, "printTypes", false, "Print types defined in 'main.ts'.")
 	flag.StringVar(&opts.devel.pprofDir, "pprofDir", "", "Generate pprof CPU/memory profiles to the given directory.")
+	flag.StringVar(&opts.devel.traceDir, "traceDir", "", "Generate trace logs to the given directory.")
 	flag.Parse()
 
 	return opts
 }
 
 func main() {
+	ctx := context.Background()
+
 	opts := parseArgs()
 
 	if opts.devel.pprofDir != "" {
-		profileSession := beginProfiling(opts.devel.pprofDir)
-		defer profileSession.stop()
+		defer startCPUProfiler(opts.devel.pprofDir).stop()
+		defer startMemProfiler(opts.devel.pprofDir).stop()
 	}
 
+	if opts.devel.traceDir != "" {
+		defer startTracer(opts.devel.traceDir).stop()
+	}
+
+	mainRegion := trace.StartRegion(ctx, "main")
 	startTime := time.Now()
 
 	currentDirectory, err := os.Getwd()
@@ -147,6 +158,7 @@ func main() {
 	// !!! is the working directory actually the config path?
 	host := ts.NewCompilerHost(compilerOptions, currentDirectory, fs)
 
+	parseRegion := trace.StartRegion(ctx, "parse")
 	parseStart := time.Now()
 	program := ts.NewProgram(ts.ProgramOptions{
 		ConfigFilePath:     configFilePath,
@@ -156,6 +168,7 @@ func main() {
 		DefaultLibraryPath: defaultLibraryPath,
 	})
 	parseTime := time.Since(parseStart)
+	parseRegion.End()
 
 	compilerOptions = program.Options()
 
@@ -187,28 +200,35 @@ func main() {
 		if opts.devel.printTypes {
 			program.PrintSourceFileWithTypes()
 		} else {
+			bindRegion := trace.StartRegion(ctx, "bind")
 			bindStart := time.Now()
 			_ = program.GetBindDiagnostics(nil)
 			bindTime = time.Since(bindStart)
+			bindRegion.End()
 
 			// !!! the checker already reads noCheck, but do it here just for stats printing for now
 			if compilerOptions.NoCheck.IsFalseOrUnknown() {
+				checkRegion := trace.StartRegion(ctx, "check")
 				checkStart := time.Now()
 				diagnostics = program.GetSemanticDiagnostics(nil)
 				checkTime = time.Since(checkStart)
+				checkRegion.End()
 			}
 		}
 	}
 
 	var emitTime time.Duration
 	if compilerOptions.NoEmit.IsFalseOrUnknown() {
+		emitRegion := trace.StartRegion(ctx, "emit")
 		emitStart := time.Now()
 		result := program.Emit(&ts.EmitOptions{})
 		diagnostics = append(diagnostics, result.Diagnostics...)
 		emitTime = time.Since(emitStart)
+		emitRegion.End()
 	}
 
 	totalTime := time.Since(startTime)
+	mainRegion.End()
 
 	var memStats runtime.MemStats
 	runtime.GC()
@@ -310,53 +330,90 @@ func printDiagnostics(diagnostics []*ast.Diagnostic, host ts.CompilerHost, compi
 	}
 }
 
-type profileSession struct {
-	cpuFilePath string
-	memFilePath string
-	cpuFile     *os.File
-	memFile     *os.File
+type profilerBase struct {
+	dir  string
+	file *os.File
 }
 
-func beginProfiling(profileDir string) *profileSession {
-	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+func (p *profilerBase) createFile(name string) {
+	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		panic(err)
 	}
 
-	pid := os.Getpid()
+	path := filepath.Join(p.dir, fmt.Sprintf("%d-%s", os.Getpid(), name))
 
-	cpuProfilePath := filepath.Join(profileDir, fmt.Sprintf("%d-cpuprofile.pb.gz", pid))
-	memProfilePath := filepath.Join(profileDir, fmt.Sprintf("%d-memprofile.pb.gz", pid))
-	cpuFile, err := os.Create(cpuProfilePath)
-	if err != nil {
-		panic(err)
-	}
-	memFile, err := os.Create(memProfilePath)
+	file, err := os.Create(path)
 	if err != nil {
 		panic(err)
 	}
 
-	if err := pprof.StartCPUProfile(cpuFile); err != nil {
-		panic(err)
-	}
+	p.file = file
+}
 
-	return &profileSession{
-		cpuFilePath: cpuProfilePath,
-		memFilePath: memProfilePath,
-		cpuFile:     cpuFile,
-		memFile:     memFile,
+type cpuProfiler struct {
+	profilerBase
+}
+
+func startCPUProfiler(dir string) *cpuProfiler {
+	p := &cpuProfiler{profilerBase{dir: dir}}
+	p.start()
+	return p
+}
+
+func (p *cpuProfiler) start() {
+	p.createFile("cpuprofile.pb.gz")
+	if err := pprof.StartCPUProfile(p.file); err != nil {
+		panic(err)
 	}
 }
 
-func (p *profileSession) stop() {
+func (p *cpuProfiler) stop() {
 	pprof.StopCPUProfile()
-	err := pprof.Lookup("allocs").WriteTo(p.memFile, 0)
-	if err != nil {
+	p.file.Close()
+	fmt.Println("CPU profile:", p.file.Name())
+}
+
+type memProfiler struct {
+	profilerBase
+}
+
+func startMemProfiler(dir string) *memProfiler {
+	p := &memProfiler{profilerBase{dir: dir}}
+	p.start()
+	return p
+}
+
+func (p *memProfiler) start() {
+	p.createFile("memprofile.pb.gz")
+}
+
+func (p *memProfiler) stop() {
+	if err := pprof.Lookup("allocs").WriteTo(p.file, 0); err != nil {
 		panic(err)
 	}
+	p.file.Close()
+	fmt.Println("Memory profile:", p.file.Name())
+}
 
-	p.cpuFile.Close()
-	p.memFile.Close()
+type tracer struct {
+	profilerBase
+}
 
-	fmt.Printf("CPU profile: %v\n", p.cpuFilePath)
-	fmt.Printf("Memory profile: %v\n", p.memFilePath)
+func startTracer(dir string) *tracer {
+	p := &tracer{profilerBase{dir: dir}}
+	p.start()
+	return p
+}
+
+func (p *tracer) start() {
+	p.createFile("trace.out")
+	if err := trace.Start(p.file); err != nil {
+		panic(err)
+	}
+}
+
+func (p *tracer) stop() {
+	trace.Stop()
+	p.file.Close()
+	fmt.Println("Trace profile:", p.file.Name())
 }
