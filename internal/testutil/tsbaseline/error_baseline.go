@@ -1,4 +1,4 @@
-package baseline
+package tsbaseline
 
 import (
 	"fmt"
@@ -9,8 +9,9 @@ import (
 	"testing"
 
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
+	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"gotest.tools/v3/assert"
@@ -20,7 +21,7 @@ import (
 // IO
 const harnessNewLine = "\r\n"
 
-var formatOpts = &compiler.DiagnosticsFormattingOptions{
+var formatOpts = &diagnosticwriter.FormattingOptions{
 	NewLine: harnessNewLine,
 }
 
@@ -29,23 +30,23 @@ var (
 	diagnosticsLocationPattern = regexp.MustCompile(`(?i)(lib.*\.d\.ts):\d+:\d+`)
 )
 
-func DoErrorBaseline(t *testing.T, baselinePath string, inputFiles []*harnessutil.TestFile, errors []*ast.Diagnostic, pretty bool, opts Options) {
+func DoErrorBaseline(t *testing.T, baselinePath string, inputFiles []*harnessutil.TestFile, errors []*ast.Diagnostic, pretty bool, opts baseline.Options) {
 	baselinePath = tsExtension.ReplaceAllString(baselinePath, ".errors.txt")
 	var errorBaseline string
 	if len(errors) > 0 {
 		errorBaseline = getErrorBaseline(t, inputFiles, errors, pretty)
 	} else {
-		errorBaseline = NoContent
+		errorBaseline = baseline.NoContent
 	}
-	Run(t, baselinePath, errorBaseline, opts)
+	baseline.Run(t, baselinePath, errorBaseline, opts)
 }
 
 func minimalDiagnosticsToString(diagnostics []*ast.Diagnostic, pretty bool) string {
 	var output strings.Builder
 	if pretty {
-		compiler.FormatDiagnosticsWithColorAndContext(&output, diagnostics, formatOpts)
+		diagnosticwriter.FormatDiagnosticsWithColorAndContext(&output, diagnostics, formatOpts)
 	} else {
-		compiler.WriteFormatDiagnostics(&output, diagnostics, formatOpts)
+		diagnosticwriter.WriteFormatDiagnostics(&output, diagnostics, formatOpts)
 	}
 	return output.String()
 }
@@ -56,7 +57,7 @@ func getErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, diagnost
 
 	if pretty {
 		var summaryBuilder strings.Builder
-		compiler.WriteErrorSummaryText(
+		diagnosticwriter.WriteErrorSummaryText(
 			&summaryBuilder,
 			diagnostics,
 			formatOpts)
@@ -69,7 +70,7 @@ func getErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, diagnost
 func iterateErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, inputDiagnostics []*ast.Diagnostic, pretty bool) []string {
 	t.Helper()
 	diagnostics := slices.Clone(inputDiagnostics)
-	slices.SortFunc(diagnostics, compiler.CompareDiagnostics)
+	slices.SortFunc(diagnostics, ast.CompareDiagnostics)
 
 	var outputLines strings.Builder
 	// Count up all errors that were found in files other than lib.d.ts so we don't miss any
@@ -243,12 +244,12 @@ func iterateErrorBaseline(t *testing.T, inputFiles []*harnessutil.TestFile, inpu
 
 func flattenDiagnosticMessage(d *ast.Diagnostic, newLine string) string {
 	var output strings.Builder
-	compiler.WriteFlattenedDiagnosticMessage(&output, d, newLine)
+	diagnosticwriter.WriteFlattenedDiagnosticMessage(&output, d, newLine)
 	return output.String()
 }
 
-func formatLocation(file *ast.SourceFile, pos int, formatOpts *compiler.DiagnosticsFormattingOptions, writeWithStyleAndReset compiler.FormattedWriter) string {
+func formatLocation(file *ast.SourceFile, pos int, formatOpts *diagnosticwriter.FormattingOptions, writeWithStyleAndReset diagnosticwriter.FormattedWriter) string {
 	var output strings.Builder
-	compiler.WriteLocation(&output, file, pos, formatOpts, writeWithStyleAndReset)
+	diagnosticwriter.WriteLocation(&output, file, pos, formatOpts, writeWithStyleAndReset)
 	return output.String()
 }

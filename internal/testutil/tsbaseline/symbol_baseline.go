@@ -1,4 +1,4 @@
-package baseline
+package tsbaseline
 
 import (
 	"fmt"
@@ -9,9 +9,11 @@ import (
 	"testing"
 
 	"github.com/microsoft/typescript-go/internal/ast"
+	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/scanner"
+	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
@@ -28,7 +30,7 @@ func DoTypeAndSymbolBaseline(
 	header string,
 	program *compiler.Program,
 	allFiles []*harnessutil.TestFile,
-	opts Options,
+	opts baseline.Options,
 	skipTypeBaselines bool,
 	skipSymbolBaselines bool,
 	hasErrorBaseline bool,
@@ -65,13 +67,13 @@ func checkBaselines(
 	allFiles []*harnessutil.TestFile,
 	fullWalker *typeWriterWalker,
 	header string,
-	opts Options,
+	opts baseline.Options,
 	isSymbolBaseline bool,
 ) {
 	fullExtension := core.IfElse(isSymbolBaseline, ".symbols", ".types")
 	outputFileName := tspath.RemoveFileExtension(baselinePath)
 	fullBaseline := generateBaseline(allFiles, fullWalker, header, isSymbolBaseline)
-	Run(t, outputFileName+fullExtension, fullBaseline, opts)
+	baseline.Run(t, outputFileName+fullExtension, fullBaseline, opts)
 }
 
 func generateBaseline(
@@ -193,7 +195,7 @@ func iterateBaseline(allFiles []*harnessutil.TestFile, fullWalker *typeWriterWal
 
 type typeWriterWalker struct {
 	program              *compiler.Program
-	checker              *compiler.Checker
+	checker              *checker.Checker
 	hadErrorBaseline     bool
 	currentSourceFile    *ast.SourceFile
 	declarationTextCache map[*ast.Node]string
@@ -232,7 +234,7 @@ func (walker *typeWriterWalker) visitNode(node *ast.Node, isSymbolWalk bool) []*
 	nodes := forEachASTNode(node)
 	var results []*typeWriterResult
 	for _, n := range nodes {
-		if compiler.IsExpressionNode(n) || n.Kind == ast.KindIdentifier || ast.IsDeclarationName(n) {
+		if ast.IsExpressionNode(n) || n.Kind == ast.KindIdentifier || ast.IsDeclarationName(n) {
 			result := walker.writeTypeOrSymbol(n, isSymbolWalk)
 			if result != nil {
 				results = append(results, result)
@@ -270,7 +272,7 @@ func (walker *typeWriterWalker) writeTypeOrSymbol(node *ast.Node, isSymbolWalk b
 		// !!! Types baseline
 	}
 
-	symbol := walker.checker.GetSymbolAtLocation(node /*ignoreErrors*/, true)
+	symbol := walker.checker.GetSymbolAtLocation(node)
 	if symbol == nil {
 		return nil
 	}

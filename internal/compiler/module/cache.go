@@ -175,7 +175,7 @@ func newNonRelativeNameResolutionCache[T any](
 }
 
 func (c *nonRelativeNameResolutionCache[T]) getFromNonRelativeNameCache(nameAndMode ModeAwareCacheKey, directoryName string, redirectedReference *ResolvedProjectReference) (T, bool) {
-	if tspath.IsExternalModuleNameRelative(nameAndMode.name) {
+	if tspath.IsExternalModuleNameRelative(nameAndMode.Name) {
 		panic("module name must be non-relative")
 	}
 	c.mu.RLock()
@@ -184,7 +184,7 @@ func (c *nonRelativeNameResolutionCache[T]) getFromNonRelativeNameCache(nameAndM
 }
 
 func (c *nonRelativeNameResolutionCache[T]) setInNonRelativeNameCache(nameAndMode ModeAwareCacheKey, directoryName string, value T, redirectedReference *ResolvedProjectReference) {
-	if tspath.IsExternalModuleNameRelative(nameAndMode.name) {
+	if tspath.IsExternalModuleNameRelative(nameAndMode.Name) {
 		panic("module name must be non-relative")
 	}
 	cache := c.getOrCreateCacheForNonRelativeName(nameAndMode, redirectedReference)
@@ -194,7 +194,7 @@ func (c *nonRelativeNameResolutionCache[T]) setInNonRelativeNameCache(nameAndMod
 }
 
 func (c *nonRelativeNameResolutionCache[T]) getOrCreateCacheForNonRelativeName(nameAndMode ModeAwareCacheKey, redirectedReference *ResolvedProjectReference) *perNonRelativeNameCache[T] {
-	if tspath.IsExternalModuleNameRelative(nameAndMode.name) {
+	if tspath.IsExternalModuleNameRelative(nameAndMode.Name) {
 		panic("module name must be non-relative")
 	}
 	c.mu.RLock()
@@ -292,14 +292,14 @@ func (c *cacheWithRedirects[K, V]) getMapOfCacheRedirects(redirectedReference *R
 	if redirectedReference == nil {
 		return c.ownMap
 	}
-	return c.getOrCreateMap(redirectedReference.CommandLine.Options, false /*create*/)
+	return c.getOrCreateMap(redirectedReference.CommandLine.CompilerOptions, false /*create*/)
 }
 
 func (c *cacheWithRedirects[K, V]) getOrCreateMapOfCacheRedirects(redirectedReference *ResolvedProjectReference) map[K]V {
 	if redirectedReference == nil {
 		return c.ownMap
 	}
-	return c.getOrCreateMap(redirectedReference.CommandLine.Options, true /*create*/)
+	return c.getOrCreateMap(redirectedReference.CommandLine.CompilerOptions, true /*create*/)
 }
 
 func (c *cacheWithRedirects[K, V]) getOrCreateMap(redirectOptions *core.CompilerOptions, create bool) map[K]V {

@@ -33,9 +33,9 @@ func Run(t *testing.T, fileName string, actual string, opts Options) {
 				t.Fatal(fmt.Errorf("failed to write the local baseline file %s: %w", localFileName, err))
 			}
 		}
-		writeComparison(t, diff, diffFileName, opts)
+		writeComparison(t, diff, diffFileName, false /*useSubmodule*/, opts)
 	} else {
-		writeComparison(t, actual, fileName, opts)
+		writeComparison(t, actual, fileName, false /*useSubmodule*/, opts)
 	}
 }
 
@@ -60,18 +60,32 @@ func tsBaselinePath(fileName string) string {
 	return filepath.Join(repo.TestDataPath, "..", "_submodules", "TypeScript", "tests", "baselines", "reference", fileName)
 }
 
-func writeComparison(t *testing.T, actual string, relativeFileName string, opts Options) {
+func RunAgainstSubmodule(t *testing.T, fileName string, actual string, opts Options) {
+	writeComparison(t, actual, fileName, true /*useSubmodule*/, opts)
+}
+
+func writeComparison(t *testing.T, actual string, relativeFileName string, useSubmodule bool, opts Options) {
 	if actual == "" {
-		panic("The generated content was \"\". Return 'baseline.NoContent' if no baselining is required.")
+		panic("the generated content was \"\". Return 'baseline.NoContent' if no baselining is required.")
 	}
 	var (
 		localFileName     string
 		referenceFileName string
 	)
 
-	localFileName = localPath(relativeFileName, opts.Subfolder)
-	referenceFileName = referencePath(relativeFileName, opts.Subfolder)
-	expected := getExpectedContent(relativeFileName, opts)
+	if useSubmodule {
+		localFileName = submoduleLocalPath(relativeFileName, opts.Subfolder)
+		referenceFileName = submoduleReferencePath(relativeFileName, opts.Subfolder)
+	} else {
+		localFileName = localPath(relativeFileName, opts.Subfolder)
+		referenceFileName = referencePath(relativeFileName, opts.Subfolder)
+	}
+
+	expected := NoContent
+	if content, err := os.ReadFile(referenceFileName); err == nil {
+		expected = string(content)
+	}
+
 	if _, err := os.Stat(localFileName); err == nil {
 		if err := os.Remove(localFileName); err != nil {
 			t.Fatal(fmt.Errorf("failed to remove the local baseline file %s: %w", localFileName, err))
@@ -90,26 +104,31 @@ func writeComparison(t *testing.T, actual string, relativeFileName string, opts 
 		}
 
 		if _, err := os.Stat(referenceFileName); err != nil {
-			t.Errorf("New baseline created at %s.", localFileName)
+			if useSubmodule {
+				t.Errorf("the baseline file %s does not exist in the TypeScript submodule", referenceFileName)
+			} else {
+				t.Errorf("new baseline created at %s.", localFileName)
+			}
+		} else if useSubmodule {
+			t.Errorf("the baseline file %s does not match the reference in the TypeScript submodule", relativeFileName)
 		} else {
-			t.Errorf("The baseline file %s has changed. (Run `hereby baseline-accept` if the new baseline is correct.)", relativeFileName)
+			t.Errorf("the baseline file %s has changed. (Run `hereby baseline-accept` if the new baseline is correct.)", relativeFileName)
 		}
 	}
-}
-
-func getExpectedContent(relativeFileName string, opts Options) string {
-	refFileName := referencePath(relativeFileName, opts.Subfolder)
-	expected := NoContent
-	if content, err := os.ReadFile(refFileName); err == nil {
-		expected = string(content)
-	}
-	return expected
 }
 
 func localPath(fileName string, subfolder string) string {
 	return filepath.Join(repo.TestDataPath, "baselines", "local", subfolder, fileName)
 }
 
+func submoduleLocalPath(fileName string, subfolder string) string {
+	return filepath.Join(repo.TestDataPath, "baselines", "tmp", subfolder, fileName)
+}
+
 func referencePath(fileName string, subfolder string) string {
 	return filepath.Join(repo.TestDataPath, "baselines", "reference", subfolder, fileName)
+}
+
+func submoduleReferencePath(fileName string, subfolder string) string {
+	return filepath.Join(repo.TypeScriptSubmodulePath, "tests", "baselines", "reference", subfolder, fileName)
 }

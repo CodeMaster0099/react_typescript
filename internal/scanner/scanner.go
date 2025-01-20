@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/jsnum"
 	"github.com/microsoft/typescript-go/internal/stringutil"
 )
 
@@ -224,6 +225,7 @@ type ScannerState struct {
 	token                     ast.Kind       // Kind of current token
 	tokenValue                string         // Parsed value of current token
 	tokenFlags                ast.TokenFlags // Flags for current token
+	commentDirectives         []ast.CommentDirective
 	skipJSDocLeadingAsterisks int
 }
 
@@ -276,12 +278,30 @@ func (s *Scanner) TokenRange() core.TextRange {
 	return core.NewTextRange(s.tokenStart, s.pos)
 }
 
+func (s *Scanner) CommentDirectives() []ast.CommentDirective {
+	return s.commentDirectives
+}
+
 func (s *Scanner) Mark() ScannerState {
 	return s.ScannerState
 }
 
 func (s *Scanner) Rewind(state ScannerState) {
 	s.ScannerState = state
+}
+
+func (s *Scanner) ResetTokenState(pos int) {
+	if pos < 0 {
+		panic("Cannot reset token state to negative position")
+	}
+	s.Rewind(ScannerState{
+		pos:          pos,
+		fullStartPos: pos,
+		tokenStart:   pos,
+		token:        ast.KindUnknown,
+		tokenValue:   "",
+		tokenFlags:   ast.TokenFlagsNone,
+	})
 }
 
 func (scanner *Scanner) SetSkipJsDocLeadingAsterisks(skip bool) {
@@ -484,7 +504,7 @@ func (s *Scanner) Scan() ast.Kind {
 						s.pos += size
 					}
 				}
-				// commentDirectives = appendIfCommentDirective(commentDirectives, text.slice(tokenStart, pos), commentDirectiveRegExSingleLine, tokenStart);
+				s.processCommentDirective(s.tokenStart, s.pos)
 				continue
 			}
 			if s.charAt(1) == '*' {
@@ -516,7 +536,6 @@ func (s *Scanner) Scan() ast.Kind {
 				if isJSDoc && s.shouldParseJSDoc() {
 					s.tokenFlags |= ast.TokenFlagsPrecedingJSDocComment
 				}
-				// commentDirectives = appendIfCommentDirective(commentDirectives, text.slice(lastLineStart, pos), commentDirectiveRegExMultiLine, lastLineStart);
 				continue
 			}
 			if s.charAt(1) == '=' {
@@ -716,13 +735,13 @@ func (s *Scanner) Scan() ast.Kind {
 			if s.charAt(1) == '!' {
 				if s.pos == 0 {
 					s.pos += 2
-					for s.char() >= 0 && s.char() != '\n' {
-						s.pos++
+					for ch, size := s.charAndSize(); size > 0 && !stringutil.IsLineBreak(ch); ch, size = s.charAndSize() {
+						s.pos += size
 					}
 					continue
 				}
 				s.errorAt(diagnostics.X_can_only_be_used_at_the_start_of_a_file, s.pos, 2)
-				s.pos += 2
+				s.pos++
 				s.token = ast.KindUnknown
 				break
 			}
@@ -771,6 +790,29 @@ func (s *Scanner) Scan() ast.Kind {
 		}
 		return s.token
 	}
+}
+
+func (s *Scanner) processCommentDirective(start int, end int) {
+	// Skip starting slashes and whitespace
+	pos := start + 2
+	for pos < len(s.text) && (s.text[pos] == ' ' || s.text[pos] == '\t') {
+		pos++
+	}
+	// Directive must start with '@'
+	if !(pos < len(s.text) && s.text[pos] == '@') {
+		return
+	}
+	pos++
+	var kind ast.CommentDirectiveKind
+	switch {
+	case strings.HasPrefix(s.text[pos:], "ts-expect-error"):
+		kind = ast.CommentDirectiveKindExpectError
+	case strings.HasPrefix(s.text[pos:], "ts-ignore"):
+		kind = ast.CommentDirectiveKindIgnore
+	default:
+		return
+	}
+	s.commentDirectives = append(s.commentDirectives, ast.CommentDirective{Loc: core.NewTextRange(start, end), Kind: kind})
 }
 
 func (s *Scanner) ReScanLessThanToken() ast.Kind {
@@ -1188,7 +1230,7 @@ func (s *Scanner) scanIdentifier(prefixLength int) bool {
 			s.tokenValue = s.text[start:s.pos]
 			return true
 		}
-		s.pos = start
+		s.pos = start + prefixLength
 	}
 	ch, size := s.charAndSize()
 	if isIdentifierStart(ch, s.languageVersion) {
@@ -1547,14 +1589,14 @@ func (s *Scanner) scanNumber() ast.Kind {
 	}
 	if s.tokenFlags&ast.TokenFlagsContainsLeadingZero != 0 {
 		s.errorAt(diagnostics.Decimals_with_leading_zeros_are_not_allowed, start, s.pos-start)
-		s.tokenValue = stringutil.FromNumber(stringutil.ToNumber(s.tokenValue))
+		s.tokenValue = jsnum.FromString(s.tokenValue).String()
 		return ast.KindNumericLiteral
 	}
 	var result ast.Kind
 	if fixedPartEnd == s.pos {
 		result = s.scanBigIntSuffix()
 	} else {
-		s.tokenValue = stringutil.FromNumber(stringutil.ToNumber(s.tokenValue))
+		s.tokenValue = jsnum.FromString(s.tokenValue).String()
 		result = ast.KindNumericLiteral
 	}
 	ch, _ := s.charAndSize()
@@ -1712,7 +1754,7 @@ func (s *Scanner) scanBigIntSuffix() ast.Kind {
 			return ast.KindNumericLiteral
 		}
 	}
-	s.tokenValue = stringutil.FromNumber(stringutil.ToNumber(s.tokenValue))
+	s.tokenValue = jsnum.FromString(s.tokenValue).String()
 	return ast.KindNumericLiteral
 }
 
@@ -2025,15 +2067,13 @@ func ComputeLineOfPosition(lineStarts []core.TextPos, pos int) int {
 }
 
 func GetLineStarts(sourceFile *ast.SourceFile) []core.TextPos {
-	if sourceFile.LineMap == nil {
-		sourceFile.LineMap = core.ComputeLineStarts(sourceFile.Text)
-	}
-	return sourceFile.LineMap
+	return sourceFile.LineMap()
 }
 
 func GetLineAndCharacterOfPosition(sourceFile *ast.SourceFile, pos int) (line int, character int) {
-	line = ComputeLineOfPosition(GetLineStarts(sourceFile), pos)
-	character = utf8.RuneCountInString(sourceFile.Text[sourceFile.LineMap[line]:pos])
+	lineMap := GetLineStarts(sourceFile)
+	line = ComputeLineOfPosition(lineMap, pos)
+	character = utf8.RuneCountInString(sourceFile.Text[lineMap[line]:pos])
 	return
 }
 

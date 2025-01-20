@@ -1,6 +1,9 @@
 package ast
 
 import (
+	"sync"
+	"sync/atomic"
+
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
@@ -94,7 +97,7 @@ type Node struct {
 	Kind   Kind
 	Flags  NodeFlags
 	Loc    core.TextRange
-	Id     NodeId
+	id     atomic.Uint32
 	Parent *Node
 	data   nodeData
 }
@@ -334,7 +337,7 @@ func (n *Node) Type() *Node {
 		return n.AsJSDocNonNullableType().Type
 	case KindJSDocOptionalType:
 		return n.AsJSDocOptionalType().Type
-	case KindEnumMember, KindBindingElement, KindExportAssignment:
+	case KindEnumMember, KindBindingElement, KindExportAssignment, KindBinaryExpression:
 		return nil
 	default:
 		funcLike := n.FunctionLikeData()
@@ -1673,6 +1676,10 @@ func (node *ForStatement) ForEachChild(v Visitor) bool {
 	return visit(v, node.Initializer) || visit(v, node.Condition) || visit(v, node.Incrementor) || visit(v, node.Statement)
 }
 
+func IsForStatement(node *Node) bool {
+	return node.Kind == KindForStatement
+}
+
 // ForInOrOfStatement
 
 type ForInOrOfStatement struct {
@@ -2615,6 +2622,10 @@ func (node *ImportClause) ForEachChild(v Visitor) bool {
 
 func (node *ImportClause) Name() *DeclarationName {
 	return node.name
+}
+
+func IsImportClause(node *Node) bool {
+	return node.Kind == KindImportClause
 }
 
 // NamespaceImport
@@ -5629,6 +5640,19 @@ type PatternAmbientModule struct {
 	Symbol  *Symbol
 }
 
+type CommentDirectiveKind int32
+
+const (
+	CommentDirectiveKindUnknown CommentDirectiveKind = iota
+	CommentDirectiveKindExpectError
+	CommentDirectiveKindIgnore
+)
+
+type CommentDirective struct {
+	Loc  core.TextRange
+	Kind CommentDirectiveKind
+}
+
 // SourceFile
 
 type SourceFile struct {
@@ -5643,7 +5667,8 @@ type SourceFile struct {
 	bindDiagnostics             []*Diagnostic
 	BindSuggestionDiagnostics   []*Diagnostic
 	ImpliedNodeFormat           core.ModuleKind
-	LineMap                     []core.TextPos
+	lineMapMu                   sync.RWMutex
+	lineMap                     []core.TextPos
 	LanguageVersion             core.ScriptTarget
 	LanguageVariant             core.LanguageVariant
 	ScriptKind                  core.ScriptKind
@@ -5654,6 +5679,7 @@ type SourceFile struct {
 	IsDeclarationFile           bool
 	IsBound                     bool
 	ModuleReferencesProcessed   bool
+	HasNoDefaultLib             bool
 	UsesUriStyleNodeCoreModules core.Tristate
 	SymbolCount                 int
 	ClassifiableNames           core.Set[string]
@@ -5661,7 +5687,7 @@ type SourceFile struct {
 	ModuleAugmentations         []*ModuleName      // []ModuleName
 	PatternAmbientModules       []PatternAmbientModule
 	AmbientModuleNames          []string
-	HasNoDefaultLib             bool
+	CommentDirectives           []CommentDirective
 	jsdocCache                  map[*Node][]*Node
 	Pragmas                     []Pragma
 	ReferencedFiles             []*FileReference
@@ -5708,6 +5734,22 @@ func (node *SourceFile) SetBindDiagnostics(diags []*Diagnostic) {
 
 func (node *SourceFile) ForEachChild(v Visitor) bool {
 	return visitNodeList(v, node.Statements)
+}
+
+func (node *SourceFile) LineMap() []core.TextPos {
+	node.lineMapMu.RLock()
+	lineMap := node.lineMap
+	node.lineMapMu.RUnlock()
+	if lineMap == nil {
+		node.lineMapMu.Lock()
+		defer node.lineMapMu.Unlock()
+		lineMap = node.lineMap
+		if lineMap == nil {
+			lineMap = core.ComputeLineStarts(node.Text)
+			node.lineMap = lineMap
+		}
+	}
+	return lineMap
 }
 
 func IsSourceFile(node *Node) bool {
