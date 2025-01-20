@@ -2506,7 +2506,7 @@ func (c *Checker) checkVarDeclaredNamesNotShadowed(node *ast.Node) {
 				// here we know that function scoped variable is "shadowed" by block scoped one
 				// a var declatation can't hoist past a lexical declaration and it results in a SyntaxError at runtime
 				if !namesShareScope {
-					name := c.SymbolToString(localDeclarationSymbol)
+					name := c.symbolToString(localDeclarationSymbol)
 					c.error(node, diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name, name)
 				}
 			}
@@ -6305,14 +6305,14 @@ func (c *Checker) checkIdentifier(node *ast.Node, checkMode CheckMode) *Type {
 			default:
 				assignmentError = diagnostics.Cannot_assign_to_0_because_it_is_not_a_variable
 			}
-			c.error(node, assignmentError, c.SymbolToString(symbol))
+			c.error(node, assignmentError, c.symbolToString(symbol))
 			return c.errorType
 		}
 		if c.isReadonlySymbol(localOrExportSymbol) {
 			if localOrExportSymbol.Flags&ast.SymbolFlagsVariable != 0 {
-				c.error(node, diagnostics.Cannot_assign_to_0_because_it_is_a_constant, c.SymbolToString(symbol))
+				c.error(node, diagnostics.Cannot_assign_to_0_because_it_is_a_constant, c.symbolToString(symbol))
 			} else {
-				c.error(node, diagnostics.Cannot_assign_to_0_because_it_is_a_read_only_property, c.SymbolToString(symbol))
+				c.error(node, diagnostics.Cannot_assign_to_0_because_it_is_a_read_only_property, c.symbolToString(symbol))
 			}
 			return c.errorType
 		}
@@ -6397,13 +6397,13 @@ func (c *Checker) checkIdentifier(node *ast.Node, checkMode CheckMode) *Type {
 	if !c.isEvolvingArrayOperationTarget(node) && (t == c.autoType || t == c.autoArrayType) {
 		if flowType == c.autoType || flowType == c.autoArrayType {
 			if c.noImplicitAny {
-				c.error(ast.GetNameOfDeclaration(declaration), diagnostics.Variable_0_implicitly_has_type_1_in_some_locations_where_its_type_cannot_be_determined, c.SymbolToString(symbol), c.typeToString(flowType))
-				c.error(node, diagnostics.Variable_0_implicitly_has_an_1_type, c.SymbolToString(symbol), c.typeToString(flowType))
+				c.error(ast.GetNameOfDeclaration(declaration), diagnostics.Variable_0_implicitly_has_type_1_in_some_locations_where_its_type_cannot_be_determined, c.symbolToString(symbol), c.typeToString(flowType))
+				c.error(node, diagnostics.Variable_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.typeToString(flowType))
 			}
 			return c.convertAutoToAny(flowType)
 		}
 	} else if !assumeInitialized && !c.containsUndefinedType(t) && c.containsUndefinedType(flowType) {
-		c.error(node, diagnostics.Variable_0_is_used_before_being_assigned, c.SymbolToString(symbol))
+		c.error(node, diagnostics.Variable_0_is_used_before_being_assigned, c.symbolToString(symbol))
 		// Return the declared type to reduce follow-on errors
 		return t
 	}
@@ -6637,7 +6637,7 @@ func (c *Checker) getFlowTypeOfAccessExpression(node *ast.Node, prop *ast.Symbol
 	}
 	flowType := c.getFlowTypeOfReferenceEx(node, propType, initialType, nil, nil)
 	if assumeUninitialized && !c.containsUndefinedType(propType) && c.containsUndefinedType(flowType) {
-		c.error(errorNode, diagnostics.Property_0_is_used_before_being_assigned, c.SymbolToString(prop))
+		c.error(errorNode, diagnostics.Property_0_is_used_before_being_assigned, c.symbolToString(prop))
 		// Return the declared type to reduce follow-on errors
 		return propType
 	}
@@ -6914,7 +6914,7 @@ func (c *Checker) checkPropertyAccessibilityAtLocation(location *ast.Node, isSup
 			// cannot simultaneously be private and abstract, so this will trigger an
 			// additional error elsewhere.
 			if errorNode != nil {
-				c.error(errorNode, diagnostics.Abstract_method_0_in_class_1_cannot_be_accessed_via_super_expression, c.SymbolToString(prop), c.typeToString(c.getDeclaringClass(prop)))
+				c.error(errorNode, diagnostics.Abstract_method_0_in_class_1_cannot_be_accessed_via_super_expression, c.symbolToString(prop), c.typeToString(c.getDeclaringClass(prop)))
 			}
 			return false
 		}
@@ -6922,7 +6922,7 @@ func (c *Checker) checkPropertyAccessibilityAtLocation(location *ast.Node, isSup
 		// This is true for both [[Set]] (old) and [[Define]] (ES spec) semantics.
 		if flags&ast.ModifierFlagsStatic == 0 && core.Some(prop.Declarations, isClassInstanceProperty) {
 			if errorNode != nil {
-				c.error(errorNode, diagnostics.Class_field_0_defined_by_the_parent_class_is_not_accessible_in_the_child_class_via_super, c.SymbolToString(prop))
+				c.error(errorNode, diagnostics.Class_field_0_defined_by_the_parent_class_is_not_accessible_in_the_child_class_via_super, c.symbolToString(prop))
 			}
 			return false
 		}
@@ -6934,7 +6934,7 @@ func (c *Checker) checkPropertyAccessibilityAtLocation(location *ast.Node, isSup
 		declaringClassDeclaration := getClassLikeDeclarationOfSymbol(c.getParentOfSymbol(prop))
 		if declaringClassDeclaration != nil && c.isNodeUsedDuringClassInitialization(location) {
 			if errorNode != nil {
-				c.error(errorNode, diagnostics.Abstract_property_0_in_class_1_cannot_be_accessed_in_the_constructor, c.SymbolToString(prop), declaringClassDeclaration.Name().Text())
+				c.error(errorNode, diagnostics.Abstract_property_0_in_class_1_cannot_be_accessed_in_the_constructor, c.symbolToString(prop), declaringClassDeclaration.Name().Text())
 			}
 			return false
 		}
@@ -6949,7 +6949,7 @@ func (c *Checker) checkPropertyAccessibilityAtLocation(location *ast.Node, isSup
 		declaringClassDeclaration := getClassLikeDeclarationOfSymbol(c.getParentOfSymbol(prop))
 		if !c.isNodeWithinClass(location, declaringClassDeclaration) {
 			if errorNode != nil {
-				c.error(errorNode, diagnostics.Property_0_is_private_and_only_accessible_within_class_1, c.SymbolToString(prop), c.typeToString(c.getDeclaringClass(prop)))
+				c.error(errorNode, diagnostics.Property_0_is_private_and_only_accessible_within_class_1, c.symbolToString(prop), c.typeToString(c.getDeclaringClass(prop)))
 			}
 			return false
 		}
@@ -6986,7 +6986,7 @@ func (c *Checker) checkPropertyAccessibilityAtLocation(location *ast.Node, isSup
 				if class == nil {
 					class = containingType
 				}
-				c.error(errorNode, diagnostics.Property_0_is_protected_and_only_accessible_within_class_1_and_its_subclasses, c.SymbolToString(prop), c.typeToString(class))
+				c.error(errorNode, diagnostics.Property_0_is_protected_and_only_accessible_within_class_1_and_its_subclasses, c.symbolToString(prop), c.typeToString(class))
 			}
 			return false
 		}
@@ -7005,7 +7005,7 @@ func (c *Checker) checkPropertyAccessibilityAtLocation(location *ast.Node, isSup
 	}
 	if containingType == nil || !c.hasBaseType(containingType, enclosingClass) {
 		if errorNode != nil && containingType != nil {
-			c.error(errorNode, diagnostics.Property_0_is_protected_and_only_accessible_through_an_instance_of_class_1_This_is_an_instance_of_class_2, c.SymbolToString(prop), c.typeToString(enclosingClass), c.typeToString(containingType))
+			c.error(errorNode, diagnostics.Property_0_is_protected_and_only_accessible_through_an_instance_of_class_1_This_is_an_instance_of_class_2, c.symbolToString(prop), c.typeToString(enclosingClass), c.typeToString(containingType))
 		}
 		return false
 	}
@@ -8041,7 +8041,7 @@ func (c *Checker) checkObjectLiteral(node *ast.Node, checkMode CheckMode) *Type 
 				if impliedProp != nil {
 					prop.Flags |= impliedProp.Flags & ast.SymbolFlagsOptional
 				} else if c.getIndexInfoOfType(contextualType, c.stringType) == nil {
-					c.error(memberDecl.Name(), diagnostics.Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1, c.SymbolToString(member), c.typeToString(contextualType))
+					c.error(memberDecl.Name(), diagnostics.Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1, c.symbolToString(member), c.typeToString(contextualType))
 				}
 			}
 			prop.Declarations = member.Declarations
@@ -8770,7 +8770,7 @@ func (c *Checker) mergeSymbol(target *ast.Symbol, source *ast.Symbol, unidirecti
 		// as we will already report a "Declaration name conflicts..." error, and this error
 		// won't make much sense.
 		if target != c.globalThisSymbol {
-			c.error(ast.GetNameOfDeclaration(getFirstDeclaration(source)), diagnostics.Cannot_augment_module_0_with_value_exports_because_it_resolves_to_a_non_module_entity, c.SymbolToString(target))
+			c.error(ast.GetNameOfDeclaration(getFirstDeclaration(source)), diagnostics.Cannot_augment_module_0_with_value_exports_because_it_resolves_to_a_non_module_entity, c.symbolToString(target))
 		}
 	} else {
 		c.reportMergeSymbolError(target, source)
@@ -8792,7 +8792,7 @@ func (c *Checker) reportMergeSymbolError(target *ast.Symbol, source *ast.Symbol)
 	}
 	// sourceSymbolFile := ast.GetSourceFileOfNode(getFirstDeclaration(source))
 	// targetSymbolFile := ast.GetSourceFileOfNode(getFirstDeclaration(target))
-	symbolName := c.SymbolToString(source)
+	symbolName := c.symbolToString(source)
 	// !!!
 	// Collect top-level duplicate identifier errors into one mapping, so we can then merge their diagnostics if there are a bunch
 	// if sourceSymbolFile != nil && targetSymbolFile != nil && c.amalgamatedDuplicates && !isEitherEnum && sourceSymbolFile != targetSymbolFile {
@@ -9457,7 +9457,7 @@ func (c *Checker) errorNoModuleMemberSymbol(moduleSymbol *ast.Symbol, targetSymb
 		suggestion = c.getSuggestedSymbolForNonexistentModule(name, targetSymbol)
 	}
 	if suggestion != nil {
-		suggestionName := c.SymbolToString(suggestion)
+		suggestionName := c.symbolToString(suggestion)
 		diagnostic := c.error(name, diagnostics.X_0_has_no_exported_member_named_1_Did_you_mean_2, moduleName, declarationName, suggestionName)
 		if suggestion.ValueDeclaration != nil {
 			diagnostic.AddRelatedInfo(createDiagnosticForNode(suggestion.ValueDeclaration, diagnostics.X_0_is_declared_here, suggestionName))
@@ -9490,7 +9490,7 @@ func (c *Checker) reportNonExportedMember(node *ast.Node, name *ast.Node, declar
 			})
 			var diagnostic *ast.Diagnostic
 			if exportedSymbol != nil {
-				diagnostic = c.error(name, diagnostics.Module_0_declares_1_locally_but_it_is_exported_as_2, moduleName, declarationName, c.SymbolToString(exportedSymbol))
+				diagnostic = c.error(name, diagnostics.Module_0_declares_1_locally_but_it_is_exported_as_2, moduleName, declarationName, c.symbolToString(exportedSymbol))
 			} else {
 				diagnostic = c.error(name, diagnostics.Module_0_declares_1_locally_but_it_is_not_exported, moduleName, declarationName)
 			}
@@ -9971,7 +9971,7 @@ func (c *Checker) resolveQualifiedName(name *ast.Node, left *ast.Node, right *as
 			declarationName := scanner.DeclarationNameToString(right)
 			suggestionForNonexistentModule := c.getSuggestedSymbolForNonexistentModule(right, namespace)
 			if suggestionForNonexistentModule != nil {
-				c.error(right, diagnostics.X_0_has_no_exported_member_named_1_Did_you_mean_2, namespaceName, declarationName, c.SymbolToString(suggestionForNonexistentModule))
+				c.error(right, diagnostics.X_0_has_no_exported_member_named_1_Did_you_mean_2, namespaceName, declarationName, c.symbolToString(suggestionForNonexistentModule))
 				return nil
 			}
 			var containingQualifiedName *ast.Node
@@ -9988,7 +9988,7 @@ func (c *Checker) resolveQualifiedName(name *ast.Node, left *ast.Node, right *as
 					exportedTypeSymbol := c.getMergedSymbol(c.getSymbol(c.getExportsOfSymbol(namespace), text, ast.SymbolFlagsType))
 					if exportedTypeSymbol != nil {
 						qualified := name.Parent.AsQualifiedName()
-						c.error(qualified.Right, diagnostics.Cannot_access_0_1_because_0_is_a_type_but_not_a_namespace_Did_you_mean_to_retrieve_the_type_of_the_property_1_in_0_with_0_1, c.SymbolToString(exportedTypeSymbol), qualified.Right.AsIdentifier().Text)
+						c.error(qualified.Right, diagnostics.Cannot_access_0_1_because_0_is_a_type_but_not_a_namespace_Did_you_mean_to_retrieve_the_type_of_the_property_1_in_0_with_0_1, c.symbolToString(exportedTypeSymbol), qualified.Right.AsIdentifier().Text)
 						return nil
 					}
 				}
@@ -10023,9 +10023,9 @@ func (c *Checker) getSuggestedSymbolForNonexistentModule(name *ast.Node, targetM
 
 func (c *Checker) getFullyQualifiedName(symbol *ast.Symbol, containingLocation *ast.Node) string {
 	if symbol.Parent != nil {
-		return c.getFullyQualifiedName(symbol.Parent, containingLocation) + "." + c.SymbolToString(symbol)
+		return c.getFullyQualifiedName(symbol.Parent, containingLocation) + "." + c.symbolToString(symbol)
 	}
-	return c.SymbolToString(symbol) // !!!
+	return c.symbolToString(symbol) // !!!
 }
 
 func (c *Checker) getExportsOfSymbol(symbol *ast.Symbol) ast.SymbolTable {
@@ -10367,7 +10367,7 @@ func (c *Checker) resolveAlias(symbol *ast.Symbol) *ast.Symbol {
 			}
 			links.aliasTarget = target
 		} else {
-			c.error(node, diagnostics.Circular_definition_of_import_alias_0, c.SymbolToString(symbol))
+			c.error(node, diagnostics.Circular_definition_of_import_alias_0, c.symbolToString(symbol))
 		}
 	} else if links.aliasTarget == c.resolvingSymbol {
 		links.aliasTarget = c.unknownSymbol
@@ -10907,7 +10907,7 @@ func (c *Checker) getBaseConstructorTypeOfClass(t *Type) *Type {
 		c.resolveStructuredTypeMembers(baseConstructorType)
 	}
 	if !c.popTypeResolution() {
-		c.error(t.symbol.ValueDeclaration, diagnostics.X_0_is_referenced_directly_or_indirectly_in_its_own_base_expression, c.SymbolToString(t.symbol))
+		c.error(t.symbol.ValueDeclaration, diagnostics.X_0_is_referenced_directly_or_indirectly_in_its_own_base_expression, c.symbolToString(t.symbol))
 		if data.resolvedBaseConstructorType == nil {
 			data.resolvedBaseConstructorType = c.errorType
 		}
@@ -10925,7 +10925,7 @@ func (c *Checker) getBaseConstructorTypeOfClass(t *Type) *Type {
 				}
 			}
 			if baseConstructorType.symbol.Declarations != nil {
-				err.AddRelatedInfo(createDiagnosticForNode(baseConstructorType.symbol.Declarations[0], diagnostics.Did_you_mean_for_0_to_be_constrained_to_type_new_args_Colon_any_1, c.SymbolToString(baseConstructorType.symbol), c.typeToString(ctorReturn)))
+				err.AddRelatedInfo(createDiagnosticForNode(baseConstructorType.symbol.Declarations[0], diagnostics.Did_you_mean_for_0_to_be_constrained_to_type_new_args_Colon_any_1, c.symbolToString(baseConstructorType.symbol), c.typeToString(ctorReturn)))
 			}
 		}
 		if data.resolvedBaseConstructorType == nil {
@@ -12417,17 +12417,17 @@ func (c *Checker) reportCircularityError(symbol *ast.Symbol) *Type {
 	// Check if variable has type annotation that circularly references the variable itself
 	if declaration != nil {
 		if declaration.Type() != nil {
-			c.error(symbol.ValueDeclaration, diagnostics.X_0_is_referenced_directly_or_indirectly_in_its_own_type_annotation, c.SymbolToString(symbol))
+			c.error(symbol.ValueDeclaration, diagnostics.X_0_is_referenced_directly_or_indirectly_in_its_own_type_annotation, c.symbolToString(symbol))
 			return c.errorType
 		}
 		// Check if variable has initializer that circularly references the variable itself
 		if c.noImplicitAny && (!ast.IsParameter(declaration) || declaration.Initializer() != nil) {
-			c.error(symbol.ValueDeclaration, diagnostics.X_0_implicitly_has_type_any_because_it_does_not_have_a_type_annotation_and_is_referenced_directly_or_indirectly_in_its_own_initializer, c.SymbolToString(symbol))
+			c.error(symbol.ValueDeclaration, diagnostics.X_0_implicitly_has_type_any_because_it_does_not_have_a_type_annotation_and_is_referenced_directly_or_indirectly_in_its_own_initializer, c.symbolToString(symbol))
 		}
 	} else if symbol.Flags&ast.SymbolFlagsAlias != 0 {
 		node := c.getDeclarationOfAliasSymbol(symbol)
 		if node != nil {
-			c.error(node, diagnostics.Circular_definition_of_import_alias_0, c.SymbolToString(symbol))
+			c.error(node, diagnostics.Circular_definition_of_import_alias_0, c.symbolToString(symbol))
 		}
 	}
 	// Circularities could also result from parameters in function expressions that end up
@@ -14054,7 +14054,7 @@ func (c *Checker) reportWideningErrorsInType(t *Type) bool {
 							return valueDeclaration != nil && valueDeclaration.Parent == t.symbol.ValueDeclaration
 						})
 						if valueDeclaration != nil {
-							c.error(valueDeclaration, diagnostics.Object_literal_s_property_0_implicitly_has_an_1_type, c.SymbolToString(p), c.typeToString(c.getWidenedType(s)))
+							c.error(valueDeclaration, diagnostics.Object_literal_s_property_0_implicitly_has_an_1_type, c.symbolToString(p), c.typeToString(c.getWidenedType(s)))
 							errorReported = true
 						}
 					}
@@ -14537,7 +14537,7 @@ func (c *Checker) getTypeOfMappedSymbol(symbol *ast.Symbol) *Type {
 			propType = c.removeMissingOrUndefinedType(propType)
 		}
 		if !c.popTypeResolution() {
-			c.error(c.currentNode, diagnostics.Type_of_property_0_circularly_references_itself_in_mapped_type_1, c.SymbolToString(symbol), c.typeToString(mappedType))
+			c.error(c.currentNode, diagnostics.Type_of_property_0_circularly_references_itself_in_mapped_type_1, c.symbolToString(symbol), c.typeToString(mappedType))
 			propType = c.errorType
 		}
 		if links.resolvedType == nil {
@@ -15350,11 +15350,11 @@ func (c *Checker) elaborateNeverIntersection(chain *ast.Diagnostic, node *ast.No
 	if t.flags&TypeFlagsIntersection != 0 && t.objectFlags&ObjectFlagsIsNeverIntersection != 0 {
 		neverProp := core.Find(c.getPropertiesOfUnionOrIntersectionType(t), c.isDiscriminantWithNeverType)
 		if neverProp != nil {
-			return NewDiagnosticChainForNode(chain, node, diagnostics.The_intersection_0_was_reduced_to_never_because_property_1_has_conflicting_types_in_some_constituents, c.typeToStringEx(t, nil, TypeFormatFlagsNoTypeReduction), c.SymbolToString(neverProp))
+			return NewDiagnosticChainForNode(chain, node, diagnostics.The_intersection_0_was_reduced_to_never_because_property_1_has_conflicting_types_in_some_constituents, c.typeToStringEx(t, nil, TypeFormatFlagsNoTypeReduction), c.symbolToString(neverProp))
 		}
 		privateProp := core.Find(c.getPropertiesOfUnionOrIntersectionType(t), isConflictingPrivateProperty)
 		if privateProp != nil {
-			return NewDiagnosticChainForNode(chain, node, diagnostics.The_intersection_0_was_reduced_to_never_because_property_1_exists_in_multiple_constituents_and_is_private_in_some, c.typeToStringEx(t, nil, TypeFormatFlagsNoTypeReduction), c.SymbolToString(privateProp))
+			return NewDiagnosticChainForNode(chain, node, diagnostics.The_intersection_0_was_reduced_to_never_because_property_1_exists_in_multiple_constituents_and_is_private_in_some, c.typeToStringEx(t, nil, TypeFormatFlagsNoTypeReduction), c.symbolToString(privateProp))
 		}
 	}
 	return chain
@@ -15455,7 +15455,7 @@ func (c *Checker) getTypeArguments(t *Type) []*Type {
 			}
 			errorNode := core.IfElse(node != nil, node, c.currentNode)
 			if d.target.symbol != nil {
-				c.error(errorNode, diagnostics.Type_arguments_for_0_circularly_reference_themselves, c.SymbolToString(d.target.symbol))
+				c.error(errorNode, diagnostics.Type_arguments_for_0_circularly_reference_themselves, c.symbolToString(d.target.symbol))
 			} else {
 				c.error(errorNode, diagnostics.Tuple_type_arguments_circularly_reference_themselves)
 			}
@@ -16522,7 +16522,7 @@ func (c *Checker) getTypeArgumentsFromNode(node *ast.Node) []*Type {
 
 func (c *Checker) checkNoTypeArguments(node *ast.Node, symbol *ast.Symbol) bool {
 	if len(node.TypeArguments()) != 0 {
-		c.error(node, diagnostics.Type_0_is_not_generic, c.SymbolToString(symbol))
+		c.error(node, diagnostics.Type_0_is_not_generic, c.symbolToString(symbol))
 		return false
 	}
 	return true
@@ -16891,7 +16891,7 @@ func (c *Checker) getTypeFromTypeAliasReference(node *ast.Node, symbol *ast.Symb
 			message := core.IfElse(minTypeArgumentCount == len(typeParameters),
 				diagnostics.Generic_type_0_requires_1_type_argument_s,
 				diagnostics.Generic_type_0_requires_between_1_and_2_type_arguments)
-			c.error(node, message, c.SymbolToString(symbol), minTypeArgumentCount, len(typeParameters))
+			c.error(node, message, c.symbolToString(symbol), minTypeArgumentCount, len(typeParameters))
 			return c.errorType
 		}
 		// We refrain from associating a local type alias with an instantiation of a top-level type alias
@@ -17155,7 +17155,7 @@ func (c *Checker) getDeclaredTypeOfTypeAlias(symbol *ast.Symbol) *Type {
 			if errorNode == nil {
 				errorNode = declaration
 			}
-			c.error(errorNode, diagnostics.Type_alias_0_circularly_references_itself, c.SymbolToString(symbol))
+			c.error(errorNode, diagnostics.Type_alias_0_circularly_references_itself, c.symbolToString(symbol))
 			t = c.errorType
 		}
 		if links.declaredType == nil {
@@ -17367,7 +17367,7 @@ func (c *Checker) evaluateEntity(expr *ast.Node, location *ast.Node) EvaluatorRe
 func (c *Checker) evaluateEnumMember(expr *ast.Node, symbol *ast.Symbol, location *ast.Node) EvaluatorResult {
 	declaration := symbol.ValueDeclaration
 	if declaration == nil || declaration == location {
-		c.error(expr, diagnostics.Property_0_is_used_before_being_assigned, c.SymbolToString(symbol))
+		c.error(expr, diagnostics.Property_0_is_used_before_being_assigned, c.symbolToString(symbol))
 		return evaluatorResult(nil, false, false, false)
 	}
 	if !c.isBlockScopedNameDeclaredBeforeUse(declaration, location) {
@@ -20236,7 +20236,7 @@ func (c *Checker) getPropertyTypeForIndexType(originalObjectType *Type, objectTy
 			if accessExpression != nil {
 				c.markPropertyAsReferenced(prop, accessExpression, c.isSelfTypeAccess(accessExpression.Expression(), objectType.symbol))
 				if c.isAssignmentToReadonlyEntity(accessExpression, prop, getAssignmentTargetKind(accessExpression)) {
-					c.error(accessExpression.AsElementAccessExpression().ArgumentExpression, diagnostics.Cannot_assign_to_0_because_it_is_a_read_only_property, c.SymbolToString(prop))
+					c.error(accessExpression.AsElementAccessExpression().ArgumentExpression, diagnostics.Cannot_assign_to_0_because_it_is_a_read_only_property, c.symbolToString(prop))
 					return nil
 				}
 				if accessFlags&AccessFlagsCacheSymbol != 0 {
