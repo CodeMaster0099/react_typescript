@@ -41,7 +41,7 @@ func Run(t *testing.T, fileName string, actual string, opts Options) {
 
 func getBaselineDiff(t *testing.T, actual string, fileName string) string {
 	expected := NoContent
-	refFileName := tsBaselinePath(fileName)
+	refFileName := submoduleReferencePath(fileName, "" /*subfolder*/)
 	if content, err := os.ReadFile(refFileName); err == nil {
 		expected = string(content)
 	}
@@ -54,10 +54,6 @@ func getBaselineDiff(t *testing.T, actual string, fileName string) string {
 		t.Fatalf("failed to diff the actual and expected content: %v", err)
 	}
 	return b.String()
-}
-
-func tsBaselinePath(fileName string) string {
-	return filepath.Join(repo.TestDataPath, "..", "_submodules", "TypeScript", "tests", "baselines", "reference", fileName)
 }
 
 func RunAgainstSubmodule(t *testing.T, fileName string, actual string, opts Options) {
