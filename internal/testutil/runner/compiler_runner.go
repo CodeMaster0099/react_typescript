@@ -47,6 +47,7 @@ func (t *CompilerTestType) String() string {
 }
 
 type CompilerBaselineRunner struct {
+	isDiff       bool
 	testFiles    []string
 	basePath     string
 	testSuitName string
@@ -54,12 +55,18 @@ type CompilerBaselineRunner struct {
 
 var _ Runner = (*CompilerBaselineRunner)(nil)
 
-func NewCompilerBaselineRunner(testType CompilerTestType) *CompilerBaselineRunner {
+func NewCompilerBaselineRunner(testType CompilerTestType, isDiff bool) *CompilerBaselineRunner {
 	testSuitName := testType.String()
-	basePath := "tests/cases/" + testSuitName
+	var basePath string
+	if isDiff {
+		basePath = "../_submodules/TypeScript/tests/cases/" + testSuitName
+	} else {
+		basePath = "tests/cases/" + testSuitName
+	}
 	return &CompilerBaselineRunner{
 		basePath:     basePath,
 		testSuitName: testSuitName,
+		isDiff:       isDiff,
 	}
 }
 
@@ -67,7 +74,7 @@ func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 	if len(r.testFiles) > 0 {
 		return r.testFiles
 	}
-	files, err := harnessutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true)
+	files, err := harnessutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true /*recursive*/)
 	if err != nil {
 		panic("Could not read compiler test files: " + err.Error())
 	}
@@ -76,9 +83,20 @@ func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 }
 
 func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
+	r.cleanUpLocal(t)
 	files := r.EnumerateTestFiles()
 	for _, filename := range files {
 		r.runTest(t, filename)
+	}
+}
+
+var localBasePath = filepath.Join(repo.TestDataPath, "baselines", "local")
+
+func (r *CompilerBaselineRunner) cleanUpLocal(t *testing.T) {
+	localPath := filepath.Join(localBasePath, core.IfElse(r.isDiff, "diff", ""), r.testSuitName)
+	err := os.RemoveAll(localPath)
+	if err != nil {
+		panic("Could not clean up local compiler tests: " + err.Error())
 	}
 }
 
@@ -102,8 +120,8 @@ func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compile
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(test.filename, &payload, config)
 
-	compilerTest.verifyDiagnostics(t, r.testSuitName)
-	compilerTest.verifyTypesAndSymbols(t, r.testSuitName)
+	compilerTest.verifyDiagnostics(t, r.testSuitName, r.isDiff)
+	compilerTest.verifyTypesAndSymbols(t, r.testSuitName, r.isDiff)
 	// !!! Verify all baselines
 }
 
@@ -125,16 +143,6 @@ func getCompilerFileBasedTest(filename string) *compilerFileBasedTest {
 		filename:       filename,
 		content:        content,
 		configurations: configurations,
-	}
-}
-
-var localBasePath = filepath.Join(repo.TestDataPath, "baselines", "local")
-
-func cleanUpLocalCompilerTests(testType CompilerTestType) {
-	localPath := filepath.Join(localBasePath, testType.String())
-	err := os.RemoveAll(localPath)
-	if err != nil {
-		panic("Could not clean up local compiler tests: " + err.Error())
 	}
 }
 
@@ -244,14 +252,18 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 	}
 }
 
-func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string) {
+func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff bool) {
+	if isDiff {
+		// !!! Enable this when we're ready to diff test diagnostics
+		return
+	}
 	// pretty := c.result.options.pretty
 	pretty := false // !!! Add `pretty` to compiler options
 	files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
-	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty, suiteName)
+	baseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, pretty, baseline.Options{Subfolder: suiteName, IsDiff: isDiff})
 }
 
-func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
+func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isDiff bool) {
 	// !!! Needs harness settings parsing
 	// const noTypesAndSymbols = this.harnessSettings.noTypesAndSymbols &&
 	// 	this.harnessSettings.noTypesAndSymbols.toLowerCase() === "true";
@@ -266,14 +278,18 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 		},
 	)
 
-	header := tspath.GetRelativePathFromDirectory(repo.TestDataPath, c.filename, tspath.ComparePathsOptions{})
+	headerComponents := tspath.GetPathComponentsRelativeTo(repo.TestDataPath, c.filename, tspath.ComparePathsOptions{})
+	if isDiff {
+		headerComponents = headerComponents[4:] // Strip "./../_submodules/TypeScript" prefix
+	}
+	header := tspath.GetPathFromPathComponents(headerComponents)
 	baseline.DoTypeAndSymbolBaseline(
 		t,
 		c.configuredName,
 		header,
 		program,
 		allFiles,
-		baseline.Options{Subfolder: suiteName},
+		baseline.Options{Subfolder: suiteName, IsDiff: isDiff},
 		false,
 		false,
 		len(c.result.Diagnostics) > 0,
