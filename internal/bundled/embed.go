@@ -13,7 +13,7 @@ import (
 
 const embedded = true
 
-const scheme = "bundled:"
+const scheme = "bundled:///"
 
 func splitPath(path string) (root string, rest string, ok bool) {
 	rest, ok = strings.CutPrefix(path, scheme)
@@ -72,6 +72,13 @@ func (vfs *wrappedFS) GetDirectories(path string) []string {
 		return embeddedVFS.GetDirectories("/" + path)
 	}
 	return vfs.fs.GetDirectories(path)
+}
+
+func (vfs *wrappedFS) GetEntries(path string) []fs.DirEntry {
+	if _, path, ok := splitPath(path); ok {
+		return embeddedVFS.GetEntries("/" + path)
+	}
+	return vfs.fs.GetEntries(path)
 }
 
 func (vfs *wrappedFS) WalkDir(root string, walkFn vfs.WalkDirFunc) error {

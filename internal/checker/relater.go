@@ -1,4 +1,4 @@
-package compiler
+package checker
 
 import (
 	"iter"
@@ -275,7 +275,61 @@ func (c *Checker) isSimpleTypeRelatedTo(source *Type, target *Type, relation *Re
 }
 
 func (c *Checker) isEnumTypeRelatedTo(source *ast.Symbol, target *ast.Symbol, errorReporter ErrorReporter) bool {
-	return source == target // !!!
+	sourceSymbol := core.IfElse(source.Flags&ast.SymbolFlagsEnumMember != 0, c.getParentOfSymbol(source), source)
+	targetSymbol := core.IfElse(target.Flags&ast.SymbolFlagsEnumMember != 0, c.getParentOfSymbol(target), target)
+	if sourceSymbol == targetSymbol {
+		return true
+	}
+	if sourceSymbol.Name != targetSymbol.Name || sourceSymbol.Flags&ast.SymbolFlagsRegularEnum == 0 || targetSymbol.Flags&ast.SymbolFlagsRegularEnum == 0 {
+		return false
+	}
+	key := EnumRelationKey{sourceId: ast.GetSymbolId(sourceSymbol), targetId: ast.GetSymbolId(targetSymbol)}
+	if entry := c.enumRelation[key]; entry != RelationComparisonResultNone && !(entry&RelationComparisonResultFailed != 0 && errorReporter != nil) {
+		return entry&RelationComparisonResultSucceeded != 0
+	}
+	targetEnumType := c.getTypeOfSymbol(targetSymbol)
+	for _, sourceProperty := range c.getPropertiesOfType(c.getTypeOfSymbol(sourceSymbol)) {
+		if sourceProperty.Flags&ast.SymbolFlagsEnumMember != 0 {
+			targetProperty := c.getPropertyOfType(targetEnumType, sourceProperty.Name)
+			if targetProperty == nil || targetProperty.Flags&ast.SymbolFlagsEnumMember == 0 {
+				if errorReporter != nil {
+					errorReporter(diagnostics.Property_0_is_missing_in_type_1, c.symbolToString(sourceProperty), c.typeToString(c.getDeclaredTypeOfSymbol(targetSymbol)))
+				}
+				c.enumRelation[key] = RelationComparisonResultFailed
+				return false
+			}
+			sourceValue := c.getEnumMemberValue(getDeclarationOfKind(sourceProperty, ast.KindEnumMember)).value
+			targetValue := c.getEnumMemberValue(getDeclarationOfKind(targetProperty, ast.KindEnumMember)).value
+			if sourceValue != targetValue {
+				// If we have 2 enums with *known* values that differ, they are incompatible.
+				if sourceValue != nil && targetValue != nil {
+					if errorReporter != nil {
+						errorReporter(diagnostics.Each_declaration_of_0_1_differs_in_its_value_where_2_was_expected_but_3_was_given, c.symbolToString(targetSymbol), c.symbolToString(targetProperty), c.valueToString(targetValue), c.valueToString(sourceValue))
+					}
+					c.enumRelation[key] = RelationComparisonResultFailed
+					return false
+				}
+				// At this point we know that at least one of the values is 'undefined'.
+				// This may mean that we have an opaque member from an ambient enum declaration,
+				// or that we were not able to calculate it (which is basically an error).
+				//
+				// Either way, we can assume that it's numeric.
+				// If the other is a string, we have a mismatch in types.
+				_, sourceIsString := sourceValue.(string)
+				_, targetIsString := targetValue.(string)
+				if sourceIsString || targetIsString {
+					if errorReporter != nil {
+						knownStringValue := core.OrElse(sourceValue, targetValue)
+						errorReporter(diagnostics.One_value_of_0_1_is_the_string_2_and_the_other_is_assumed_to_be_an_unknown_numeric_value, c.symbolToString(targetSymbol), c.symbolToString(targetProperty), c.valueToString(knownStringValue))
+					}
+					c.enumRelation[key] = RelationComparisonResultFailed
+					return false
+				}
+			}
+		}
+	}
+	c.enumRelation[key] = RelationComparisonResultSucceeded
+	return true
 }
 
 func (c *Checker) checkTypeAssignableTo(source *Type, target *Type, errorNode *ast.Node, headMessage *diagnostics.Message) bool {
@@ -302,7 +356,9 @@ func (c *Checker) checkTypeRelatedToEx(
 	headMessage *diagnostics.Message,
 	diagnosticOutput **ast.Diagnostic,
 ) bool {
-	r := Relater{}
+	relaterCount := len(c.relaters)
+	c.relaters = slices.Grow(c.relaters, 1)[:relaterCount+1]
+	r := &c.relaters[relaterCount]
 	r.c = c
 	r.relation = relation
 	r.errorNode = errorNode
@@ -320,7 +376,7 @@ func (c *Checker) checkTypeRelatedToEx(
 		if diagnosticOutput != nil {
 			*diagnosticOutput = diag
 		} else {
-			c.diagnostics.add(diag)
+			c.diagnostics.Add(diag)
 		}
 	} else if r.errorChain != nil {
 		diag := createDiagnosticChainFromErrorChain(r.errorChain, r.errorNode, r.relatedInfo)
@@ -343,10 +399,12 @@ func (c *Checker) checkTypeRelatedToEx(
 			if diagnosticOutput != nil {
 				*diagnosticOutput = diag
 			} else {
-				c.diagnostics.add(diag)
+				c.diagnostics.Add(diag)
 			}
 		}
 	}
+	c.relaters[relaterCount] = Relater{}
+	c.relaters = c.relaters[:relaterCount]
 	return result != TernaryFalse
 }
 
@@ -721,6 +779,7 @@ func excludeProperties(properties []*ast.Symbol, excludedProperties core.Set[str
 			}
 		} else if !excluded {
 			reduced = slices.Clip(properties[:i])
+			excluded = true
 		}
 	}
 	if excluded {
@@ -1182,7 +1241,7 @@ func (c *Checker) compareSignaturesRelated(source *Signature, target *Signature,
 	if target.declaration != nil {
 		kind = target.declaration.Kind
 	}
-	strictVariance := checkMode&SignatureCheckModeCallback != 0 && c.strictFunctionTypes && kind != ast.KindMethodDeclaration && kind != ast.KindMethodSignature && kind != ast.KindConstructor
+	strictVariance := checkMode&SignatureCheckModeCallback == 0 && c.strictFunctionTypes && kind != ast.KindMethodDeclaration && kind != ast.KindMethodSignature && kind != ast.KindConstructor
 	result := TernaryTrue
 	sourceThisType := c.getThisTypeOfSignature(source)
 	if sourceThisType != nil && sourceThisType != c.voidType {
@@ -1539,7 +1598,7 @@ func (c *Checker) isValidDeclarationForTupleLabel(d *ast.Node) bool {
 
 func (c *Checker) getNonArrayRestType(signature *Signature) *Type {
 	restType := c.getEffectiveRestType(signature)
-	if restType != nil && !c.isArrayType(restType) && isTypeAny(restType) {
+	if restType != nil && !c.isArrayType(restType) && !isTypeAny(restType) {
 		return restType
 	}
 	return nil
@@ -2654,8 +2713,7 @@ func (r *Relater) recursiveTypeRelatedTo(source *Type, target *Type, reportError
 		return TernaryFalse
 	}
 	id := getRelationKey(source, target, intersectionState, r.relation == r.c.identityRelation, false /*ignoreConstraints*/)
-	entry := r.relation.get(id)
-	if entry != RelationComparisonResultNone {
+	if entry := r.relation.get(id); entry != RelationComparisonResultNone {
 		if reportErrors && entry&RelationComparisonResultFailed != 0 && entry&RelationComparisonResultOverflow == 0 {
 			// We are elaborating errors and the cached result is a failure not due to a comparison overflow,
 			// so we will do the comparison again to generate an error message.
@@ -3861,14 +3919,8 @@ func (r *Relater) propertyRelatedTo(source *Type, target *Type, sourceProp *ast.
 	case targetPropFlags&ast.ModifierFlagsProtected != 0:
 		if !r.c.isValidOverrideOf(sourceProp, targetProp) {
 			if reportErrors {
-				sourceType := r.c.getDeclaringClass(sourceProp)
-				if sourceType == nil {
-					sourceType = source
-				}
-				targetType := r.c.getDeclaringClass(targetProp)
-				if targetType == nil {
-					targetType = target
-				}
+				sourceType := core.OrElse(r.c.getDeclaringClass(sourceProp), source)
+				targetType := core.OrElse(r.c.getDeclaringClass(targetProp), target)
 				r.reportError(diagnostics.Property_0_is_protected_but_type_1_is_not_a_class_derived_from_2, r.c.symbolToString(targetProp), r.c.typeToString(sourceType), r.c.typeToString(targetType))
 			}
 			return TernaryFalse

@@ -1,4 +1,4 @@
-package compiler
+package checker_test
 
 import (
 	"testing"
@@ -6,7 +6,10 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/bundled"
+	"github.com/microsoft/typescript-go/internal/compiler"
+	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/tspath"
+	"github.com/microsoft/typescript-go/internal/vfs"
 	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
 )
 
@@ -22,20 +25,27 @@ foo.bar;`
 		"foo.ts": &fstest.MapFile{
 			Data: []byte(content),
 		},
+		"tsconfig.json": &fstest.MapFile{
+			Data: []byte(`
+				{
+					"compilerOptions": {}
+				}
+			`),
+		},
 	}, tspath.CaseInsensitive)
 	fs = bundled.WrapFS(fs)
 
 	cd := "/"
-	host := NewCompilerHost(nil, "/", fs)
-	opts := ProgramOptions{
+	host := compiler.NewCompilerHost(nil, cd, fs)
+	opts := compiler.ProgramOptions{
 		Host:               host,
-		RootPath:           cd,
+		ConfigFilePath:     "/tsconfig.json",
 		DefaultLibraryPath: bundled.LibPath(),
 	}
-	p := NewProgram(opts)
-	p.bindSourceFiles()
+	p := compiler.NewProgram(opts)
+	p.BindSourceFiles()
 	c := p.GetTypeChecker()
-	file := p.filesByPath["/foo.ts"]
+	file := p.GetSourceFile("/foo.ts")
 	interfaceId := file.Statements.Nodes[0].Name()
 	varId := file.Statements.Nodes[1].AsVariableStatement().DeclarationList.AsVariableDeclarationList().Declarations.Nodes[0].Name()
 	propAccess := file.Statements.Nodes[2].AsExpressionStatement().Expression
@@ -46,4 +56,23 @@ foo.bar;`
 			t.Fatalf("Expected symbol to be non-nil")
 		}
 	}
+}
+
+func TestCheckSrcCompiler(t *testing.T) {
+	t.Parallel()
+
+	repo.SkipIfNoTypeScriptSubmodule(t)
+	fs := vfs.FromOS()
+	fs = bundled.WrapFS(fs)
+
+	rootPath := tspath.CombinePaths(tspath.NormalizeSlashes(repo.TypeScriptSubmodulePath), "src", "compiler")
+
+	host := compiler.NewCompilerHost(nil, rootPath, fs)
+	opts := compiler.ProgramOptions{
+		Host:               host,
+		ConfigFilePath:     tspath.CombinePaths(rootPath, "tsconfig.json"),
+		DefaultLibraryPath: bundled.LibPath(),
+	}
+	p := compiler.NewProgram(opts)
+	p.CheckSourceFiles()
 }

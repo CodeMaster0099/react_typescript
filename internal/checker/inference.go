@@ -1,10 +1,11 @@
-package compiler
+package checker
 
 import (
 	"slices"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/jsnum"
 )
 
 type InferenceKey struct {
@@ -226,7 +227,7 @@ func (c *Checker) inferFromTypes(n *InferenceState, source *Type, target *Type) 
 			c.inferFromTypes(n, sourceType, target)
 		}
 	case target.flags&TypeFlagsTemplateLiteral != 0:
-		c.inferToTemplateLiteralType(n, source, target)
+		c.inferToTemplateLiteralType(n, source, target.AsTemplateLiteralType())
 	default:
 		source = c.getReducedType(source)
 		if c.isGenericMappedType(source) && c.isGenericMappedType(target) {
@@ -282,8 +283,9 @@ func (c *Checker) inferFromContravariantTypes(n *InferenceState, source *Type, t
 func (c *Checker) inferFromContravariantTypesIfStrictFunctionTypes(n *InferenceState, source *Type, target *Type) {
 	if c.strictFunctionTypes || n.priority&InferencePriorityAlwaysStrict != 0 {
 		c.inferFromContravariantTypes(n, source, target)
+	} else {
+		c.inferFromTypes(n, source, target)
 	}
-	c.inferFromTypes(n, source, target)
 }
 
 // Ensure an inference action is performed only once for the given source and target types.
@@ -468,8 +470,125 @@ func (c *Checker) inferToConditionalType(n *InferenceState, source *Type, target
 	}
 }
 
-func (c *Checker) inferToTemplateLiteralType(n *InferenceState, source *Type, target *Type) {
-	// !!!
+func (c *Checker) inferToTemplateLiteralType(n *InferenceState, source *Type, target *TemplateLiteralType) {
+	matches := c.inferTypesFromTemplateLiteralType(source, target)
+	types := target.types
+	// When the target template literal contains only placeholders (meaning that inference is intended to extract
+	// single characters and remainder strings) and inference fails to produce matches, we want to infer 'never' for
+	// each placeholder such that instantiation with the inferred value(s) produces 'never', a type for which an
+	// assignment check will fail. If we make no inferences, we'll likely end up with the constraint 'string' which,
+	// upon instantiation, would collapse all the placeholders to just 'string', and an assignment check might
+	// succeed. That would be a pointless and confusing outcome.
+	if len(matches) != 0 || core.Every(target.texts, func(s string) bool { return s == "" }) {
+		for i, target := range types {
+			var source *Type
+			if len(matches) != 0 {
+				source = matches[i]
+			} else {
+				source = c.neverType
+			}
+			// If we are inferring from a string literal type to a type variable whose constraint includes one of the
+			// allowed template literal placeholder types, infer from a literal type corresponding to the constraint.
+			if source.flags&TypeFlagsStringLiteral != 0 && target.flags&TypeFlagsTypeVariable != 0 {
+				if inferenceContext := getInferenceInfoForType(n, target); inferenceContext != nil {
+					if constraint := c.getBaseConstraintOfType(inferenceContext.typeParameter); constraint != nil && !isTypeAny(constraint) {
+						allTypeFlags := TypeFlagsNone
+						for _, t := range constraint.Distributed() {
+							allTypeFlags |= t.flags
+						}
+						// If the constraint contains `string`, we don't need to look for a more preferred type
+						if allTypeFlags&TypeFlagsString == 0 {
+							str := getStringLiteralValue(source)
+							// If the type contains `number` or a number literal and the string isn't a valid number, exclude numbers
+							if allTypeFlags&TypeFlagsNumberLike != 0 && !isValidNumberString(str, true /*roundTripOnly*/) {
+								allTypeFlags &^= TypeFlagsNumberLike
+							}
+							// If the type contains `bigint` or a bigint literal and the string isn't a valid bigint, exclude bigints
+							if allTypeFlags&TypeFlagsBigIntLike != 0 && !isValidBigIntString(str, true /*roundTripOnly*/) {
+								allTypeFlags &^= TypeFlagsBigIntLike
+							}
+							choose := func(left *Type, right *Type) *Type {
+								switch {
+								case right.flags&allTypeFlags == 0:
+									return left
+								case left.flags&TypeFlagsString != 0:
+									return left
+								case right.flags&TypeFlagsString != 0:
+									return source
+								case left.flags&TypeFlagsTemplateLiteral != 0:
+									return left
+								case right.flags&TypeFlagsTemplateLiteral != 0 && c.isTypeMatchedByTemplateLiteralType(source, right.AsTemplateLiteralType()):
+									return source
+								case left.flags&TypeFlagsStringMapping != 0:
+									return left
+								case right.flags&TypeFlagsStringMapping != 0 && str == applyStringMapping(right.symbol, str):
+									return source
+								case left.flags&TypeFlagsStringLiteral != 0:
+									return left
+								case right.flags&TypeFlagsStringLiteral != 0 && getStringLiteralValue(right) == str:
+									return right
+								case left.flags&TypeFlagsNumber != 0:
+									return left
+								case right.flags&TypeFlagsNumber != 0:
+									return c.getNumberLiteralType(jsnum.FromString(str))
+								case left.flags&TypeFlagsEnum != 0:
+									return left
+								case right.flags&TypeFlagsEnum != 0:
+									return c.getNumberLiteralType(jsnum.FromString(str))
+								case left.flags&TypeFlagsNumberLiteral != 0:
+									return left
+								case right.flags&TypeFlagsNumberLiteral != 0 && getNumberLiteralValue(right) == jsnum.FromString(str):
+									return right
+								case left.flags&TypeFlagsBigInt != 0:
+									return left
+								case right.flags&TypeFlagsBigInt != 0:
+									return c.getBigIntLiteralType(PseudoBigInt{}) // !!!
+								case left.flags&TypeFlagsBigIntLiteral != 0:
+									return left
+								case right.flags&TypeFlagsBigIntLiteral != 0 && pseudoBigIntToString(getBigIntLiteralValue(right)) == str:
+									return right
+								case left.flags&TypeFlagsBoolean != 0:
+									return left
+								case right.flags&TypeFlagsBoolean != 0:
+									switch {
+									case str == "true":
+										return c.trueType
+									case str == "false":
+										return c.falseType
+									default:
+										return c.booleanType
+									}
+								case left.flags&TypeFlagsBooleanLiteral != 0:
+									return left
+								case right.flags&TypeFlagsBooleanLiteral != 0 && right.AsIntrinsicType().intrinsicName == str:
+									return right
+								case left.flags&TypeFlagsUndefined != 0:
+									return left
+								case right.flags&TypeFlagsUndefined != 0 && right.AsIntrinsicType().intrinsicName == str:
+									return right
+								case left.flags&TypeFlagsNull != 0:
+									return left
+								case right.flags&TypeFlagsNull != 0 && right.AsIntrinsicType().intrinsicName == str:
+									return right
+								default:
+									return left
+								}
+							}
+							matchingType := c.neverType
+							for _, t := range constraint.Distributed() {
+								matchingType = choose(matchingType, t)
+							}
+							if matchingType.flags&TypeFlagsNever == 0 {
+								c.inferFromTypes(n, matchingType, target)
+								continue
+							}
+						}
+					}
+				}
+			}
+			c.inferFromTypes(n, source, target)
+		}
+	}
 }
 
 func (c *Checker) inferFromGenericMappedTypes(n *InferenceState, source *Type, target *Type) {
@@ -671,7 +790,7 @@ func (c *Checker) applyToParameterTypes(source *Signature, target *Signature, ca
 		callback(c.getTypeAtPosition(source, i), c.getTypeAtPosition(target, i))
 	}
 	if targetRestType != nil {
-		callback(c.getRestTypeAtPosition(source, paramCount, c.isConstTypeVariable(targetRestType, 0) && someType(targetRestType, c.isMutableArrayLikeType) /*readonly*/), targetRestType)
+		callback(c.getRestTypeAtPosition(source, paramCount, c.isConstTypeVariable(targetRestType, 0) && !someType(targetRestType, c.isMutableArrayLikeType) /*readonly*/), targetRestType)
 	}
 }
 
@@ -1056,12 +1175,10 @@ func (c *Checker) cloneInferredPartOfContext(n *InferenceContext) *InferenceCont
 
 func (c *Checker) newInferenceContextWorker(inferences []*InferenceInfo, signature *Signature, flags InferenceFlags, compareTypes TypeComparer) *InferenceContext {
 	n := &InferenceContext{
-		inferences:      inferences,
-		signature:       signature,
-		flags:           flags,
-		compareTypes:    compareTypes,
-		mapper:          c.reportUnmeasurableMapper,
-		nonFixingMapper: c.reportUnmeasurableMapper,
+		inferences:   inferences,
+		signature:    signature,
+		flags:        flags,
+		compareTypes: compareTypes,
 	}
 	n.mapper = c.newInferenceTypeMapper(n, true /*fixing*/)
 	n.nonFixingMapper = c.newInferenceTypeMapper(n, false /*fixing*/)
@@ -1161,14 +1278,25 @@ func (c *Checker) getInferredType(n *InferenceContext, index int) *Type {
 		constraint := c.getConstraintOfTypeParameter(inference.typeParameter)
 		if constraint != nil {
 			instantiatedConstraint := c.instantiateType(constraint, n.nonFixingMapper)
-			if inferredType == nil || n.compareTypes(inferredType, c.getTypeWithThisArgument(instantiatedConstraint, inferredType, false), false) == 0 {
-				// If the fallback type satisfies the constraint, we pick it. Otherwise, we pick the constraint.
-				if fallbackType != nil && n.compareTypes(fallbackType, c.getTypeWithThisArgument(instantiatedConstraint, fallbackType, false), false) != 0 {
-					inference.inferredType = fallbackType
-				} else {
-					inference.inferredType = instantiatedConstraint
+			if inferredType != nil {
+				constraintWithThis := c.getTypeWithThisArgument(instantiatedConstraint, inferredType, false)
+				if n.compareTypes(inferredType, constraintWithThis, false) == TernaryFalse {
+					var filteredByConstraint *Type
+					if inference.priority == InferencePriorityReturnType {
+						// If we have a pure return type inference, we may succeed by removing constituents of the inferred type
+						// that aren't assignable to the constraint type (pure return type inferences are speculation anyway).
+						filteredByConstraint = c.mapType(inferredType, func(t *Type) *Type {
+							return core.IfElse(n.compareTypes(t, constraintWithThis, false) != TernaryFalse, t, c.neverType)
+						})
+					}
+					inferredType = core.IfElse(filteredByConstraint != nil && filteredByConstraint.flags&TypeFlagsNever == 0, filteredByConstraint, nil)
 				}
 			}
+			if inferredType == nil {
+				// If the fallback type satisfies the constraint, we pick it. Otherwise, we pick the constraint.
+				inferredType = core.IfElse(fallbackType != nil && n.compareTypes(fallbackType, c.getTypeWithThisArgument(instantiatedConstraint, fallbackType, false), false) != TernaryFalse, fallbackType, instantiatedConstraint)
+			}
+			inference.inferredType = inferredType
 		}
 	}
 	return inference.inferredType
