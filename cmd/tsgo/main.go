@@ -292,8 +292,8 @@ func listFiles(p *ts.Program) {
 
 func printDiagnostics(diagnostics []*ast.Diagnostic, host ts.CompilerHost, compilerOptions *core.CompilerOptions) {
 	comparePathOptions := tspath.ComparePathsOptions{
-		CurrentDirectory:          host.GetCurrentDirectory(),
-		CaseSensitivity: host.FS().CaseSensitivity(),
+		CurrentDirectory: host.GetCurrentDirectory(),
+		CaseSensitivity:  host.FS().CaseSensitivity(),
 	}
 	if compilerOptions.Pretty.IsTrueOrUnknown() {
 		formatOpts := diagnosticwriter.FormattingOptions{
