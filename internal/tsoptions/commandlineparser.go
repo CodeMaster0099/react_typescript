@@ -3,7 +3,6 @@ package tsoptions
 import (
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/core"
@@ -12,32 +11,13 @@ import (
 	"github.com/microsoft/typescript-go/internal/vfs"
 )
 
-type DidYouMeanOptionsDiagnostics struct {
-	alternateMode               *AlternateModeDiagnostics
-	OptionDeclarations          []CommandLineOption
-	UnknownOptionDiagnostic     *diagnostics.Message
-	UnknownDidYouMeanDiagnostic *diagnostics.Message
-}
-
-type AlternateModeDiagnostics struct {
-	diagnostic     *diagnostics.Message
-	optionsNameMap *NameMap
-}
-
-type ParseCommandLineWorkerDiagnostics struct {
-	didYouMean                   DidYouMeanOptionsDiagnostics
-	optionsNameMap               *NameMap
-	optionsNameMapOnce           sync.Once
-	OptionTypeMismatchDiagnostic *diagnostics.Message
-}
-
 type OptionsBase map[string]any // CompilerOptionsValue|TsConfigSourceFile
 
 func (p *CommandLineParser) AlternateMode() *AlternateModeDiagnostics {
 	return p.workerDiagnostics.didYouMean.alternateMode
 }
 
-func (p *CommandLineParser) OptionsDeclarations() []CommandLineOption {
+func (p *CommandLineParser) OptionsDeclarations() []*CommandLineOption {
 	return p.workerDiagnostics.didYouMean.OptionDeclarations
 }
 
@@ -54,7 +34,7 @@ func (p *CommandLineParser) GetOptionsNameMap() *NameMap {
 		optionsNames := map[string]*CommandLineOption{}
 		shortOptionNames := map[string]string{}
 		for _, option := range p.workerDiagnostics.didYouMean.OptionDeclarations {
-			optionsNames[strings.ToLower(option.Name)] = &option
+			optionsNames[strings.ToLower(option.Name)] = option
 			if option.shortName != "" {
 				shortOptionNames[option.shortName] = option.Name
 			}
@@ -73,7 +53,6 @@ type CommandLineParser struct {
 	options           OptionsBase
 	// todo: watchOptions   OptionsBase
 	fileNames []string
-	errorLoc  core.TextRange
 	errors    []*ast.Diagnostic
 }
 
@@ -97,7 +76,6 @@ func parseCommandLineWorker(
 		workerDiagnostics: parseCommandLineWithDiagnostics,
 		fileNames:         []string{},
 		options:           OptionsBase{},
-		errorLoc:          core.NewTextRange(-1, -1),
 		errors:            []*ast.Diagnostic{},
 	}
 	parser.parseStrings(commandLine)
@@ -205,8 +183,11 @@ func (p *CommandLineParser) parseOptionValue(
 	i int,
 	opt *CommandLineOption,
 ) int {
-	if opt.isTSConfigOnly && i < len(args) {
-		optValue := args[i]
+	if opt.isTSConfigOnly && i <= len(args) {
+		optValue := ""
+		if i < len(args) {
+			optValue = args[i]
+		}
 		if optValue == "null" {
 			p.options[opt.Name] = nil
 			i++
@@ -233,6 +214,8 @@ func (p *CommandLineParser) parseOptionValue(
 				p.errors = append(p.errors, ast.NewCompilerDiagnostic(p.workerDiagnostics.OptionTypeMismatchDiagnostic, opt.Name, getCompilerOptionValueTypeString(opt)))
 				if opt.Kind == "list" {
 					p.options[opt.Name] = []string{}
+				} else if opt.Kind == "enum" {
+					p.errors = append(p.errors, createDiagnosticForInvalidEnumType(opt, nil, nil))
 				}
 			} else {
 				p.options[opt.Name] = true
@@ -263,7 +246,9 @@ func (p *CommandLineParser) parseOptionValue(
 					i++
 				}
 			case "string":
-				p.options[opt.Name] = p.validateJsonOptionValue(opt, args[i], nil, nil)
+				val, err := validateJsonOptionValue(opt, args[i], nil, nil)
+				p.options[opt.Name] = val
+				p.errors = append(p.errors, err...)
 				i++
 			case "list":
 				result := p.parseListTypeOption(opt, args[i])
@@ -275,7 +260,9 @@ func (p *CommandLineParser) parseOptionValue(
 				// If not a primitive, the possible types are specified in what is effectively a map of options.
 				panic("listOrElement not supported here")
 			default:
-				p.options[opt.Name] = p.parseEnumOption(opt, args[i])
+				val, err := convertJsonOptionOfEnumType(opt, strings.TrimFunc(args[i], stringutil.IsWhiteSpaceLike), nil, nil)
+				p.options[opt.Name] = val
+				p.errors = append(p.errors, err...)
 				i++
 			}
 		} else {
@@ -292,7 +279,9 @@ func (p *CommandLineParser) parseListTypeOption(opt *CommandLineOption, value st
 		return []string{}
 	}
 	if opt.Kind == "listOrElement" && !strings.ContainsRune(value, ',') {
-		return []string{p.validateJsonOptionValue(opt, value, nil, nil)}
+		val, err := validateJsonOptionValue(opt, value, nil, nil)
+		p.errors = append(p.errors, err...)
+		return []string{val.(string)}
 	}
 	if value == "" {
 		return []string{}
@@ -300,13 +289,31 @@ func (p *CommandLineParser) parseListTypeOption(opt *CommandLineOption, value st
 	values := strings.Split(value, ",")
 	switch opt.Elements().Kind {
 	case "string":
-		return core.Filter(core.Map(values, func(v string) string { return p.validateJsonOptionValue(opt.Elements(), v, nil, nil) }), isDefined)
+		return core.Filter(core.Map(values, func(v string) string {
+			val, err := validateJsonOptionValue(opt.Elements(), v, nil, nil)
+			p.errors = append(p.errors, err...)
+			return val.(string)
+		}), isDefined)
 	case "boolean", "object", "number":
 		// do nothing: only string and enum/object types currently allowed as list entries
 		// 				!!! we don't actually have number list options, so I didn't implement number list parsing
 		panic("List of " + opt.Elements().Kind + " is not yet supported.")
 	default:
-		return core.Filter(core.Map(values, func(v string) string { return p.parseEnumOption(opt.Elements(), v).(string) }), isDefined)
+		result := core.Map(values, func(v string) string {
+			val, err := convertJsonOptionOfEnumType(opt.Elements(), strings.TrimFunc(v, stringutil.IsWhiteSpaceLike), nil, nil)
+			if _, ok := val.(string); ok {
+				return val.(string)
+			}
+			p.errors = append(p.errors, err...)
+			return ""
+		})
+		var mappedValues []string
+		for _, v := range result {
+			if isDefined(v) {
+				mappedValues = append(mappedValues, v)
+			}
+		}
+		return mappedValues
 	}
 }
 
@@ -314,47 +321,23 @@ func isDefined(s string) bool {
 	return s != ""
 }
 
-// currently, the only options with `extravalidation` are string options
-func (p *CommandLineParser) validateJsonOptionValue(
+func convertJsonOptionOfEnumType(
 	opt *CommandLineOption,
 	value string,
-	loc *core.TextRange,
-	sourceFile *ast.SourceFile, // TODO TsConfigSourceFile,
-) string {
-	if opt.extraValidation != nil {
-		d, args := opt.extraValidation(value)
-		if d != nil {
-			p.errors = append(p.errors,
-				ast.NewDiagnostic(sourceFile, *loc, d, args))
-			return ""
-		}
-	}
-	return value
-}
-
-func (parser *CommandLineParser) parseEnumOption(opt *CommandLineOption, value string) any {
-	return parser.convertJsonOptionOfEnumType(opt, strings.TrimFunc(value, stringutil.IsWhiteSpaceLike))
-}
-
-func (parser *CommandLineParser) convertJsonOptionOfEnumType(
-	opt *CommandLineOption,
-	value string,
-	// todo: previously used for error reporting, remove if ported functions do not need
-	// valueExpression Expression,
-	// sourceFile TsConfigSourceFile,
-) any {
+	valueExpression *ast.Expression,
+	sourceFile *ast.SourceFile,
+) (any, []*ast.Diagnostic) {
 	if value == "" {
-		return ""
+		return nil, nil
 	}
 	key := strings.ToLower(value)
 	typeMap := opt.EnumMap()
 	if typeMap == nil {
-		return ""
+		return nil, nil
 	}
-	val, b := typeMap.Get(key)
-	if (val != nil) && (val != "" || b) {
-		return val
+	val, ok := typeMap.Get(key)
+	if ok {
+		return validateJsonOptionValue(opt, val, valueExpression, sourceFile)
 	}
-	parser.errors = append(parser.errors, createDiagnosticForInvalidEnumType(opt))
-	return ""
+	return nil, []*ast.Diagnostic{createDiagnosticForInvalidEnumType(opt, sourceFile, valueExpression)}
 }

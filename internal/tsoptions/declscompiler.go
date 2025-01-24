@@ -5,7 +5,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/diagnostics"
 )
 
-var optionsDeclarations = []CommandLineOption{
+var optionsDeclarations = []*CommandLineOption{
 	//******* commandOptionsWithoutBuild *******
 	{
 		Name:                     "help",
