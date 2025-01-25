@@ -137,7 +137,7 @@ func TestParseCommandLineVerifyNull(t *testing.T) {
 }
 
 func createVerifyNullForNonNullIncluded(subScenario string, kind CommandLineOptionKind, nonNullValue string) verifyNull {
-	workerDiagnostics := GetCompilerOptionsDidYouMeanDiagnostics(append(optionsDeclarations, &CommandLineOption{
+	workerDiagnostics := GetCompilerOptionsDidYouMeanDiagnostics(append(OptionsDeclarations, &CommandLineOption{
 		Name:                    "optionName",
 		Kind:                    kind,
 		isTSConfigOnly:          true,
@@ -243,7 +243,7 @@ func parseExistingCompilerBaseline(t *testing.T, baseline string) *TestCommandLi
 // 	return &parser
 // }
 
-var compilerOptionsDidYouMeanDiagnostics = GetCompilerOptionsDidYouMeanDiagnostics(optionsDeclarations)
+var compilerOptionsDidYouMeanDiagnostics = GetCompilerOptionsDidYouMeanDiagnostics(OptionsDeclarations)
 
 func GetCompilerOptionsDidYouMeanDiagnostics(decls []*CommandLineOption) *ParseCommandLineWorkerDiagnostics {
 	return &ParseCommandLineWorkerDiagnostics{
@@ -312,10 +312,10 @@ func TestAffectsBuildInfo(t *testing.T) {
 	t.Parallel()
 	t.Run("should have affectsBuildInfo true for every option with affectsSemanticDiagnostics", func(t *testing.T) {
 		t.Parallel()
-		for _, option := range optionsDeclarations {
-			if option.affectsSemanticDiagnostics {
+		for _, option := range OptionsDeclarations {
+			if option.AffectsSemanticDiagnostics {
 				// semantic diagnostics affect the build info, so ensure they're included
-				assert.Assert(t, option.affectsBuildInfo)
+				assert.Assert(t, option.AffectsBuildInfo)
 			}
 		}
 	})

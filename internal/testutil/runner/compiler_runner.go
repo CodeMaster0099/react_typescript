@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/testutil/tsbaseline"
+	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -83,7 +84,24 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	}
 }
 
-var compilerVaryBy []string // !!! Add this when we have real compiler options parsing
+var compilerVaryBy []string = append(
+	core.Map(core.Filter(tsoptions.OptionsDeclarations, func(option *tsoptions.CommandLineOption) bool {
+		return !option.IsCommandLineOnly &&
+			(option.Kind == tsoptions.CommandLineOptionTypeBoolean || option.Kind == tsoptions.CommandLineOptionTypeObject) &&
+			(option.AffectsProgramStructure ||
+				option.AffectsEmit ||
+				option.AffectsModuleResolution ||
+				option.AffectsBindDiagnostics ||
+				option.AffectsSemanticDiagnostics ||
+				option.AffectsSourceFile ||
+				option.AffectsDeclarationPath ||
+				option.AffectsBuildInfo)
+	}), func(option *tsoptions.CommandLineOption) string {
+		return option.Name
+	}),
+	// explicit variations that do not match above conditions
+	"noEmit",
+	"isolatedModules")
 
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	test := getCompilerFileBasedTest(filename)
@@ -144,7 +162,7 @@ type compilerTest struct {
 	basename       string
 	configuredName string // name with configuration description, e.g. `file`
 	options        *core.CompilerOptions
-	result         *harnessutil.CompileFilesResult
+	result         *harnessutil.CompilationResult
 	tsConfigFiles  []*harnessutil.TestFile
 	toBeCompiled   []*harnessutil.TestFile // equivalent to the files that will be passed on the command line
 	otherFiles     []*harnessutil.TestFile // equivalent to other files on the file system not directly passed to the compiler (ie things that are referenced by other files)
@@ -156,7 +174,11 @@ type testCaseContentWithConfig struct {
 	configuration harnessutil.TestConfiguration
 }
 
-func newCompilerTest(filename string, testContent *testCaseContent, configuration harnessutil.TestConfiguration) *compilerTest {
+func newCompilerTest(
+	t *testing.T,
+	filename string,
+	testContent *testCaseContent,
+	configuration harnessutil.TestConfiguration) *compilerTest {
 	basename := tspath.GetBaseFileName(filename)
 	configuredName := basename
 	if configuration != nil {
@@ -191,11 +213,26 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 	units := testCaseContentWithConfig.testUnitData
 	var toBeCompiled []*harnessutil.TestFile
 	var otherFiles []*harnessutil.TestFile
-	var tsConfigOptions *core.CompilerOptions
-	hasNonDtsFiles := core.Some(units, func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, tspath.ExtensionDts) })
-	// var tsConfigFiles []*harnessutil.TestFile // !!!
+	var tsConfigOptions core.CompilerOptions
+	hasNonDtsFiles := core.Some(
+		units,
+		func(unit *testUnit) bool { return !tspath.FileExtensionIs(unit.name, tspath.ExtensionDts) })
+	var tsConfigFiles []*harnessutil.TestFile // >> TODO: add those files to vfs
 	if testCaseContentWithConfig.tsConfig != nil {
-		// !!!
+		tsConfigOptions = *testCaseContentWithConfig.tsConfig.ParsedConfig.CompilerOptions
+		tsConfigFiles = []*harnessutil.TestFile{
+			createHarnessTestFile(testCaseContentWithConfig.tsConfigFileUnitData, currentDirectory),
+		}
+		for _, unit := range units {
+			if slices.Contains(
+				testCaseContentWithConfig.tsConfig.ParsedConfig.FileNames,
+				tspath.GetNormalizedAbsolutePath(unit.name, currentDirectory),
+			) {
+				toBeCompiled = append(toBeCompiled, createHarnessTestFile(unit, currentDirectory))
+			} else {
+				otherFiles = append(otherFiles, createHarnessTestFile(unit, currentDirectory))
+			}
+		}
 	} else {
 		baseUrl, ok := harnessConfig["baseUrl"]
 		if ok && !tspath.IsRootedDiskPath(baseUrl) {
@@ -219,15 +256,12 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 		}
 	}
 
-	if tsConfigOptions != nil && tsConfigOptions.ConfigFilePath != "" {
-		// tsConfigOptions.configFile!.fileName = tsConfigOptions.configFilePath; // !!!
-	}
-
 	result := harnessutil.CompileFiles(
+		t,
 		toBeCompiled,
 		otherFiles,
 		harnessConfig,
-		tsConfigOptions,
+		&tsConfigOptions,
 		currentDirectory,
 		testCaseContentWithConfig.symlinks,
 	)
@@ -237,8 +271,8 @@ func newCompilerTest(filename string, testContent *testCaseContent, configuratio
 		basename:       basename,
 		configuredName: configuredName,
 		// options: result.options, // !!!
-		result: result,
-		// tsConfigFiles: tsConfigFiles, // !!!
+		result:         result,
+		tsConfigFiles:  tsConfigFiles,
 		toBeCompiled:   toBeCompiled,
 		otherFiles:     otherFiles,
 		hasNonDtsFiles: hasNonDtsFiles,

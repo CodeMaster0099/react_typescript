@@ -2,9 +2,13 @@ package runner
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/microsoft/typescript-go/internal/parser"
 	"github.com/microsoft/typescript-go/internal/scanner"
+	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
+	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -27,8 +31,8 @@ type testUnit struct {
 
 type testCaseContent struct {
 	testUnitData         []*testUnit
-	tsConfig             any // !!!
-	tsConfigFileUnitData any // !!!
+	tsConfig             *tsoptions.ParsedCommandLine
+	tsConfigFileUnitData *testUnit
 	symlinks             any // !!!
 }
 
@@ -46,6 +50,7 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	var currentFileContent strings.Builder
 	var currentFileName string
 	currentFileOptions := make(map[string]string)
+	currentDirectory := srcFolder
 	// var symlinks any
 
 	for _, line := range lines {
@@ -59,6 +64,9 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 			// Comment line, check for global/file @options and record them
 			metaDataName := strings.ToLower(testMetaData[1])
 			metaDataValue := strings.TrimSpace(testMetaData[2])
+			if metaDataName == "currentdirectory" {
+				currentDirectory = metaDataValue
+			}
 			if metaDataName != "filename" {
 				currentFileOptions[metaDataName] = metaDataValue
 				continue
@@ -111,59 +119,45 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	}
 	testUnits = append(testUnits, newTestFile2)
 
-	// !!! Need tsconfig parsing for this part
 	// unit tests always list files explicitly
-	// const parseConfigHost: ts.ParseConfigHost = {
-	// 	useCaseSensitiveFileNames: false,
-	// 	readDirectory: (directory, extensions, excludes, includes, depth) => {
-	// 		return ts.matchFiles(directory, extensions, excludes, includes, /*useCaseSensitiveFileNames*/ false, "", depth, dir => {
-	// 			const files: string[] = [];
-	// 			const directories = new Set<string>();
-	// 			for (const unit of testUnitData) {
-	// 				const fileName = ts.getNormalizedAbsolutePath(unit.name, vfs.srcFolder);
-	// 				if (fileName.toLowerCase().startsWith(dir.toLowerCase())) {
-	// 					let path = fileName.substring(dir.length);
-	// 					if (path.startsWith("/")) {
-	// 						path = path.substring(1);
-	// 					}
-	// 					if (path.includes("/")) {
-	// 						const directoryName = path.substring(0, path.indexOf("/"));
-	// 						directories.add(directoryName);
-	// 					}
-	// 					else {
-	// 						files.push(path);
-	// 					}
-	// 				}
-	// 			}
-	// 			return { files, directories: ts.arrayFrom(directories) };
-	// 		}, ts.identity);
-	// 	},
-	// 	fileExists: fileName => testUnitData.some(data => data.name.toLowerCase() === fileName.toLowerCase()),
-	// 	readFile: name => ts.forEach(testUnitData, data => data.name.toLowerCase() === name.toLowerCase() ? data.content : undefined),
-	// };
-	//
-	// // check if project has tsconfig.json in the list of files
-	// let tsConfig: ts.ParsedCommandLine | undefined;
-	// let tsConfigFileUnitData: TestUnitData | undefined;
-	// for (let i = 0; i < testUnitData.length; i++) {
-	// 	const data = testUnitData[i];
-	// 	if (getConfigNameFromFileName(data.name)) {
-	// 		const configJson = ts.parseJsonText(data.name, data.content);
-	// 		assert.isTrue(configJson.endOfFileToken !== undefined);
-	// 		const configFileName = ts.getNormalizedAbsolutePath(data.name, vfs.srcFolder);
-	// 		const configDir = ts.getDirectoryPath(configFileName);
-	// 		tsConfig = ts.parseJsonSourceFileConfigFileContent(configJson, parseConfigHost, configDir, /*existingOptions*/ undefined, configFileName);
-	// 		tsConfigFileUnitData = data;
+	allFiles := make(map[string]string)
+	for _, data := range testUnits {
+		allFiles[data.name] = data.content
+	}
+	parseConfigHost := tsoptions.NewVFSParseConfigHost(allFiles, currentDirectory)
 
-	// 		// delete entry from the list
-	// 		ts.orderedRemoveItemAt(testUnitData, i);
+	// check if project has tsconfig.json in the list of files
+	var tsConfig tsoptions.ParsedCommandLine
+	var tsConfigFileUnitData *testUnit
+	for i, data := range testUnits {
+		if harnessutil.GetConfigNameFromFileName(data.name) != "" {
+			configJson := parser.ParseJSONText(data.name, data.content)
+			tsConfigSourceFile := &tsoptions.TsConfigSourceFile{
+				SourceFile: configJson,
+			}
+			configFileName := tspath.GetNormalizedAbsolutePath(data.name, currentDirectory)
+			configDir := tspath.GetDirectoryPath(configFileName)
+			tsConfig = tsoptions.ParseJsonSourceFileConfigFileContent(
+				tsConfigSourceFile,
+				parseConfigHost,
+				configDir,
+				nil, /*existingOptions*/
+				configFileName,
+				nil, /*resolutionStack*/
+				nil, /*extraFileExtensions*/
+				nil /*extendedConfigCache*/)
+			tsConfigFileUnitData = data
 
-	// 		break;
-	// 	}
-	// }
+			// delete tsconfig file entry from the list
+			testUnits = slices.Delete(testUnits, i, i+1)
+			break
+		}
+	}
 
 	return testCaseContent{
-		testUnitData: testUnits,
+		testUnitData:         testUnits,
+		tsConfig:             &tsConfig,
+		tsConfigFileUnitData: tsConfigFileUnitData,
 	}
 }
 

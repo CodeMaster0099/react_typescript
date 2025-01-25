@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
@@ -18,7 +17,6 @@ import (
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
-	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
 	"gotest.tools/v3/assert"
 )
 
@@ -27,45 +25,6 @@ type testConfig struct {
 	configFileName string
 	basePath       string
 	allFileList    map[string]string
-}
-
-func fixRoot(path string) string {
-	rootLength := tspath.GetRootLength(path)
-	if rootLength == 0 {
-		return path
-	}
-	if len(path) == rootLength {
-		return "."
-	}
-	return path[rootLength:]
-}
-
-type vfsParseConfigHost struct {
-	fs               vfs.FS
-	currentDirectory string
-}
-
-var _ ParseConfigHost = (*vfsParseConfigHost)(nil)
-
-func (h *vfsParseConfigHost) FS() vfs.FS {
-	return h.fs
-}
-
-func (h *vfsParseConfigHost) GetCurrentDirectory() string {
-	return h.currentDirectory
-}
-
-func newVFSParseConfigHost(files map[string]string, currentDirectory string) *vfsParseConfigHost {
-	fs := fstest.MapFS{}
-	for name, content := range files {
-		fs[fixRoot(name)] = &fstest.MapFile{
-			Data: []byte(content),
-		}
-	}
-	return &vfsParseConfigHost{
-		fs:               vfstest.FromMapFS(fs, true /*useCaseSensitiveFileNames*/),
-		currentDirectory: currentDirectory,
-	}
 }
 
 var parseConfigFileTextToJsonTests = []struct {
@@ -555,7 +514,7 @@ func baselineParseConfigWith(t *testing.T, baselineFileName string, noSubmoduleB
 			allFileLists[file] = content
 		}
 		allFileLists[configFileName] = config.jsonText
-		host := newVFSParseConfigHost(allFileLists, config.basePath)
+		host := NewVFSParseConfigHost(allFileLists, config.basePath)
 		parsedConfigFileContent := getParsed(config, host, basePath)
 
 		baselineContent.WriteString("Fs::\n")
@@ -624,7 +583,7 @@ func TestParseSrcCompiler(t *testing.T) {
 	tsconfigPath := tspath.CombinePaths(compilerDir, "tsconfig.json")
 
 	fs := vfs.FromOS()
-	host := &vfsParseConfigHost{
+	host := &VfsParseConfigHost{
 		fs:               fs,
 		currentDirectory: compilerDir,
 	}
@@ -788,7 +747,7 @@ func BenchmarkParseSrcCompiler(b *testing.B) {
 	tsconfigPath := tspath.CombinePaths(compilerDir, "tsconfig.json")
 
 	fs := vfs.FromOS()
-	host := &vfsParseConfigHost{
+	host := &VfsParseConfigHost{
 		fs:               fs,
 		currentDirectory: compilerDir,
 	}

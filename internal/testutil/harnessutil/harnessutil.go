@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"testing"
 	"testing/fstest"
 
 	"github.com/microsoft/typescript-go/internal/ast"
@@ -15,6 +17,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/repo"
+	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
 	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
@@ -26,14 +29,15 @@ type TestFile struct {
 	FileOptions map[string]string
 }
 
-type CompileFilesResult struct {
+type CompilationResult struct {
 	Diagnostics []*ast.Diagnostic
 	Program     *compiler.Program
-	// !!!
+	Options     *core.CompilerOptions
+	// !!! outputs
 }
 
 // This maps a compiler setting to its string value, after splitting by commas,
-// handling includions and exclusions, and deduplicating.
+// handling inclusions and exclusions, and deduplicating.
 // For example, if a test file contains:
 //
 //	// @target: esnext, es2015
@@ -42,38 +46,54 @@ type CompileFilesResult struct {
 type TestConfiguration = map[string]string
 
 type harnessOptions struct {
+	allowNonTsExtensions      bool
 	useCaseSensitiveFileNames bool
-	includeBuiltFile          string
 	baselineFile              string
+	includeBuiltFile          string
+	fileName                  string
 	libFiles                  []string
+	noErrorTruncation         bool
+	suppressOutputPathCheck   bool
+	noImplicitReferences      bool
+	currentDirectory          string
+	symlink                   string
+	link                      string
 	noTypesAndSymbols         bool
+	fullEmitPaths             bool
+	noCheck                   bool
+	reportDiagnostics         bool
 	captureSuggestions        bool
+	typescriptVersion         string
 }
 
 func CompileFiles(
+	t *testing.T,
 	inputFiles []*TestFile,
 	otherFiles []*TestFile,
-	rawHarnessConfig TestConfiguration,
+	harnessConfig TestConfiguration,
 	compilerOptions *core.CompilerOptions,
 	currentDirectory string,
 	symlinks any,
-) *CompileFilesResult {
-	// originalCurrentDirectory := currentDirectory
+) *CompilationResult {
 	var options core.CompilerOptions
 	if compilerOptions != nil {
 		options = *compilerOptions
 	}
-	harnessOptions := getHarnessOptions(rawHarnessConfig)
+	// Set default options for tests
+	if options.NewLine == core.NewLineKindNone {
+		options.NewLine = core.NewLineKindCRLF
+	}
+	if options.SkipDefaultLibCheck == core.TSUnknown {
+		options.SkipDefaultLibCheck = core.TSTrue
+	}
+	options.NoErrorTruncation = core.TSTrue
+	harnessOptions := harnessOptions{useCaseSensitiveFileNames: true, currentDirectory: currentDirectory}
 
-	var typescriptVersion string
-
-	// Parse settings
-	if rawHarnessConfig != nil { // !!! Review after tsconfig parsing: why do we need this if we've already parsed ts config options in `NewCompilerTest`?
-		setCompilerOptionsFromHarnessConfig(rawHarnessConfig, &options)
-		typescriptVersion = rawHarnessConfig["typescriptVersion"]
+	// Parse harness and compiler options from the harness configuration
+	if harnessConfig != nil {
+		setOptionsFromHarnessConfig(t, harnessConfig, &options, &harnessOptions)
 	}
 
-	useCaseSensitiveFileNames := true // !!! Get this from harness options; default to true
 	var programFileNames []string
 	for _, file := range inputFiles {
 		fileName := tspath.GetNormalizedAbsolutePath(file.UnitName, currentDirectory)
@@ -130,44 +150,201 @@ func CompileFiles(
 		}
 	}
 
-	fs := vfstest.FromMapFS(testfs, useCaseSensitiveFileNames)
+	fs := vfstest.FromMapFS(testfs, harnessOptions.useCaseSensitiveFileNames)
 	fs = bundled.WrapFS(fs)
 
 	host := createCompilerHost(fs, &options, currentDirectory)
-	result := compileFilesWithHost(host, programFileNames, &options, typescriptVersion, harnessOptions.captureSuggestions)
+	result := compileFilesWithHost(host, programFileNames, &options, harnessOptions.typescriptVersion, harnessOptions.captureSuggestions)
 
 	return result
 }
 
-func getHarnessOptions(harnessConfig TestConfiguration) harnessOptions {
-	// !!! Implement this once we have command line options
-	// !!! Split and trim `libFiles` by comma here
-	return harnessOptions{}
-}
-
-func setCompilerOptionsFromHarnessConfig(harnessConfig TestConfiguration, options *core.CompilerOptions) {
+func setOptionsFromHarnessConfig(t *testing.T, harnessConfig TestConfiguration, compilerOptions *core.CompilerOptions, harnessOptions *harnessOptions) {
 	for name, value := range harnessConfig {
-		if value == "" {
-			panic(fmt.Sprintf("Cannot have undefined value for compiler option '%s'", name))
-		}
 		if name == "typescriptversion" {
 			continue
 		}
 
-		// !!! Implement this once we have command line options
-		// const option = getCommandLineOption(name);
-		// if (option) {
-		// 	const errors: ts.Diagnostic[] = [];
-		// 	options[option.name] = optionValue(option, value, errors);
-		// 	if (errors.length > 0) {
-		// 		throw new Error(`Unknown value '${value}' for compiler option '${name}'.`);
-		// 	}
-		// }
-		// else {
-		// 	throw new Error(`Unknown compiler option '${name}'.`);
-		// }
-		// !!! Validate that all options present in harness config are either compiler or harness options
+		commandLineOption := getCommandLineOption(name)
+		if commandLineOption != nil {
+			parsedValue := optionValue(t, commandLineOption, value)
+			tsoptions.ParseCompilerOptions(commandLineOption.Name, parsedValue, compilerOptions)
+			continue
+		}
+		harnessOption := getHarnessOption(name)
+		if harnessOption != nil {
+			parsedValue := optionValue(t, harnessOption, value)
+			parseHarnessOption(name, parsedValue, harnessOptions)
+			continue
+		}
+
+		t.Fatalf("Unknown compiler option '%s'.", name)
 	}
+}
+
+var harnessCommandLineOptions = []*tsoptions.CommandLineOption{
+	{
+		Name: "allowNonTsExtensions",
+		Kind: tsoptions.CommandLineOptionTypeBoolean,
+		// defaultValueDescription: false,
+	},
+	{
+		Name: "useCaseSensitiveFileNames",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	{
+		Name: "baselineFile",
+		Kind: "string",
+	},
+	{
+		Name: "includeBuiltFile",
+		Kind: "string",
+	},
+	{
+		Name: "fileName",
+		Kind: "string",
+	},
+	{
+		Name: "libFiles",
+		Kind: "string",
+	},
+	{
+		Name: "noErrorTruncation",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	{
+		Name: "suppressOutputPathCheck",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	{
+		Name: "noImplicitReferences",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	{
+		Name: "currentDirectory",
+		Kind: "string",
+	},
+	{
+		Name: "symlink",
+		Kind: "string",
+	},
+	{
+		Name: "link",
+		Kind: "string",
+	},
+	{
+		Name: "noKindsAndSymbols",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	// Emitted js baseline will print full paths for every output file
+	{
+		Name: "fullEmitPaths",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	{
+		Name: "noCheck",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	// used to enable error collection in `transpile` baselines
+	{
+		Name: "reportDiagnostics",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+	// Adds suggestion diagnostics to error baselines
+	{
+		Name: "captureSuggestions",
+		Kind: "boolean",
+		// defaultValueDescription: false,
+	},
+}
+
+func getHarnessOption(name string) *tsoptions.CommandLineOption {
+	return core.Find(harnessCommandLineOptions, func(option *tsoptions.CommandLineOption) bool {
+		return strings.ToLower(option.Name) == strings.ToLower(name)
+	})
+}
+
+func parseHarnessOption(key string, value any, options *harnessOptions) {
+	switch key {
+	case "allowNonTsExtensions":
+		options.allowNonTsExtensions = value.(bool)
+	case "useCaseSensitiveFileNames":
+		options.useCaseSensitiveFileNames = value.(bool)
+	case "baselineFile":
+		options.baselineFile = value.(string)
+	case "includeBuiltFile":
+		options.includeBuiltFile = value.(string)
+	case "fileName":
+		options.fileName = value.(string)
+	case "libFiles":
+		options.libFiles = value.([]string)
+	case "noErrorTruncation":
+		options.noErrorTruncation = value.(bool)
+	case "suppressOutputPathCheck":
+		options.suppressOutputPathCheck = value.(bool)
+	case "noImplicitReferences":
+		options.noImplicitReferences = value.(bool)
+	case "currentDirectory":
+		options.currentDirectory = value.(string)
+	case "symlink":
+		options.symlink = value.(string)
+	case "link":
+		options.link = value.(string)
+	case "noTypesAndSymbols":
+		options.noTypesAndSymbols = value.(bool)
+	case "fullEmitPaths":
+		options.fullEmitPaths = value.(bool)
+	case "noCheck":
+		options.noCheck = value.(bool)
+	case "reportDiagnostics":
+		options.reportDiagnostics = value.(bool)
+	case "captureSuggestions":
+		options.captureSuggestions = value.(bool)
+	case "typescriptVersion":
+		options.typescriptVersion = value.(string)
+	}
+}
+
+func optionValue(t *testing.T, option *tsoptions.CommandLineOption, value string) tsoptions.CompilerOptionsValue {
+	switch option.Kind {
+	case tsoptions.CommandLineOptionTypeString:
+		return value
+	case tsoptions.CommandLineOptionTypeNumber:
+		numVal, err := strconv.Atoi(value)
+		if err != nil {
+			t.Fatalf("Value for option '%s' must be a number, got: %v", option.Name, value)
+		}
+		return numVal
+	case tsoptions.CommandLineOptionTypeBoolean:
+		boolVal, err := strconv.ParseBool(value) // >> TODO: convert to Tristate?
+		if err != nil {
+			t.Fatalf("Value for option '%s' must be a boolean, got: %v", option.Name, value)
+		}
+		return boolVal
+	case tsoptions.CommandLineOptionTypeEnum:
+		enumVal, ok := option.EnumMap().Get(strings.ToLower(value))
+		if !ok {
+			t.Fatalf("Value for option '%s' must be one of %s, got: %v", option.Name, strings.Join(slices.Collect(option.EnumMap().Keys()), ","), value)
+		}
+		return enumVal
+	case tsoptions.CommandLineOptionTypeList, tsoptions.CommandLineOptionTypeListOrElement:
+		listVal, errors := tsoptions.ParseListTypeOption(option, value)
+		if len(errors) > 0 {
+			t.Fatalf("Unknown value '%s' for compiler option '%s'", value, option.Name)
+		}
+		return listVal
+	case tsoptions.CommandLineOptionTypeObject:
+		t.Fatalf("Object type options like '%s' are not supported", option.Name)
+	}
+	return nil
 }
 
 func createCompilerHost(fs vfs.FS, options *core.CompilerOptions, currentDirectory string) compiler.CompilerHost {
@@ -180,7 +357,7 @@ func compileFilesWithHost(
 	options *core.CompilerOptions,
 	typescriptVersion string,
 	captureSuggestions bool,
-) *CompileFilesResult {
+) *CompilationResult {
 	// !!!
 	// if (compilerOptions.project || !rootFiles || rootFiles.length === 0) {
 	// 	const project = readProject(host.parseConfigHost, compilerOptions.project, compilerOptions);
@@ -195,18 +372,6 @@ func compileFilesWithHost(
 	// 	}
 	// 	delete compilerOptions.project;
 	// }
-
-	// establish defaults (aligns with old harness)
-	if options.NewLine == core.NewLineKindNone {
-		options.NewLine = core.NewLineKindCRLF
-	}
-	// !!!
-	// if options.SkipDefaultLibCheck == core.TSUnknown {
-	// 	options.SkipDefaultLibCheck = core.TSTrue
-	// }
-	if options.NoErrorTruncation == core.TSUnknown {
-		options.NoErrorTruncation = core.TSTrue
-	}
 
 	// pre-emit/post-emit error comparison requires declaration emit twice, which can be slow. If it's unlikely to flag any error consistency issues
 	// and if the test is running `skipLibCheck` - an indicator that we want the tets to run quickly - skip the before/after error comparison, too
@@ -253,9 +418,22 @@ func compileFilesWithHost(
 	diagnostics = append(diagnostics, program.GetBindDiagnostics(nil)...)
 	diagnostics = append(diagnostics, program.GetSemanticDiagnostics(nil)...)
 	diagnostics = append(diagnostics, program.GetGlobalDiagnostics()...)
-	return &CompileFilesResult{
+
+	return newCompilationResult(options, program, diagnostics)
+}
+
+func newCompilationResult(
+	options *core.CompilerOptions,
+	program *compiler.Program,
+	diagnostics []*ast.Diagnostic,
+) *CompilationResult {
+	if program != nil {
+		options = program.Options()
+	}
+	return &CompilationResult{
 		Diagnostics: diagnostics,
 		Program:     program,
+		Options:     options,
 	}
 }
 
@@ -343,6 +521,14 @@ func GetFileBasedTestConfigurations(settings map[string]string, option []string)
 	return computeFileBasedTestConfigurationVariations(variationCount, optionEntries)
 }
 
+// Splits a string value into an array of strings, each corresponding to a unique value for the given option.
+// Also handles the `*` value, which includes all possible values for the option, and exclusions.
+// ```
+//
+//	splitOptionValues("esnext, es2015, es6", "target") => ["esnext", "es2015"]
+//	splitOptionValues("*", "strict") => ["true", "false"]
+//
+// ```
 func splitOptionValues(value string, option string) []string {
 	if len(value) == 0 {
 		return nil
@@ -352,7 +538,7 @@ func splitOptionValues(value string, option string) []string {
 	var includes []string
 	var excludes []string
 	for _, s := range strings.Split(value, ",") {
-		s = strings.ToLower(strings.TrimSpace(s))
+		s = strings.TrimSpace(s)
 		if len(s) == 0 {
 			continue
 		}
@@ -365,41 +551,99 @@ func splitOptionValues(value string, option string) []string {
 		}
 	}
 
-	// do nothing if the setting has no variations
-	if len(includes) <= 1 && !star && len(excludes) == 0 {
+	if len(includes) == 0 && !star && len(excludes) == 0 {
 		return nil
 	}
 
-	// !!! We should dedupe the variations by their normalized values instead of by name
-	variations := make(map[string]struct{})
+	// Dedupe the variations by their normalized values
+	variations := make(map[tsoptions.CompilerOptionsValue]string)
 
 	// add (and deduplicate) all included entries
 	for _, include := range includes {
-		// value := getValueOfSetting(setting, include)
-		variations[include] = struct{}{}
+		value, ok := getValueOfOptionString(option, include)
+		if ok {
+			variations[value] = include
+		} else {
+			variations[include] = include
+		}
 	}
 
 	allValues := getAllValuesForOption(option)
 	if star && len(allValues) > 0 {
 		// add all entries
-		for _, value := range allValues {
-			variations[value] = struct{}{}
+		for _, include := range allValues {
+			value, ok := getValueOfOptionString(option, include)
+			if ok {
+				variations[value] = include
+			} else {
+				variations[include] = include
+			}
 		}
 	}
 
 	// remove all excluded entries
 	for _, exclude := range excludes {
-		delete(variations, exclude)
+		value, ok := getValueOfOptionString(option, exclude)
+		if ok {
+			delete(variations, value)
+		} else {
+			delete(variations, exclude)
+		}
 	}
 
 	if len(variations) == 0 {
 		panic(fmt.Sprintf("Variations in test option '@%s' resulted in an empty set.", option))
 	}
-	return slices.Collect(maps.Keys(variations))
+	return slices.Collect(maps.Values(variations))
+}
+
+func getValueOfOptionString(option string, value string) (tsoptions.CompilerOptionsValue, bool) {
+	optionDecl := getCommandLineOption(option)
+	if optionDecl == nil {
+		return nil, false
+	}
+	switch optionDecl.Kind {
+	case tsoptions.CommandLineOptionTypeString,
+		tsoptions.CommandLineOptionTypeList,
+		tsoptions.CommandLineOptionTypeListOrElement,
+		tsoptions.CommandLineOptionTypeObject:
+		return value, true
+	case tsoptions.CommandLineOptionTypeEnum:
+		enumVal, ok := optionDecl.EnumMap().Get(strings.ToLower(value))
+		return enumVal, ok
+	case tsoptions.CommandLineOptionTypeNumber:
+		numVal, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, false
+		}
+		return numVal, true
+	case tsoptions.CommandLineOptionTypeBoolean:
+		boolVal, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, false
+		}
+		return boolVal, true
+	}
+	return nil, false
+}
+
+func getCommandLineOption(option string) *tsoptions.CommandLineOption {
+	return core.Find(tsoptions.OptionsDeclarations, func(optionDecl *tsoptions.CommandLineOption) bool {
+		return strings.ToLower(optionDecl.Name) == strings.ToLower(option)
+	})
 }
 
 func getAllValuesForOption(option string) []string {
-	// !!!
+	optionDecl := getCommandLineOption(option)
+	if optionDecl == nil {
+		return nil
+	}
+	switch optionDecl.Kind {
+	case tsoptions.CommandLineOptionTypeEnum:
+		return slices.Collect(optionDecl.EnumMap().Keys())
+	case tsoptions.CommandLineOptionTypeBoolean:
+		return []string{"true", "false"}
+	}
 	return nil
 }
 
@@ -427,4 +671,12 @@ func computeFileBasedTestConfigurationVariationsWorker(
 		variationState[optionKey] = entry
 		computeFileBasedTestConfigurationVariationsWorker(configurations, optionEntries, index+1, variationState)
 	}
+}
+
+func GetConfigNameFromFileName(filename string) string {
+	basenameLower := strings.ToLower(tspath.GetBaseFileName(filename))
+	if basenameLower == "tsconfig.json" || basenameLower == "jsconfig.json" {
+		return basenameLower
+	}
+	return ""
 }
