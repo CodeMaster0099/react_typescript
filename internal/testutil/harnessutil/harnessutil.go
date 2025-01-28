@@ -30,9 +30,10 @@ type TestFile struct {
 }
 
 type CompilationResult struct {
-	Diagnostics []*ast.Diagnostic
-	Program     *compiler.Program
-	Options     *core.CompilerOptions
+	Diagnostics    []*ast.Diagnostic
+	Program        *compiler.Program
+	Options        *core.CompilerOptions
+	HarnessOptions *HarnessOptions
 	// !!! outputs
 }
 
@@ -45,25 +46,30 @@ type CompilationResult struct {
 // Then the map will map "target" to "esnext", and another map will map "target" to "es2015".
 type TestConfiguration = map[string]string
 
-type harnessOptions struct {
-	allowNonTsExtensions      bool
-	useCaseSensitiveFileNames bool
-	baselineFile              string
-	includeBuiltFile          string
-	fileName                  string
-	libFiles                  []string
-	noErrorTruncation         bool
-	suppressOutputPathCheck   bool
-	noImplicitReferences      bool
-	currentDirectory          string
-	symlink                   string
-	link                      string
-	noTypesAndSymbols         bool
-	fullEmitPaths             bool
-	noCheck                   bool
-	reportDiagnostics         bool
-	captureSuggestions        bool
-	typescriptVersion         string
+type NamedTestConfiguration struct {
+	Name   string
+	Config TestConfiguration
+}
+
+type HarnessOptions struct {
+	AllowNonTsExtensions      bool
+	UseCaseSensitiveFileNames bool
+	BaselineFile              string
+	IncludeBuiltFile          string
+	FileName                  string
+	LibFiles                  []string
+	NoErrorTruncation         bool
+	SuppressOutputPathCheck   bool
+	NoImplicitReferences      bool
+	CurrentDirectory          string
+	Symlink                   string
+	Link                      string
+	NoTypesAndSymbols         bool
+	FullEmitPaths             bool
+	NoCheck                   bool
+	ReportDiagnostics         bool
+	CaptureSuggestions        bool
+	TypescriptVersion         string
 }
 
 func CompileFiles(
@@ -87,7 +93,7 @@ func CompileFiles(
 		options.SkipDefaultLibCheck = core.TSTrue
 	}
 	options.NoErrorTruncation = core.TSTrue
-	harnessOptions := harnessOptions{useCaseSensitiveFileNames: true, currentDirectory: currentDirectory}
+	harnessOptions := HarnessOptions{UseCaseSensitiveFileNames: true, CurrentDirectory: currentDirectory}
 
 	// Parse harness and compiler options from the harness configuration
 	if harnessConfig != nil {
@@ -150,16 +156,16 @@ func CompileFiles(
 		}
 	}
 
-	fs := vfstest.FromMapFS(testfs, harnessOptions.useCaseSensitiveFileNames)
+	fs := vfstest.FromMapFS(testfs, harnessOptions.UseCaseSensitiveFileNames)
 	fs = bundled.WrapFS(fs)
 
 	host := createCompilerHost(fs, &options, currentDirectory)
-	result := compileFilesWithHost(host, programFileNames, &options, harnessOptions.typescriptVersion, harnessOptions.captureSuggestions)
+	result := compileFilesWithHost(host, programFileNames, &options, &harnessOptions)
 
 	return result
 }
 
-func setOptionsFromHarnessConfig(t *testing.T, harnessConfig TestConfiguration, compilerOptions *core.CompilerOptions, harnessOptions *harnessOptions) {
+func setOptionsFromHarnessConfig(t *testing.T, harnessConfig TestConfiguration, compilerOptions *core.CompilerOptions, harnessOptions *HarnessOptions) {
 	for name, value := range harnessConfig {
 		if name == "typescriptversion" {
 			continue
@@ -272,44 +278,44 @@ func getHarnessOption(name string) *tsoptions.CommandLineOption {
 	})
 }
 
-func parseHarnessOption(key string, value any, options *harnessOptions) {
+func parseHarnessOption(key string, value any, options *HarnessOptions) {
 	switch key {
 	case "allowNonTsExtensions":
-		options.allowNonTsExtensions = value.(bool)
+		options.AllowNonTsExtensions = value.(bool)
 	case "useCaseSensitiveFileNames":
-		options.useCaseSensitiveFileNames = value.(bool)
+		options.UseCaseSensitiveFileNames = value.(bool)
 	case "baselineFile":
-		options.baselineFile = value.(string)
+		options.BaselineFile = value.(string)
 	case "includeBuiltFile":
-		options.includeBuiltFile = value.(string)
+		options.IncludeBuiltFile = value.(string)
 	case "fileName":
-		options.fileName = value.(string)
+		options.FileName = value.(string)
 	case "libFiles":
-		options.libFiles = value.([]string)
+		options.LibFiles = value.([]string)
 	case "noErrorTruncation":
-		options.noErrorTruncation = value.(bool)
+		options.NoErrorTruncation = value.(bool)
 	case "suppressOutputPathCheck":
-		options.suppressOutputPathCheck = value.(bool)
+		options.SuppressOutputPathCheck = value.(bool)
 	case "noImplicitReferences":
-		options.noImplicitReferences = value.(bool)
+		options.NoImplicitReferences = value.(bool)
 	case "currentDirectory":
-		options.currentDirectory = value.(string)
+		options.CurrentDirectory = value.(string)
 	case "symlink":
-		options.symlink = value.(string)
+		options.Symlink = value.(string)
 	case "link":
-		options.link = value.(string)
+		options.Link = value.(string)
 	case "noTypesAndSymbols":
-		options.noTypesAndSymbols = value.(bool)
+		options.NoTypesAndSymbols = value.(bool)
 	case "fullEmitPaths":
-		options.fullEmitPaths = value.(bool)
+		options.FullEmitPaths = value.(bool)
 	case "noCheck":
-		options.noCheck = value.(bool)
+		options.NoCheck = value.(bool)
 	case "reportDiagnostics":
-		options.reportDiagnostics = value.(bool)
+		options.ReportDiagnostics = value.(bool)
 	case "captureSuggestions":
-		options.captureSuggestions = value.(bool)
+		options.CaptureSuggestions = value.(bool)
 	case "typescriptVersion":
-		options.typescriptVersion = value.(string)
+		options.TypescriptVersion = value.(string)
 	}
 }
 
@@ -355,8 +361,7 @@ func compileFilesWithHost(
 	host compiler.CompilerHost,
 	rootFiles []string,
 	options *core.CompilerOptions,
-	typescriptVersion string,
-	captureSuggestions bool,
+	harnessOptions *HarnessOptions,
 ) *CompilationResult {
 	// !!!
 	// if (compilerOptions.project || !rootFiles || rootFiles.length === 0) {
@@ -373,23 +378,24 @@ func compileFilesWithHost(
 	// 	delete compilerOptions.project;
 	// }
 
+	// !!! Need actual `createProgram` and `getPreEmitDiagnostics` program for this
 	// pre-emit/post-emit error comparison requires declaration emit twice, which can be slow. If it's unlikely to flag any error consistency issues
 	// and if the test is running `skipLibCheck` - an indicator that we want the tets to run quickly - skip the before/after error comparison, too
 	// skipErrorComparison := len(rootFiles) >= 100 || options.SkipLibCheck == core.TSTrue && options.Declaration == core.TSTrue
 	// var preProgram *compiler.Program
 	// if !skipErrorComparison {
-	// !!! Need actual program for this
 	// preProgram = ts.createProgram({ rootNames: rootFiles || [], options: { ...compilerOptions, configFile: compilerOptions.configFile, traceResolution: false }, host, typeScriptVersion })
 	// }
 	// let preErrors = preProgram && ts.getPreEmitDiagnostics(preProgram);
-	// if (preProgram && captureSuggestions) {
+	// if (preProgram && harnessOptions.captureSuggestions) {
 	//     preErrors = ts.concatenate(preErrors, ts.flatMap(preProgram.getSourceFiles(), f => preProgram.getSuggestionDiagnostics(f)));
 	// }
 
-	// const program = ts.createProgram({ rootNames: rootFiles || [], options: compilerOptions, host, typeScriptVersion });
+	// const program = ts.createProgram({ rootNames: rootFiles || [], options: compilerOptions, host, harnessOptions.typeScriptVersion });
 	// const emitResult = program.emit();
 	// let postErrors = ts.getPreEmitDiagnostics(program);
-	// if (captureSuggestions) {
+	// !!! Need `getSuggestionDiagnostics` for this
+	// if (harnessOptions.captureSuggestions) {
 	//     postErrors = ts.concatenate(postErrors, ts.flatMap(program.getSourceFiles(), f => program.getSuggestionDiagnostics(f)));
 	// }
 	// const longerErrors = ts.length(preErrors) > postErrors.length ? preErrors : postErrors;
@@ -419,21 +425,24 @@ func compileFilesWithHost(
 	diagnostics = append(diagnostics, program.GetSemanticDiagnostics(nil)...)
 	diagnostics = append(diagnostics, program.GetGlobalDiagnostics()...)
 
-	return newCompilationResult(options, program, diagnostics)
+	return newCompilationResult(options, program, diagnostics, harnessOptions)
 }
 
 func newCompilationResult(
 	options *core.CompilerOptions,
 	program *compiler.Program,
 	diagnostics []*ast.Diagnostic,
+	harnessOptions *HarnessOptions,
 ) *CompilationResult {
 	if program != nil {
 		options = program.Options()
 	}
+	// !!! Collect compilation outputs (js, dts, source maps)
 	return &CompilationResult{
-		Diagnostics: diagnostics,
-		Program:     program,
-		Options:     options,
+		Diagnostics:    diagnostics,
+		Program:        program,
+		Options:        options,
+		HarnessOptions: harnessOptions,
 	}
 }
 
@@ -485,40 +494,54 @@ func listFilesWorker(spec *regexp.Regexp, recursive bool, folder string) ([]stri
 	return paths, nil
 }
 
-func GetFileBasedTestConfigurationDescription(config TestConfiguration) string {
+func getFileBasedTestConfigurationDescription(config TestConfiguration) string {
 	var output strings.Builder
 	keys := slices.Sorted(maps.Keys(config))
 	for i, key := range keys {
 		if i > 0 {
 			output.WriteString(", ")
 		}
-		fmt.Fprintf(&output, "@%s: %s", key, config[key])
+		fmt.Fprintf(&output, "%s=%s", key, config[key])
 	}
 	return output.String()
 }
 
-func GetFileBasedTestConfigurations(settings map[string]string, option []string) []TestConfiguration {
-	var optionEntries [][]string
+func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, varyByOptions map[string]struct{}) []*NamedTestConfiguration {
+	var optionEntries [][]string // Each element slice has the option name as the first element, and the values as the rest
 	variationCount := 1
-	for _, optionKey := range option {
-		value, ok := settings[optionKey]
-		if ok {
-			entries := splitOptionValues(value, optionKey)
+	nonVariyingOptions := make(map[string]string)
+	for option, value := range settings {
+		if _, ok := varyByOptions[option]; ok {
+			entries := splitOptionValues(value, option)
 			if len(entries) > 0 {
 				variationCount *= len(entries)
 				if variationCount > 25 {
-					panic("Provided test options exceeded the maximum number of variations: " + strings.Join(option, ", "))
+					t.Fatal("Provided test options exceeded the maximum number of variations")
 				}
-				optionEntries = append(optionEntries, []string{optionKey, value})
+				optionEntries = append(optionEntries, append([]string{option}, entries...))
 			}
+		} else {
+			// Variation is not supported for the option
+			nonVariyingOptions[option] = value
 		}
 	}
 
-	if len(optionEntries) == 0 {
-		return nil
+	var configurations []*NamedTestConfiguration
+	if len(optionEntries) > 0 {
+		// Merge varying and non-varying options
+		varyingConfigurations := computeFileBasedTestConfigurationVariations(variationCount, optionEntries)
+		for _, varyingConfig := range varyingConfigurations {
+			description := getFileBasedTestConfigurationDescription(varyingConfig)
+			for key, value := range nonVariyingOptions {
+				varyingConfig[key] = value
+			}
+			configurations = append(configurations, &NamedTestConfiguration{description, varyingConfig})
+		}
+	} else if len(nonVariyingOptions) > 0 {
+		// Only non-varying options
+		configurations = append(configurations, &NamedTestConfiguration{"", nonVariyingOptions})
 	}
-
-	return computeFileBasedTestConfigurationVariations(variationCount, optionEntries)
+	return configurations
 }
 
 // Splits a string value into an array of strings, each corresponding to a unique value for the given option.

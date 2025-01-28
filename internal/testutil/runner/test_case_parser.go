@@ -122,12 +122,12 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	// unit tests always list files explicitly
 	allFiles := make(map[string]string)
 	for _, data := range testUnits {
-		allFiles[data.name] = data.content
+		allFiles[tspath.GetNormalizedAbsolutePath(data.name, currentDirectory)] = data.content
 	}
 	parseConfigHost := tsoptions.NewVFSParseConfigHost(allFiles, currentDirectory)
 
 	// check if project has tsconfig.json in the list of files
-	var tsConfig tsoptions.ParsedCommandLine
+	var tsConfig *tsoptions.ParsedCommandLine
 	var tsConfigFileUnitData *testUnit
 	for i, data := range testUnits {
 		if harnessutil.GetConfigNameFromFileName(data.name) != "" {
@@ -137,7 +137,7 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 			}
 			configFileName := tspath.GetNormalizedAbsolutePath(data.name, currentDirectory)
 			configDir := tspath.GetDirectoryPath(configFileName)
-			tsConfig = tsoptions.ParseJsonSourceFileConfigFileContent(
+			config := tsoptions.ParseJsonSourceFileConfigFileContent(
 				tsConfigSourceFile,
 				parseConfigHost,
 				configDir,
@@ -146,6 +146,7 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 				nil, /*resolutionStack*/
 				nil, /*extraFileExtensions*/
 				nil /*extendedConfigCache*/)
+			tsConfig = &config
 			tsConfigFileUnitData = data
 
 			// delete tsconfig file entry from the list
@@ -156,7 +157,7 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 
 	return testCaseContent{
 		testUnitData:         testUnits,
-		tsConfig:             &tsConfig,
+		tsConfig:             tsConfig,
 		tsConfigFileUnitData: tsConfigFileUnitData,
 	}
 }
