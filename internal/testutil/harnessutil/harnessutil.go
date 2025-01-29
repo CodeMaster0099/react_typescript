@@ -266,6 +266,7 @@ func createProgram(host compiler.CompilerHost, options *core.CompilerOptions) *c
 		Host:               host,
 		Options:            options,
 		DefaultLibraryPath: bundled.LibPath(),
+		SingleThreaded:     true, // JUST FOR TESTING
 	}
 	program := compiler.NewProgram(programOptions)
 	return program
