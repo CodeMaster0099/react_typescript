@@ -116,7 +116,7 @@ func getCompilerVaryByMap() map[string]struct{} {
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	test := getCompilerFileBasedTest(t, filename)
 	basename := tspath.GetBaseFileName(filename)
-	if len(test.configurations) > 1 {
+	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
 			t.Run(basename+" "+config.Name, func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
 		}
