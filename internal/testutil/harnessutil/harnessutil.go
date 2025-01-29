@@ -172,13 +172,13 @@ func setOptionsFromHarnessConfig(t *testing.T, harnessConfig TestConfiguration, 
 
 		commandLineOption := getCommandLineOption(name)
 		if commandLineOption != nil {
-			parsedValue := optionValue(t, commandLineOption, value)
+			parsedValue := getOptionValue(t, commandLineOption, value)
 			tsoptions.ParseCompilerOptions(commandLineOption.Name, parsedValue, compilerOptions)
 			continue
 		}
 		harnessOption := getHarnessOption(name)
 		if harnessOption != nil {
-			parsedValue := optionValue(t, harnessOption, value)
+			parsedValue := getOptionValue(t, harnessOption, value)
 			parseHarnessOption(name, parsedValue, harnessOptions)
 			continue
 		}
@@ -318,7 +318,7 @@ func parseHarnessOption(key string, value any, options *HarnessOptions) {
 	}
 }
 
-func optionValue(t *testing.T, option *tsoptions.CommandLineOption, value string) tsoptions.CompilerOptionsValue {
+func getOptionValue(t *testing.T, option *tsoptions.CommandLineOption, value string) tsoptions.CompilerOptionsValue {
 	switch option.Kind {
 	case tsoptions.CommandLineOptionTypeString:
 		return value
@@ -329,11 +329,14 @@ func optionValue(t *testing.T, option *tsoptions.CommandLineOption, value string
 		}
 		return numVal
 	case tsoptions.CommandLineOptionTypeBoolean:
-		boolVal, err := strconv.ParseBool(value) // >> TODO: convert to Tristate?
-		if err != nil {
+		switch strings.ToLower(value) {
+		case "true":
+			return true
+		case "false":
+			return false
+		default:
 			t.Fatalf("Value for option '%s' must be a boolean, got: %v", option.Name, value)
 		}
-		return boolVal
 	case tsoptions.CommandLineOptionTypeEnum:
 		enumVal, ok := option.EnumMap().Get(strings.ToLower(value))
 		if !ok {
@@ -511,7 +514,7 @@ func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, va
 	nonVariyingOptions := make(map[string]string)
 	for option, value := range settings {
 		if _, ok := varyByOptions[option]; ok {
-			entries := splitOptionValues(value, option)
+			entries := splitOptionValues(t, value, option)
 			if len(entries) > 0 {
 				variationCount *= len(entries)
 				if variationCount > 25 {
@@ -544,14 +547,15 @@ func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, va
 }
 
 // Splits a string value into an array of strings, each corresponding to a unique value for the given option.
-// Also handles the `*` value, which includes all possible values for the option, and exclusions.
+// Also handles the `*` value, which includes all possible values for the option, and exclusions using `-` or `!`.
 // ```
 //
 //	splitOptionValues("esnext, es2015, es6", "target") => ["esnext", "es2015"]
 //	splitOptionValues("*", "strict") => ["true", "false"]
+//	splitOptionValues("*, -true", "strict") => ["false"]
 //
 // ```
-func splitOptionValues(value string, option string) []string {
+func splitOptionValues(t *testing.T, value string, option string) []string {
 	if len(value) == 0 {
 		return nil
 	}
@@ -582,35 +586,23 @@ func splitOptionValues(value string, option string) []string {
 
 	// add (and deduplicate) all included entries
 	for _, include := range includes {
-		value, ok := getValueOfOptionString(option, include)
-		if ok {
-			variations[value] = include
-		} else {
-			variations[include] = include
-		}
+		value := getValueOfOptionString(t, option, include)
+		variations[value] = include
 	}
 
 	allValues := getAllValuesForOption(option)
 	if star && len(allValues) > 0 {
 		// add all entries
 		for _, include := range allValues {
-			value, ok := getValueOfOptionString(option, include)
-			if ok {
-				variations[value] = include
-			} else {
-				variations[include] = include
-			}
+			value := getValueOfOptionString(t, option, include)
+			variations[value] = include
 		}
 	}
 
 	// remove all excluded entries
 	for _, exclude := range excludes {
-		value, ok := getValueOfOptionString(option, exclude)
-		if ok {
-			delete(variations, value)
-		} else {
-			delete(variations, exclude)
-		}
+		value := getValueOfOptionString(t, option, exclude)
+		delete(variations, value)
 	}
 
 	if len(variations) == 0 {
@@ -619,34 +611,12 @@ func splitOptionValues(value string, option string) []string {
 	return slices.Collect(maps.Values(variations))
 }
 
-func getValueOfOptionString(option string, value string) (tsoptions.CompilerOptionsValue, bool) {
+func getValueOfOptionString(t *testing.T, option string, value string) tsoptions.CompilerOptionsValue {
 	optionDecl := getCommandLineOption(option)
 	if optionDecl == nil {
-		return nil, false
+		t.Fatalf("Unknown option '%s'", option)
 	}
-	switch optionDecl.Kind {
-	case tsoptions.CommandLineOptionTypeString,
-		tsoptions.CommandLineOptionTypeList,
-		tsoptions.CommandLineOptionTypeListOrElement,
-		tsoptions.CommandLineOptionTypeObject:
-		return value, true
-	case tsoptions.CommandLineOptionTypeEnum:
-		enumVal, ok := optionDecl.EnumMap().Get(strings.ToLower(value))
-		return enumVal, ok
-	case tsoptions.CommandLineOptionTypeNumber:
-		numVal, err := strconv.Atoi(value)
-		if err != nil {
-			return nil, false
-		}
-		return numVal, true
-	case tsoptions.CommandLineOptionTypeBoolean:
-		boolVal, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, false
-		}
-		return boolVal, true
-	}
-	return nil, false
+	return getOptionValue(t, optionDecl, value)
 }
 
 func getCommandLineOption(option string) *tsoptions.CommandLineOption {

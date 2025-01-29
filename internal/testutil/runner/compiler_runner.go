@@ -188,7 +188,8 @@ func newCompilerTest(
 	t *testing.T,
 	filename string,
 	testContent *testCaseContent,
-	namedConfiguration *harnessutil.NamedTestConfiguration) *compilerTest {
+	namedConfiguration *harnessutil.NamedTestConfiguration,
+) *compilerTest {
 	basename := tspath.GetBaseFileName(filename)
 	configuredName := basename
 	if namedConfiguration != nil && namedConfiguration.Name != "" {
