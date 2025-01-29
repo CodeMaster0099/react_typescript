@@ -316,8 +316,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string) {
 
 func createHarnessTestFile(unit *testUnit, currentDirectory string) *harnessutil.TestFile {
 	return &harnessutil.TestFile{
-		UnitName:    tspath.GetNormalizedAbsolutePath(unit.name, currentDirectory),
-		Content:     unit.content,
-		FileOptions: unit.fileOptions,
+		UnitName: tspath.GetNormalizedAbsolutePath(unit.name, currentDirectory),
+		Content:  unit.content,
 	}
 }

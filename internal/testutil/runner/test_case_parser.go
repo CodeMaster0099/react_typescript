@@ -25,7 +25,6 @@ type rawCompilerSettings map[string]string
 type testUnit struct {
 	content          string
 	name             string
-	fileOptions      rawCompilerSettings
 	originalFilePath string
 }
 
@@ -39,7 +38,8 @@ type testCaseContent struct {
 // Regex for parsing options in the format "@Alpha: Value of any sort"
 var optionRegex = regexp.MustCompile(`(?m)^\/{2}\s*@(\w+)\s*:\s*([^\r\n]*)`) // multiple matches on multiple lines
 
-// Given a test file containing // @FileName directives, return an array of named units of code to be added to an existing compiler instance
+// Given a test file containing // @FileName directives,
+// return an array of named units of code to be added to an existing compiler instance.
 func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	// List of all the subfiles we've parsed out
 	var testUnits []*testUnit
@@ -49,7 +49,6 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	// Stuff related to the subfile we're parsing
 	var currentFileContent strings.Builder
 	var currentFileName string
-	currentFileOptions := make(map[string]string)
 	currentDirectory := srcFolder
 	// var symlinks any
 
@@ -68,7 +67,6 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 				currentDirectory = metaDataValue
 			}
 			if metaDataName != "filename" {
-				currentFileOptions[metaDataName] = metaDataValue
 				continue
 			}
 
@@ -78,14 +76,12 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 				newTestFile := &testUnit{
 					content:          currentFileContent.String(),
 					name:             currentFileName,
-					fileOptions:      currentFileOptions,
 					originalFilePath: fileName,
 				}
 				testUnits = append(testUnits, newTestFile)
 
 				// Reset local data
 				currentFileContent.Reset()
-				currentFileOptions = make(map[string]string)
 				currentFileName = metaDataValue
 			} else {
 				// First metadata marker in the file
@@ -114,7 +110,6 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	newTestFile2 := &testUnit{
 		content:          currentFileContent.String(),
 		name:             currentFileName,
-		fileOptions:      currentFileOptions,
 		originalFilePath: fileName,
 	}
 	testUnits = append(testUnits, newTestFile2)

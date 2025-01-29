@@ -24,9 +24,8 @@ import (
 )
 
 type TestFile struct {
-	UnitName    string
-	Content     string
-	FileOptions map[string]string
+	UnitName string
+	Content  string
 }
 
 type CompilationResult struct {
