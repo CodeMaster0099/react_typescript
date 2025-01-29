@@ -76,28 +76,28 @@ func CompileFiles(
 	t *testing.T,
 	inputFiles []*TestFile,
 	otherFiles []*TestFile,
-	harnessConfig TestConfiguration,
-	compilerOptions *core.CompilerOptions,
+	testConfig TestConfiguration,
+	tsconfigOptions *core.CompilerOptions,
 	currentDirectory string,
 	symlinks any,
 ) *CompilationResult {
-	var options core.CompilerOptions
-	if compilerOptions != nil {
-		options = *compilerOptions
+	var compilerOptions core.CompilerOptions
+	if tsconfigOptions != nil {
+		compilerOptions = *tsconfigOptions
 	}
 	// Set default options for tests
-	if options.NewLine == core.NewLineKindNone {
-		options.NewLine = core.NewLineKindCRLF
+	if compilerOptions.NewLine == core.NewLineKindNone {
+		compilerOptions.NewLine = core.NewLineKindCRLF
 	}
-	if options.SkipDefaultLibCheck == core.TSUnknown {
-		options.SkipDefaultLibCheck = core.TSTrue
+	if compilerOptions.SkipDefaultLibCheck == core.TSUnknown {
+		compilerOptions.SkipDefaultLibCheck = core.TSTrue
 	}
-	options.NoErrorTruncation = core.TSTrue
+	compilerOptions.NoErrorTruncation = core.TSTrue
 	harnessOptions := HarnessOptions{UseCaseSensitiveFileNames: true, CurrentDirectory: currentDirectory}
 
-	// Parse harness and compiler options from the harness configuration
-	if harnessConfig != nil {
-		setOptionsFromHarnessConfig(t, harnessConfig, &options, &harnessOptions)
+	// Parse harness and compiler options from the test configuration
+	if testConfig != nil {
+		setOptionsFromTestConfig(t, testConfig, &compilerOptions, &harnessOptions)
 	}
 
 	var programFileNames []string
@@ -159,14 +159,14 @@ func CompileFiles(
 	fs := vfstest.FromMapFS(testfs, harnessOptions.UseCaseSensitiveFileNames)
 	fs = bundled.WrapFS(fs)
 
-	host := createCompilerHost(fs, &options, currentDirectory)
-	result := compileFilesWithHost(host, programFileNames, &options, &harnessOptions)
+	host := createCompilerHost(fs, &compilerOptions, currentDirectory)
+	result := compileFilesWithHost(host, programFileNames, &compilerOptions, &harnessOptions)
 
 	return result
 }
 
-func setOptionsFromHarnessConfig(t *testing.T, harnessConfig TestConfiguration, compilerOptions *core.CompilerOptions, harnessOptions *HarnessOptions) {
-	for name, value := range harnessConfig {
+func setOptionsFromTestConfig(t *testing.T, testConfig TestConfiguration, compilerOptions *core.CompilerOptions, harnessOptions *HarnessOptions) {
+	for name, value := range testConfig {
 		if name == "typescriptversion" {
 			continue
 		}
@@ -192,12 +192,10 @@ var harnessCommandLineOptions = []*tsoptions.CommandLineOption{
 	{
 		Name: "allowNonTsExtensions",
 		Kind: tsoptions.CommandLineOptionTypeBoolean,
-		// defaultValueDescription: false,
 	},
 	{
 		Name: "useCaseSensitiveFileNames",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	{
 		Name: "baselineFile",
@@ -218,17 +216,14 @@ var harnessCommandLineOptions = []*tsoptions.CommandLineOption{
 	{
 		Name: "noErrorTruncation",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	{
 		Name: "suppressOutputPathCheck",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	{
 		Name: "noImplicitReferences",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	{
 		Name: "currentDirectory",
@@ -245,30 +240,25 @@ var harnessCommandLineOptions = []*tsoptions.CommandLineOption{
 	{
 		Name: "noKindsAndSymbols",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	// Emitted js baseline will print full paths for every output file
 	{
 		Name: "fullEmitPaths",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	{
 		Name: "noCheck",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	// used to enable error collection in `transpile` baselines
 	{
 		Name: "reportDiagnostics",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 	// Adds suggestion diagnostics to error baselines
 	{
 		Name: "captureSuggestions",
 		Kind: "boolean",
-		// defaultValueDescription: false,
 	},
 }
 
