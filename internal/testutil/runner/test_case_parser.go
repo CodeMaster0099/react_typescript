@@ -134,7 +134,7 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 			}
 			configFileName := tspath.GetNormalizedAbsolutePath(data.name, currentDirectory)
 			configDir := tspath.GetDirectoryPath(configFileName)
-			config := tsoptions.ParseJsonSourceFileConfigFileContent(
+			tsConfig = tsoptions.ParseJsonSourceFileConfigFileContent(
 				tsConfigSourceFile,
 				parseConfigHost,
 				configDir,
@@ -143,7 +143,6 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 				nil, /*resolutionStack*/
 				nil, /*extraFileExtensions*/
 				nil /*extendedConfigCache*/)
-			tsConfig = &config
 			tsConfigFileUnitData = data
 
 			// delete tsconfig file entry from the list
