@@ -842,6 +842,14 @@ func GetSourceFileOfNode(node *Node) *SourceFile {
 	return nil
 }
 
+func SetParentInChildren(node *Node) {
+	node.ForEachChild(func(child *Node) bool {
+		child.Parent = node
+		SetParentInChildren(child)
+		return false
+	})
+}
+
 // Walks up the parents of a node to find the ancestor that matches the callback
 func FindAncestor(node *Node, callback func(*Node) bool) *Node {
 	for node != nil {
@@ -874,6 +882,16 @@ func FindAncestorOrQuit(node *Node, callback func(*Node) FindAncestorResult) *No
 		node = node.Parent
 	}
 	return nil
+}
+
+func IsNodeDescendantOf(node *Node, ancestor *Node) bool {
+	for node != nil {
+		if node == ancestor {
+			return true
+		}
+		node = node.Parent
+	}
+	return false
 }
 
 func ModifierToFlag(token Kind) ModifierFlags {
@@ -1187,6 +1205,14 @@ func IsExportsIdentifier(node *Node) bool {
 
 func IsModuleIdentifier(node *Node) bool {
 	return IsIdentifier(node) && node.Text() == "module"
+}
+
+func IsThisIdentifier(node *Node) bool {
+	return IsIdentifier(node) && node.Text() == "this"
+}
+
+func IsThisParameter(node *Node) bool {
+	return IsParameter(node) && node.Name() != nil && IsThisIdentifier(node.Name())
 }
 
 // Does not handle signed numeric names like `a[+0]` - handling those would require handling prefix unary expressions
@@ -1523,15 +1549,17 @@ func IsJsonSourceFile(file *SourceFile) bool {
 	return file.ScriptKind == core.ScriptKindJSON
 }
 
-func GetExternalModuleName(node *Node) *Node {
+func GetExternalModuleName(node *Node) *Expression {
 	switch node.Kind {
 	case KindImportDeclaration:
 		return node.AsImportDeclaration().ModuleSpecifier
 	case KindExportDeclaration:
 		return node.AsExportDeclaration().ModuleSpecifier
+	case KindJSDocImportTag:
+		return node.AsJSDocImportTag().ModuleSpecifier
 	case KindImportEqualsDeclaration:
 		if node.AsImportEqualsDeclaration().ModuleReference.Kind == KindExternalModuleReference {
-			return node.AsImportEqualsDeclaration().ModuleReference.AsExternalModuleReference().Expression_
+			return node.AsImportEqualsDeclaration().ModuleReference.AsExternalModuleReference().Expression
 		}
 		return nil
 	case KindImportType:
@@ -1740,4 +1768,27 @@ func isJSXTagName(node *Node) bool {
 
 func IsImportCall(node *Node) bool {
 	return IsCallExpression(node) && node.AsCallExpression().Expression.Kind == KindImportKeyword
+}
+
+func IsComputedNonLiteralName(name *Node) bool {
+	return IsComputedPropertyName(name) && !IsStringOrNumericLiteralLike(name.Expression())
+}
+
+func IsQuestionToken(node *Node) bool {
+	return node != nil && node.Kind == KindQuestionToken
+}
+
+func TryGetTextOfPropertyName(name *Node) (string, bool) {
+	switch name.Kind {
+	case KindIdentifier, KindPrivateIdentifier, KindStringLiteral, KindNumericLiteral, KindBigIntLiteral,
+		KindNoSubstitutionTemplateLiteral:
+		return name.Text(), true
+	case KindComputedPropertyName:
+		if IsStringOrNumericLiteralLike(name.Expression()) {
+			return name.Expression().Text(), true
+		}
+	case KindJsxNamespacedName:
+		return name.AsJsxNamespacedName().Namespace.Text() + ":" + name.Name().Text(), true
+	}
+	return "", false
 }
