@@ -14,7 +14,6 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/bundled"
-	"github.com/microsoft/typescript-go/internal/collections"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/repo"
@@ -499,11 +498,11 @@ func getFileBasedTestConfigurationDescription(config TestConfiguration) string {
 	return output.String()
 }
 
-func GetFileBasedTestConfigurations(t *testing.T, settings *collections.OrderedMap[string, string], varyByOptions map[string]struct{}) []*NamedTestConfiguration {
+func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, varyByOptions map[string]struct{}) []*NamedTestConfiguration {
 	var optionEntries [][]string // Each element slice has the option name as the first element, and the values as the rest
 	variationCount := 1
 	nonVariyingOptions := make(map[string]string)
-	for option, value := range settings.Entries() {
+	for option, value := range settings {
 		if _, ok := varyByOptions[option]; ok {
 			entries := splitOptionValues(t, value, option)
 			if len(entries) > 0 {

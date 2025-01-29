@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/microsoft/typescript-go/internal/collections"
 	"github.com/microsoft/typescript-go/internal/parser"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
@@ -15,13 +14,12 @@ import (
 
 var lineDelimiter = regexp.MustCompile("\r?\n")
 
-// This maps a compiler setting to its value as written in the test file, in order of appearance.
-// For example, if a test file contains:
+// This maps a compiler setting to its value as written in the test file. For example, if a test file contains:
 //
 //	// @target: esnext, es2015
 //
 // Then the map will map "target" to "esnext, es2015"
-type rawCompilerSettings *collections.OrderedMap[string, string]
+type rawCompilerSettings map[string]string
 
 // All the necessary information to turn a multi file test into useful units for later compilation
 type testUnit struct {
@@ -159,11 +157,11 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 }
 
 func extractCompilerSettings(content string) rawCompilerSettings {
-	var opts collections.OrderedMap[string, string]
+	opts := make(map[string]string)
 
 	for _, match := range optionRegex.FindAllStringSubmatch(content, -1) {
-		opts.Set(strings.ToLower(match[1]), strings.TrimSpace(match[2]))
+		opts[strings.ToLower(match[1])] = strings.TrimSpace(match[2])
 	}
 
-	return &opts
+	return opts
 }
