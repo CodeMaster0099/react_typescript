@@ -1,8 +1,9 @@
-package tsoptions
+package tsoptionstest
 
 import (
 	"testing/fstest"
 
+	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
 	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
@@ -20,18 +21,18 @@ func fixRoot(path string) string {
 }
 
 type VfsParseConfigHost struct {
-	fs               vfs.FS
-	currentDirectory string
+	Vfs              vfs.FS
+	CurrentDirectory string
 }
 
-var _ ParseConfigHost = (*VfsParseConfigHost)(nil)
+var _ tsoptions.ParseConfigHost = (*VfsParseConfigHost)(nil)
 
 func (h *VfsParseConfigHost) FS() vfs.FS {
-	return h.fs
+	return h.Vfs
 }
 
 func (h *VfsParseConfigHost) GetCurrentDirectory() string {
-	return h.currentDirectory
+	return h.CurrentDirectory
 }
 
 func NewVFSParseConfigHost(files map[string]string, currentDirectory string) *VfsParseConfigHost {
@@ -42,7 +43,7 @@ func NewVFSParseConfigHost(files map[string]string, currentDirectory string) *Vf
 		}
 	}
 	return &VfsParseConfigHost{
-		fs:               vfstest.FromMapFS(fs, true /*useCaseSensitiveFileNames*/),
-		currentDirectory: currentDirectory,
+		Vfs:              vfstest.FromMapFS(fs, true /*useCaseSensitiveFileNames*/),
+		CurrentDirectory: currentDirectory,
 	}
 }

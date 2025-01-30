@@ -1,4 +1,4 @@
-package tsoptions
+package tsoptions_test
 
 import (
 	"bytes"
@@ -15,6 +15,8 @@ import (
 	"github.com/microsoft/typescript-go/internal/parser"
 	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
+	"github.com/microsoft/typescript-go/internal/tsoptions"
+	"github.com/microsoft/typescript-go/internal/tsoptions/tsoptionstest"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
 	"gotest.tools/v3/assert"
@@ -131,7 +133,7 @@ func TestParseConfigFileTextToJson(t *testing.T) {
 			for i, jsonText := range rec.input {
 				baselineContent.WriteString("Input::\n")
 				baselineContent.WriteString(jsonText + "\n")
-				parsed, errors := ParseConfigFileTextToJson("/apath/tsconfig.json", "/apath", jsonText)
+				parsed, errors := tsoptions.ParseConfigFileTextToJson("/apath/tsconfig.json", "/apath", jsonText)
 				if configText, err := jsonToReadableText(parsed); err != nil {
 					t.Fatal(err)
 				} else {
@@ -458,9 +460,9 @@ func TestParseJsonConfigFileContent(t *testing.T) {
 	for _, rec := range parseJsonConfigFileTests {
 		t.Run(rec.title+" with json api", func(t *testing.T) {
 			t.Parallel()
-			baselineParseConfigWith(t, rec.title+" with json api.js", rec.noSubmoduleBaseline, rec.input, func(config testConfig, host ParseConfigHost, basePath string) *ParsedCommandLine {
-				parsed, _ := ParseConfigFileTextToJson(config.configFileName, config.basePath, config.jsonText)
-				return ParseJsonConfigFileContent(
+			baselineParseConfigWith(t, rec.title+" with json api.js", rec.noSubmoduleBaseline, rec.input, func(config testConfig, host tsoptions.ParseConfigHost, basePath string) *tsoptions.ParsedCommandLine {
+				parsed, _ := tsoptions.ParseConfigFileTextToJson(config.configFileName, config.basePath, config.jsonText)
+				return tsoptions.ParseJsonConfigFileContent(
 					parsed,
 					host,
 					basePath,
@@ -481,12 +483,12 @@ func TestParseJsonSourceFileConfigFileContent(t *testing.T) {
 	for _, rec := range parseJsonConfigFileTests {
 		t.Run(rec.title+" with jsonSourceFile api", func(t *testing.T) {
 			t.Parallel()
-			baselineParseConfigWith(t, rec.title+" with jsonSourceFile api.js", rec.noSubmoduleBaseline, rec.input, func(config testConfig, host ParseConfigHost, basePath string) *ParsedCommandLine {
+			baselineParseConfigWith(t, rec.title+" with jsonSourceFile api.js", rec.noSubmoduleBaseline, rec.input, func(config testConfig, host tsoptions.ParseConfigHost, basePath string) *tsoptions.ParsedCommandLine {
 				parsed := parser.ParseJSONText(config.configFileName, config.jsonText)
-				tsConfigSourceFile := &TsConfigSourceFile{
+				tsConfigSourceFile := &tsoptions.TsConfigSourceFile{
 					SourceFile: parsed,
 				}
-				return ParseJsonSourceFileConfigFileContent(
+				return tsoptions.ParseJsonSourceFileConfigFileContent(
 					tsConfigSourceFile,
 					host,
 					host.GetCurrentDirectory(),
@@ -501,7 +503,7 @@ func TestParseJsonSourceFileConfigFileContent(t *testing.T) {
 	}
 }
 
-func baselineParseConfigWith(t *testing.T, baselineFileName string, noSubmoduleBaseline bool, input []testConfig, getParsed func(config testConfig, host ParseConfigHost, basePath string) *ParsedCommandLine) {
+func baselineParseConfigWith(t *testing.T, baselineFileName string, noSubmoduleBaseline bool, input []testConfig, getParsed func(config testConfig, host tsoptions.ParseConfigHost, basePath string) *tsoptions.ParsedCommandLine) {
 	var baselineContent strings.Builder
 	for i, config := range input {
 		basePath := config.basePath
@@ -514,7 +516,7 @@ func baselineParseConfigWith(t *testing.T, baselineFileName string, noSubmoduleB
 			allFileLists[file] = content
 		}
 		allFileLists[configFileName] = config.jsonText
-		host := NewVFSParseConfigHost(allFileLists, config.basePath)
+		host := tsoptionstest.NewVFSParseConfigHost(allFileLists, config.basePath)
 		parsedConfigFileContent := getParsed(config, host, basePath)
 
 		baselineContent.WriteString("Fs::\n")
@@ -583,9 +585,9 @@ func TestParseSrcCompiler(t *testing.T) {
 	tsconfigPath := tspath.CombinePaths(compilerDir, "tsconfig.json")
 
 	fs := vfs.FromOS()
-	host := &VfsParseConfigHost{
-		fs:               fs,
-		currentDirectory: compilerDir,
+	host := &tsoptionstest.VfsParseConfigHost{
+		Vfs:              fs,
+		CurrentDirectory: compilerDir,
 	}
 
 	jsonText, ok := fs.ReadFile(tsconfigPath)
@@ -599,11 +601,11 @@ func TestParseSrcCompiler(t *testing.T) {
 		t.FailNow()
 	}
 
-	tsConfigSourceFile := &TsConfigSourceFile{
+	tsConfigSourceFile := &tsoptions.TsConfigSourceFile{
 		SourceFile: parsed,
 	}
 
-	parseConfigFileContent := ParseJsonSourceFileConfigFileContent(
+	parseConfigFileContent := tsoptions.ParseJsonSourceFileConfigFileContent(
 		tsConfigSourceFile,
 		host,
 		host.GetCurrentDirectory(),
@@ -747,9 +749,9 @@ func BenchmarkParseSrcCompiler(b *testing.B) {
 	tsconfigPath := tspath.CombinePaths(compilerDir, "tsconfig.json")
 
 	fs := vfs.FromOS()
-	host := &VfsParseConfigHost{
-		fs:               fs,
-		currentDirectory: compilerDir,
+	host := &tsoptionstest.VfsParseConfigHost{
+		Vfs:              fs,
+		CurrentDirectory: compilerDir,
 	}
 
 	jsonText, ok := fs.ReadFile(tsconfigPath)
@@ -760,8 +762,8 @@ func BenchmarkParseSrcCompiler(b *testing.B) {
 	b.ResetTimer()
 
 	for range b.N {
-		ParseJsonSourceFileConfigFileContent(
-			&TsConfigSourceFile{
+		tsoptions.ParseJsonSourceFileConfigFileContent(
+			&tsoptions.TsConfigSourceFile{
 				SourceFile: parsed,
 			},
 			host,

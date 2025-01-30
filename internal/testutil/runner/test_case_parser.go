@@ -9,6 +9,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tsoptions"
+	"github.com/microsoft/typescript-go/internal/tsoptions/tsoptionstest"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -119,7 +120,7 @@ func makeUnitsFromTest(code string, fileName string) testCaseContent {
 	for _, data := range testUnits {
 		allFiles[tspath.GetNormalizedAbsolutePath(data.name, currentDirectory)] = data.content
 	}
-	parseConfigHost := tsoptions.NewVFSParseConfigHost(allFiles, currentDirectory)
+	parseConfigHost := tsoptionstest.NewVFSParseConfigHost(allFiles, currentDirectory)
 
 	// check if project has tsconfig.json in the list of files
 	var tsConfig *tsoptions.ParsedCommandLine
