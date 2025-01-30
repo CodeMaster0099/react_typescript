@@ -173,13 +173,16 @@ func setOptionsFromTestConfig(t *testing.T, testConfig TestConfiguration, compil
 		commandLineOption := getCommandLineOption(name)
 		if commandLineOption != nil {
 			parsedValue := getOptionValue(t, commandLineOption, value)
-			tsoptions.ParseCompilerOptions(commandLineOption.Name, parsedValue, compilerOptions)
+			errors := tsoptions.ParseCompilerOptions(commandLineOption.Name, parsedValue, compilerOptions)
+			if len(errors) > 0 {
+				t.Fatalf("Error parsing value '%s' for compiler option '%s'.", value, commandLineOption.Name)
+			}
 			continue
 		}
 		harnessOption := getHarnessOption(name)
 		if harnessOption != nil {
 			parsedValue := getOptionValue(t, harnessOption, value)
-			parseHarnessOption(name, parsedValue, harnessOptions)
+			parseHarnessOption(t, harnessOption.Name, parsedValue, harnessOptions)
 			continue
 		}
 
@@ -267,7 +270,7 @@ func getHarnessOption(name string) *tsoptions.CommandLineOption {
 	})
 }
 
-func parseHarnessOption(key string, value any, options *HarnessOptions) {
+func parseHarnessOption(t *testing.T, key string, value any, options *HarnessOptions) {
 	switch key {
 	case "allowNonTsExtensions":
 		options.AllowNonTsExtensions = value.(bool)
@@ -305,6 +308,8 @@ func parseHarnessOption(key string, value any, options *HarnessOptions) {
 		options.CaptureSuggestions = value.(bool)
 	case "typescriptVersion":
 		options.TypescriptVersion = value.(string)
+	default:
+		t.Fatalf("Unknown harness option '%s'.", key)
 	}
 }
 
