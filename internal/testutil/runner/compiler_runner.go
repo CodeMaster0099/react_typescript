@@ -155,6 +155,7 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
 			t.Run(basename+" "+config.Name, func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
+			t.Run(basename+" "+config.Name, func(t *testing.T) { r.runSingleConfigTest(t, test, config) })
 		}
 	} else {
 		t.Run(basename, func(t *testing.T) { r.runSingleConfigTest(t, test, nil) })
