@@ -5798,7 +5798,7 @@ func (node *ImportAttributesNode) GetResolutionModeOverride( /* !!! grammarError
 	}
 	if elem.Value.Text() != "import" && elem.Value.Text() != "require" {
 		// !!!
-		//grammarErrorOnNode?.(elem.value, Diagnostics.resolution_mode_should_be_either_require_or_import);
+		// grammarErrorOnNode?.(elem.value, Diagnostics.resolution_mode_should_be_either_require_or_import);
 		return core.ResolutionModeNone, false
 	}
 	if elem.Value.Text() == "import" {
