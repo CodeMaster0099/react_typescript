@@ -91,14 +91,16 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	}()
 	r.cleanUpLocal(t)
 	files := r.EnumerateTestFiles()
-	// JUST FOR TESTING?
 	crashingTests := []string{
 		"typeGuardNarrowsIndexedAccessOfKnownProperty10.ts",
 	}
-	// TODO: skip tests that have .js or .tsx files
 	for _, filename := range files {
 		if slices.Contains(crashingTests, tspath.GetBaseFileName(filename)) {
 			t.Skip(fmt.Sprintf("Skipping crashing test %s", filename))
+		}
+		extension := tspath.GetAnyExtensionFromPath(filename, nil, true)
+		if extension == tspath.ExtensionTsx {
+			t.Skip(fmt.Sprintf("Skipping jsx test %s", filename))
 		}
 		r.runTest(t, filename)
 	}
