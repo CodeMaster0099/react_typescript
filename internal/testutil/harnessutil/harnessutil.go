@@ -240,7 +240,7 @@ var harnessCommandLineOptions = []*tsoptions.CommandLineOption{
 		Kind: "string",
 	},
 	{
-		Name: "noKindsAndSymbols",
+		Name: "noTypesAndSymbols",
 		Kind: "boolean",
 	},
 	// Emitted js baseline will print full paths for every output file
