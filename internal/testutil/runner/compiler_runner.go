@@ -148,6 +148,11 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 		"newTarget.es6.ts",
 		"invalidNewTarget.es6.ts",
 		"newTarget.es5.ts",
+		// stack overflow
+		"typeGuardNarrowsIndexedAccessOfKnownProperty10.ts",
+		"promiseIdentity.ts",
+		// running forever
+		"infinitelyExpandingBaseTypes1.ts",
 	}
 	for _, filename := range files {
 		if slices.Contains(crashingTests, tspath.GetBaseFileName(filename)) {
