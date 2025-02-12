@@ -289,7 +289,7 @@ func (c *Checker) getTypeAtFlowCall(f *FlowState, flow *ast.FlowNode) FlowType {
 
 func (c *Checker) narrowTypeByTypePredicate(f *FlowState, t *Type, predicate *TypePredicate, callExpression *ast.Node, assumeTrue bool) *Type {
 	// Don't narrow from 'any' if the predicate type is exactly 'Object' or 'Function'
-	if predicate.t != nil && !(isTypeAny(t) && (predicate.t == c.globalObjectType || predicate.t == c.globalFunctionType)) {
+	if predicate.t != nil && !(IsTypeAny(t) && (predicate.t == c.globalObjectType || predicate.t == c.globalFunctionType)) {
 		predicateArgument := c.getTypePredicateArgument(predicate, callExpression)
 		if predicateArgument != nil {
 			if c.isMatchingReference(f.reference, predicateArgument) {
@@ -736,14 +736,14 @@ func (c *Checker) narrowTypeByConstructor(t *Type, operator ast.Kind, identifier
 	// Get the type of the prototype, if it is undefined, or the global `Object` or `Function` types then do not narrow.
 	prototypeType := c.getTypeOfSymbol(prototypeProperty)
 	var candidate *Type
-	if !isTypeAny(prototypeType) {
+	if !IsTypeAny(prototypeType) {
 		candidate = prototypeType
 	}
 	if candidate == nil || candidate == c.globalObjectType || candidate == c.globalFunctionType {
 		return t
 	}
 	// If the type that is being narrowed is `any` then just return the `candidate` type since every type is a subtype of `any`.
-	if isTypeAny(t) {
+	if IsTypeAny(t) {
 		return candidate
 	}
 	// Filter out types that are not considered to be "constructed by" the `candidate` type.
@@ -798,7 +798,7 @@ func (c *Checker) narrowTypeByInstanceof(f *FlowState, t *Type, expr *ast.Binary
 	instanceType := c.mapType(rightType, c.getInstanceType)
 	// Don't narrow from `any` if the target type is exactly `Object` or `Function`, and narrow
 	// in the false branch only if the target is a non-empty object type.
-	if isTypeAny(t) && (instanceType == c.globalObjectType || instanceType == c.globalFunctionType) || !assumeTrue && !(instanceType.flags&TypeFlagsObject != 0 && !c.isEmptyAnonymousObjectType(instanceType)) {
+	if IsTypeAny(t) && (instanceType == c.globalObjectType || instanceType == c.globalFunctionType) || !assumeTrue && !(instanceType.flags&TypeFlagsObject != 0 && !c.isEmptyAnonymousObjectType(instanceType)) {
 		return t
 	}
 	return c.getNarrowedType(t, instanceType, assumeTrue, true /*checkDerived*/)
@@ -923,7 +923,7 @@ func (c *Checker) getNarrowedTypeWorker(t *Type, candidate *Type, assumeTrue boo
 
 func (c *Checker) getInstanceType(constructorType *Type) *Type {
 	prototypePropertyType := c.getTypeOfPropertyOfType(constructorType, "prototype")
-	if prototypePropertyType != nil && !isTypeAny(prototypePropertyType) {
+	if prototypePropertyType != nil && !IsTypeAny(prototypePropertyType) {
 		return prototypePropertyType
 	}
 	constructSignatures := c.getSignaturesOfType(constructorType, SignatureKindConstruct)
@@ -1199,7 +1199,7 @@ func (c *Checker) narrowTypeBySwitchOnDiscriminantProperty(t *Type, access *ast.
 }
 
 func (c *Checker) getTypeAtFlowBranchLabel(f *FlowState, flow *ast.FlowNode, antecedents *ast.FlowList) FlowType {
-	var antecedentTypes []*Type
+	antecedentStart := len(c.antecedentTypes)
 	subtypeReduction := false
 	seenIncomplete := false
 	var bypassFlow *ast.FlowNode
@@ -1216,9 +1216,12 @@ func (c *Checker) getTypeAtFlowBranchLabel(f *FlowState, flow *ast.FlowNode, ant
 		// are the same), there is no reason to process more antecedents since the only
 		// possible outcome is subtypes that will be removed in the final union type anyway.
 		if flowType.t == f.declaredType && f.declaredType == f.initialType {
+			c.antecedentTypes = c.antecedentTypes[:antecedentStart]
 			return FlowType{t: flowType.t}
 		}
-		antecedentTypes = core.AppendIfUnique(antecedentTypes, flowType.t)
+		if !slices.Contains(c.antecedentTypes[antecedentStart:], flowType.t) {
+			c.antecedentTypes = append(c.antecedentTypes, flowType.t)
+		}
 		// If an antecedent type is not a subset of the declared type, we need to perform
 		// subtype reduction. This happens when a "foreign" type is injected into the control
 		// flow using the instanceof operator or a user defined type predicate.
@@ -1234,11 +1237,12 @@ func (c *Checker) getTypeAtFlowBranchLabel(f *FlowState, flow *ast.FlowNode, ant
 		// If the bypass flow contributes a type we haven't seen yet and the switch statement
 		// isn't exhaustive, process the bypass flow type. Since exhaustiveness checks increase
 		// the risk of circularities, we only want to perform them when they make a difference.
-		if flowType.t.flags&TypeFlagsNever == 0 && !slices.Contains(antecedentTypes, flowType.t) && !c.isExhaustiveSwitchStatement(bypassFlow.Node.AsFlowSwitchClauseData().SwitchStatement) {
+		if flowType.t.flags&TypeFlagsNever == 0 && !slices.Contains(c.antecedentTypes[antecedentStart:], flowType.t) && !c.isExhaustiveSwitchStatement(bypassFlow.Node.AsFlowSwitchClauseData().SwitchStatement) {
 			if flowType.t == f.declaredType && f.declaredType == f.initialType {
+				c.antecedentTypes = c.antecedentTypes[:antecedentStart]
 				return FlowType{t: flowType.t}
 			}
-			antecedentTypes = append(antecedentTypes, flowType.t)
+			c.antecedentTypes = append(c.antecedentTypes, flowType.t)
 			if !c.isTypeSubsetOf(flowType.t, f.initialType) {
 				subtypeReduction = true
 			}
@@ -1247,7 +1251,9 @@ func (c *Checker) getTypeAtFlowBranchLabel(f *FlowState, flow *ast.FlowNode, ant
 			}
 		}
 	}
-	return c.newFlowType(c.getUnionOrEvolvingArrayType(f, antecedentTypes, core.IfElse(subtypeReduction, UnionReductionSubtype, UnionReductionLiteral)), seenIncomplete)
+	result := c.newFlowType(c.getUnionOrEvolvingArrayType(f, c.antecedentTypes[antecedentStart:], core.IfElse(subtypeReduction, UnionReductionSubtype, UnionReductionLiteral)), seenIncomplete)
+	c.antecedentTypes = c.antecedentTypes[:antecedentStart]
+	return result
 }
 
 // At flow control branch or loop junctions, if the type along every antecedent code path
@@ -1293,7 +1299,7 @@ func (c *Checker) getTypeAtFlowLoopLabel(f *FlowState, flow *ast.FlowNode) FlowT
 	}
 	// Add the flow loop junction and reference to the in-process stack and analyze
 	// each antecedent code path.
-	var antecedentTypes []*Type
+	antecedentTypes := make([]*Type, 0, 4)
 	subtypeReduction := false
 	var firstAntecedentType FlowType
 	for list := flow.Antecedents; list != nil; list = list.Next {
@@ -1573,7 +1579,11 @@ func (c *Checker) isMatchingReference(source *ast.Node, target *ast.Node) bool {
 			}
 		}
 	case ast.KindQualifiedName:
-		return ast.IsAccessExpression(target) && source.AsQualifiedName().Right.Text() == target.Name().Text() && c.isMatchingReference(source.AsQualifiedName().Left, target.Expression())
+		if ast.IsAccessExpression(target) {
+			if targetPropertyName, ok := c.getAccessedPropertyName(target); ok {
+				return source.AsQualifiedName().Right.Text() == targetPropertyName && c.isMatchingReference(source.AsQualifiedName().Left, target.Expression())
+			}
+		}
 	case ast.KindBinaryExpression:
 		return ast.IsBinaryExpression(source) && source.AsBinaryExpression().OperatorToken.Kind == ast.KindCommaToken && c.isMatchingReference(source.AsBinaryExpression().Right, target)
 	}
@@ -2101,11 +2111,10 @@ func (c *Checker) getExplicitTypeOfSymbol(symbol *ast.Symbol, diagnostic *ast.Di
 	}
 	if symbol.Flags&(ast.SymbolFlagsVariable|ast.SymbolFlagsProperty) != 0 {
 		if symbol.CheckFlags&ast.CheckFlagsMapped != 0 {
-			// !!!
-			// origin := (symbol.(MappedSymbol)).Links.syntheticOrigin
-			// if origin != nil && c.getExplicitTypeOfSymbol(origin) != nil {
-			// 	return c.getTypeOfSymbol(symbol)
-			// }
+			origin := c.mappedSymbolLinks.get(symbol).syntheticOrigin
+			if origin != nil && c.getExplicitTypeOfSymbol(origin, diagnostic) != nil {
+				return c.getTypeOfSymbol(symbol)
+			}
 		}
 		declaration := symbol.ValueDeclaration
 		if declaration != nil {
@@ -2149,7 +2158,7 @@ func (c *Checker) getExplicitThisType(node *ast.Node) *Type {
 			return c.getExplicitTypeOfSymbol(signature.thisParameter, nil)
 		}
 	}
-	if ast.IsClassLike(container.Parent) {
+	if container.Parent != nil && ast.IsClassLike(container.Parent) {
 		symbol := c.getSymbolOfDeclaration(container.Parent)
 		if ast.IsStatic(container) {
 			return c.getTypeOfSymbol(symbol)
@@ -2397,7 +2406,7 @@ func (c *Checker) getFlowTypeInConstructor(symbol *ast.Symbol, constructor *ast.
 	reference.FlowNodeData().FlowNode = constructor.AsConstructorDeclaration().ReturnFlowNode
 	flowType := c.getFlowTypeOfProperty(reference, symbol)
 	if c.noImplicitAny && (flowType == c.autoType || flowType == c.autoArrayType) {
-		c.error(symbol.ValueDeclaration, diagnostics.Member_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.typeToString(flowType))
+		c.error(symbol.ValueDeclaration, diagnostics.Member_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.TypeToString(flowType))
 	}
 	// We don't infer a type if assignments are only null or undefined.
 	if everyType(flowType, c.isNullableType) {
@@ -2420,7 +2429,7 @@ func (c *Checker) getFlowTypeInStaticBlocks(symbol *ast.Symbol, staticBlocks []*
 		reference.FlowNodeData().FlowNode = staticBlock.AsClassStaticBlockDeclaration().ReturnFlowNode
 		flowType := c.getFlowTypeOfProperty(reference, symbol)
 		if c.noImplicitAny && (flowType == c.autoType || flowType == c.autoArrayType) {
-			c.error(symbol.ValueDeclaration, diagnostics.Member_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.typeToString(flowType))
+			c.error(symbol.ValueDeclaration, diagnostics.Member_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.TypeToString(flowType))
 		}
 		// We don't infer a type if assignments are only null or undefined.
 		if everyType(flowType, c.isNullableType) {
@@ -2619,7 +2628,7 @@ func (c *Checker) hasParentWithAssignmentsMarked(node *ast.Node) bool {
 // assignments occur in compound statements, record the ending source position of the compound statement
 // as the assignment position (this is more conservative than full control flow analysis, but requires
 // only a single walk over the AST).
-func (c *Checker) markNodeAssignments(node *ast.Node) bool {
+func (c *Checker) markNodeAssignmentsWorker(node *ast.Node) bool {
 	switch node.Kind {
 	case ast.KindIdentifier:
 		assignmentKind := getAssignmentTargetKind(node)

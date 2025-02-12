@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/diagnostics"
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
 	"github.com/microsoft/typescript-go/internal/program"
+	"github.com/microsoft/typescript-go/internal/execute"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -113,6 +115,14 @@ func parseArgs() *cliOptions {
 }
 
 func main() {
+	if args := os.Args[1:]; len(args) > 0 {
+		switch args[0] {
+		case "tsc":
+			os.Exit(int(execute.CommandLine(newSystem(), nil, args[1:])))
+		case "lsp":
+			os.Exit(runLSP(args[1:]))
+		}
+	}
 	opts := parseArgs()
 
 	if opts.devel.pprofDir != "" {
@@ -145,15 +155,14 @@ func main() {
 
 	currentDirectory = tspath.GetDirectoryPath(configFilePath)
 	// !!! is the working directory actually the config path?
-	host := program.NewCompilerHost(compilerOptions, currentDirectory, fs)
+	host := program.NewCompilerHost(compilerOptions, currentDirectory, fs, defaultLibraryPath)
 
 	parseStart := time.Now()
 	prog := program.NewProgram(program.ProgramOptions{
-		ConfigFilePath:     configFilePath,
-		Options:            compilerOptions,
-		SingleThreaded:     opts.devel.singleThreaded,
-		Host:               host,
-		DefaultLibraryPath: defaultLibraryPath,
+		ConfigFilePath: configFilePath,
+		Options:        compilerOptions,
+		SingleThreaded: opts.devel.singleThreaded,
+		Host:           host,
 	})
 	parseTime := time.Since(parseStart)
 
@@ -176,10 +185,9 @@ func main() {
 
 	var bindTime, checkTime time.Duration
 
-	diagnostics := prog.GetOptionsDiagnostics()
-	formatOpts := getFormatOpts(host)
+	diagnostics := prog.GetConfigFileParsingDiagnostics()
 	if len(diagnostics) != 0 {
-		printDiagnostics(diagnostics, formatOpts, compilerOptions)
+		printDiagnostics(diagnostics, host, compilerOptions)
 		os.Exit(1)
 	}
 
@@ -195,7 +203,7 @@ func main() {
 			// !!! the checker already reads noCheck, but do it here just for stats printing for now
 			if compilerOptions.NoCheck.IsFalseOrUnknown() {
 				checkStart := time.Now()
-				diagnostics = prog.GetSemanticDiagnostics(nil)
+				diagnostics = slices.Concat(prog.GetGlobalDiagnostics(), prog.GetSemanticDiagnostics(nil))
 				checkTime = time.Since(checkStart)
 			}
 		}
@@ -217,7 +225,7 @@ func main() {
 	runtime.ReadMemStats(&memStats)
 
 	if !opts.devel.quiet && len(diagnostics) != 0 {
-		printDiagnostics(diagnostics, formatOpts, compilerOptions)
+		printDiagnostics(program.SortAndDeduplicateDiagnostics(diagnostics), host, compilerOptions)
 	}
 
 	if compilerOptions.ListFiles.IsTrue() {
@@ -293,7 +301,8 @@ func getFormatOpts(host program.CompilerHost) *diagnosticwriter.FormattingOption
 	}
 }
 
-func printDiagnostics(diagnostics []*ast.Diagnostic, formatOpts *diagnosticwriter.FormattingOptions, compilerOptions *core.CompilerOptions) {
+func printDiagnostics(diagnostics []*ast.Diagnostic, host program.CompilerHost, compilerOptions *core.CompilerOptions) {
+	formatOpts := getFormatOpts(host)
 	if compilerOptions.Pretty.IsTrueOrUnknown() {
 		diagnosticwriter.FormatDiagnosticsWithColorAndContext(os.Stdout, diagnostics, formatOpts)
 		fmt.Fprintln(os.Stdout)
