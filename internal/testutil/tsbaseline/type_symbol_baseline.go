@@ -52,9 +52,11 @@ func DoTypeAndSymbolBaseline(
 
 	fullWalker := newTypeWriterWalker(program, hasErrorBaseline)
 
-	t.Run("type", func(t *testing.T) {
-		checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/)
-	})
+	if !opts.IsDiff {
+		t.Run("type", func(t *testing.T) {
+			checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/)
+		})
+	}
 	t.Run("symbol", func(t *testing.T) {
 		t.Parallel()
 		checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/)
