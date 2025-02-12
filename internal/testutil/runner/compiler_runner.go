@@ -84,11 +84,6 @@ func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 }
 
 func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("Panic on compiling test for baseline:\n%v", r)
-		}
-	}()
 	r.cleanUpLocal(t)
 	files := r.EnumerateTestFiles()
 	crashingTests := []string{
@@ -157,11 +152,6 @@ func getCompilerVaryByMap() map[string]struct{} {
 }
 
 func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("Panic on compiling test for baseline:\n%v", r)
-		}
-	}()
 	test := getCompilerFileBasedTest(t, filename)
 	basename := tspath.GetBaseFileName(filename)
 	if len(test.configurations) > 0 {
@@ -179,11 +169,6 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 
 func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config *harnessutil.NamedTestConfiguration) {
 	t.Parallel()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("Panic on compiling test for baseline:\n%v", r)
-		}
-	}()
 
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(t, test.filename, &payload, config)
@@ -339,11 +324,6 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff 
 
 	t.Run("error", func(t *testing.T) {
 		t.Parallel()
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("Panic on error baseline:\n%v", r)
-			}
-		}()
 		files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
 		tsbaseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, c.result.Options.Pretty.IsTrue(), baseline.Options{Subfolder: suiteName, IsDiff: isDiff})
 	})

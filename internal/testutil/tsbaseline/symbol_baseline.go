@@ -58,11 +58,6 @@ func DoTypeAndSymbolBaseline(
 	// })
 	t.Run("symbol", func(t *testing.T) {
 		t.Parallel()
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("Panic on symbol baseline:\n%v", r)
-			}
-		}()
 		checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/)
 	})
 }
