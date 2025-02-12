@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler/diagnostics"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/diagnosticwriter"
+	"github.com/microsoft/typescript-go/internal/execute"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
@@ -113,6 +115,14 @@ func parseArgs() *cliOptions {
 }
 
 func main() {
+	if args := os.Args[1:]; len(args) > 0 {
+		switch args[0] {
+		case "tsc":
+			os.Exit(int(execute.CommandLine(newSystem(), nil, args[1:])))
+		case "lsp":
+			os.Exit(runLSP(args[1:]))
+		}
+	}
 	opts := parseArgs()
 
 	if opts.devel.pprofDir != "" {
@@ -145,15 +155,14 @@ func main() {
 
 	currentDirectory = tspath.GetDirectoryPath(configFilePath)
 	// !!! is the working directory actually the config path?
-	host := ts.NewCompilerHost(compilerOptions, currentDirectory, fs)
+	host := ts.NewCompilerHost(compilerOptions, currentDirectory, fs, defaultLibraryPath)
 
 	parseStart := time.Now()
 	program := ts.NewProgram(ts.ProgramOptions{
-		ConfigFilePath:     configFilePath,
-		Options:            compilerOptions,
-		SingleThreaded:     opts.devel.singleThreaded,
-		Host:               host,
-		DefaultLibraryPath: defaultLibraryPath,
+		ConfigFilePath: configFilePath,
+		Options:        compilerOptions,
+		SingleThreaded: opts.devel.singleThreaded,
+		Host:           host,
 	})
 	parseTime := time.Since(parseStart)
 
@@ -176,7 +185,7 @@ func main() {
 
 	var bindTime, checkTime time.Duration
 
-	diagnostics := program.GetOptionsDiagnostics()
+	diagnostics := program.GetConfigFileParsingDiagnostics()
 	if len(diagnostics) != 0 {
 		printDiagnostics(diagnostics, host, compilerOptions)
 		os.Exit(1)
@@ -194,7 +203,7 @@ func main() {
 			// !!! the checker already reads noCheck, but do it here just for stats printing for now
 			if compilerOptions.NoCheck.IsFalseOrUnknown() {
 				checkStart := time.Now()
-				diagnostics = program.GetSemanticDiagnostics(nil)
+				diagnostics = slices.Concat(program.GetGlobalDiagnostics(), program.GetSemanticDiagnostics(nil))
 				checkTime = time.Since(checkStart)
 			}
 		}
@@ -216,7 +225,7 @@ func main() {
 	runtime.ReadMemStats(&memStats)
 
 	if !opts.devel.quiet && len(diagnostics) != 0 {
-		printDiagnostics(diagnostics, host, compilerOptions)
+		printDiagnostics(ts.SortAndDeduplicateDiagnostics(diagnostics), host, compilerOptions)
 	}
 
 	if compilerOptions.ListFiles.IsTrue() {
@@ -254,7 +263,7 @@ type table struct {
 
 func (t *table) add(name string, value any) {
 	if d, ok := value.(time.Duration); ok {
-		value = roundDuration(d)
+		value = formatDuration(d)
 	}
 	t.rows = append(t.rows, tableRow{name, fmt.Sprint(value)})
 }
@@ -272,16 +281,8 @@ func (t *table) print() {
 	}
 }
 
-func roundDuration(d time.Duration) time.Duration {
-	switch {
-	case d > time.Second:
-		d = d.Round(time.Second / 1000)
-	case d > time.Millisecond:
-		d = d.Round(time.Millisecond / 1000)
-	case d > time.Microsecond:
-		d = d.Round(time.Microsecond / 1000)
-	}
-	return d
+func formatDuration(d time.Duration) string {
+	return fmt.Sprintf("%.3fs", d.Seconds())
 }
 
 func listFiles(p *ts.Program) {
@@ -290,22 +291,25 @@ func listFiles(p *ts.Program) {
 	}
 }
 
-func printDiagnostics(diagnostics []*ast.Diagnostic, host ts.CompilerHost, compilerOptions *core.CompilerOptions) {
-	comparePathOptions := tspath.ComparePathsOptions{
-		CurrentDirectory: host.GetCurrentDirectory(),
-		CaseSensitivity:  host.FS().CaseSensitivity(),
+func getFormatOpts(host ts.CompilerHost) *diagnosticwriter.FormattingOptions {
+	return &diagnosticwriter.FormattingOptions{
+		NewLine: host.NewLine(),
+		ComparePathsOptions: tspath.ComparePathsOptions{
+			CurrentDirectory: host.GetCurrentDirectory(),
+			CaseSensitivity:  host.FS().CaseSensitivity(),
+		},
 	}
+}
+
+func printDiagnostics(diagnostics []*ast.Diagnostic, host ts.CompilerHost, compilerOptions *core.CompilerOptions) {
+	formatOpts := getFormatOpts(host)
 	if compilerOptions.Pretty.IsTrueOrUnknown() {
-		formatOpts := diagnosticwriter.FormattingOptions{
-			NewLine:             "\n",
-			ComparePathsOptions: comparePathOptions,
-		}
-		diagnosticwriter.FormatDiagnosticsWithColorAndContext(os.Stdout, diagnostics, &formatOpts)
+		diagnosticwriter.FormatDiagnosticsWithColorAndContext(os.Stdout, diagnostics, formatOpts)
 		fmt.Fprintln(os.Stdout)
-		diagnosticwriter.WriteErrorSummaryText(os.Stdout, diagnostics, &formatOpts)
+		diagnosticwriter.WriteErrorSummaryText(os.Stdout, diagnostics, formatOpts)
 	} else {
 		for _, diagnostic := range diagnostics {
-			printDiagnostic(diagnostic, 0, comparePathOptions)
+			printDiagnostic(diagnostic, 0, formatOpts.ComparePathsOptions)
 		}
 	}
 }

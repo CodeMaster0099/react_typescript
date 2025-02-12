@@ -45,11 +45,11 @@ var osCaseSensitivity = func() tspath.CaseSensitivity {
 	swapped := swapCase(exe)
 	if _, err := os.Stat(swapped); err != nil {
 		if os.IsNotExist(err) {
-			return tspath.CaseInsensitive
+			return tspath.CaseSensitive
 		}
 		panic(fmt.Sprintf("vfs: failed to stat %q: %v", swapped, err))
 	}
-	return tspath.CaseSensitive
+	return tspath.CaseInsensitive
 }()
 
 // Convert all lowercase chars to uppercase, and vice-versa
