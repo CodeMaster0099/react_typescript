@@ -18,7 +18,7 @@ func TestCompilerBaselines(t *testing.T) {
 	testTypes := []CompilerTestType{TestTypeRegression, TestTypeConformance}
 	for _, testType := range testTypes {
 		t.Run(testType.String(), func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 			runner := NewCompilerBaselineRunner(testType, false /*isDiff*/)
 			runner.RunTests(t)
 		})

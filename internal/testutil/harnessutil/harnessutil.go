@@ -452,6 +452,7 @@ func createProgram(host compiler.CompilerHost, options *core.CompilerOptions, ro
 		RootFiles: rootFiles,
 		Host:      host,
 		Options:   options,
+		// SingleThreaded: true, // JUST FOR TESTING
 	}
 	program := compiler.NewProgram(programOptions)
 	return program

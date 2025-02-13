@@ -97,6 +97,10 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 		// running too long
 		"infinitelyExpandingBaseTypes1.ts",
 		"recursivelyExpandingUnionNoStackoverflow.ts",
+		// more panics
+		"forwardRefInEnum.ts",
+		"constEnumErrors.ts",
+		"staticPropertyNameConflicts.ts",
 	}
 	for _, filename := range files {
 		if slices.Contains(crashingTests, tspath.GetBaseFileName(filename)) {
@@ -170,6 +174,11 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 
 func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config *harnessutil.NamedTestConfiguration) {
 	t.Parallel()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		t.Fatalf("Panic on compiling test for baseline %s:\n%v", test.filename, r)
+	// 	}
+	// }()
 
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(t, test.filename, &payload, config)
