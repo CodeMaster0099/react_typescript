@@ -444,10 +444,10 @@ func newCompilationResult(
 // !!! Temporary while we don't have the real `createProgram`
 func createProgram(host compiler.CompilerHost, options *core.CompilerOptions, rootFiles []string) *compiler.Program {
 	programOptions := compiler.ProgramOptions{
-		RootFiles: rootFiles,
-		Host:      host,
-		Options:   options,
-		// SingleThreaded: true, // TODO: have a test flag to enable/disable this when looking for panics?
+		RootFiles:      rootFiles,
+		Host:           host,
+		Options:        options,
+		SingleThreaded: true, // TODO(gabritto): disable single threaded when running tests in race mode
 	}
 	program := compiler.NewProgram(programOptions)
 	return program
