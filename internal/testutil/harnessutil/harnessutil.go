@@ -449,10 +449,10 @@ func newCompilationResult(
 // !!! Temporary while we don't have the real `createProgram`
 func createProgram(host compiler.CompilerHost, options *core.CompilerOptions, rootFiles []string) *compiler.Program {
 	programOptions := compiler.ProgramOptions{
-		RootFiles: rootFiles,
-		Host:      host,
-		Options:   options,
-		// SingleThreaded: true, // JUST FOR TESTING
+		RootFiles:      rootFiles,
+		Host:           host,
+		Options:        options,
+		SingleThreaded: true, // JUST FOR TESTING
 	}
 	program := compiler.NewProgram(programOptions)
 	return program
