@@ -88,24 +88,17 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	r.cleanUpLocal(t)
 	files := r.EnumerateTestFiles()
 	crashingTests := []string{
-		// tsx
+		// Still unsupported: tsx
 		"tsxResolveExternalModuleExportsTypes.ts",
 		"tsxFragmentChildrenCheck.ts",
-		// stack overflow
-		"typeGuardNarrowsIndexedAccessOfKnownProperty10.ts",
-		"promiseIdentity.ts",
-		// running too long
-		"infinitelyExpandingBaseTypes1.ts",
-		"recursivelyExpandingUnionNoStackoverflow.ts",
-		// more panics
-		"forwardRefInEnum.ts",
-		"constEnumErrors.ts",
-		"staticPropertyNameConflicts.ts",
 	}
 	deprecatedTests := []string{
 		// Test deprecated `importsNotUsedAsValue`
 		"preserveUnusedImports.ts",
 		"noCrashWithVerbatimModuleSyntaxAndImportsNotUsedAsValues.ts",
+		"verbatimModuleSyntaxCompat.ts",
+		"preserveValueImports_importsNotUsedAsValues.ts",
+		"importsNotUsedAsValues_error.ts",
 	}
 	for _, filename := range files {
 		if slices.Contains(deprecatedTests, tspath.GetBaseFileName(filename)) {
