@@ -11162,7 +11162,7 @@ func (c *Checker) mergeSymbol(target *ast.Symbol, source *ast.Symbol, unidirecti
 			c.mergeSymbolTable(target.Members.GetOrInit(), source.Members, unidirectional, nil)
 		}
 		if source.Exports != nil {
-			c.mergeSymbolTable(target.Members.GetOrInit(), source.Exports, unidirectional, target)
+			c.mergeSymbolTable(target.Exports.GetOrInit(), source.Exports, unidirectional, target)
 		}
 		if !unidirectional {
 			c.recordMergedSymbol(target, source)
