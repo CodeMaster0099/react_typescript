@@ -1,5 +1,5 @@
---- 
-+++ 
+--- 2dArrays.symbols
++++ 2dArrays.symbols
 @@ -9,32 +9,32 @@
  >Ship : Symbol(Ship, Decl(2dArrays.ts, 1, 1))
  
