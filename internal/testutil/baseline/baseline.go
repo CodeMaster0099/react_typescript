@@ -12,17 +12,20 @@ import (
 )
 
 type Options struct {
-	Subfolder string
-	IsDiff    bool
+	Subfolder   string
+	IsSubmodule bool
 }
 
-const NoContent = "<no content>"
+const (
+	NoContent       = "<no content>"
+	submoduleFolder = "submodule"
+)
 
 func Run(t *testing.T, fileName string, actual string, opts Options) {
-	if opts.IsDiff {
+	if opts.IsSubmodule {
 		diff := getBaselineDiff(t, actual, fileName)
 		diffFileName := fileName + ".diff"
-		opts.Subfolder = "diff/" + opts.Subfolder
+		opts.Subfolder = filepath.Join(submoduleFolder, opts.Subfolder)
 		// Write original baseline in addition to diff baseline
 		if actual != NoContent {
 			localFileName := localPath(fileName, opts.Subfolder)

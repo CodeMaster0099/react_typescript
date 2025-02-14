@@ -7,7 +7,7 @@ import (
 )
 
 // Runs the new compiler tests and produces baselines (e.g. `test1.symbols`).
-func TestCompilerNewBaselines(t *testing.T) {
+func TestCompilerBaselinesLocal(t *testing.T) {
 	t.Parallel()
 
 	if !bundled.Embedded {
@@ -20,7 +20,7 @@ func TestCompilerNewBaselines(t *testing.T) {
 	for _, testType := range testTypes {
 		t.Run(testType.String(), func(t *testing.T) {
 			t.Parallel()
-			runner := NewCompilerBaselineRunner(testType, false /*isDiff*/)
+			runner := NewCompilerBaselineRunner(testType, false /*isSubmodule*/)
 			runner.RunTests(t)
 		})
 	}
@@ -28,7 +28,7 @@ func TestCompilerNewBaselines(t *testing.T) {
 
 // Runs the old compiler tests, and produces new baselines (e.g. `test1.symbols`)
 // and a diff between the new and old baselines (e.g. `test1.symbols.diff`).
-func TestCompilerOldBaselines(t *testing.T) {
+func TestCompilerBaselinesSubmodule(t *testing.T) {
 	t.Parallel()
 
 	if !bundled.Embedded {
@@ -41,7 +41,7 @@ func TestCompilerOldBaselines(t *testing.T) {
 	for _, testType := range testTypes {
 		t.Run(testType.String(), func(t *testing.T) {
 			t.Parallel()
-			runner := NewCompilerBaselineRunner(testType, true /*isDiff*/)
+			runner := NewCompilerBaselineRunner(testType, true /*isSubmodule*/)
 			runner.RunTests(t)
 		})
 	}

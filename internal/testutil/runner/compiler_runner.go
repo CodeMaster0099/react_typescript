@@ -50,7 +50,7 @@ func (t *CompilerTestType) String() string {
 }
 
 type CompilerBaselineRunner struct {
-	isDiff       bool
+	isSubmodule  bool
 	testFiles    []string
 	basePath     string
 	testSuitName string
@@ -58,10 +58,10 @@ type CompilerBaselineRunner struct {
 
 var _ Runner = (*CompilerBaselineRunner)(nil)
 
-func NewCompilerBaselineRunner(testType CompilerTestType, isDiff bool) *CompilerBaselineRunner {
+func NewCompilerBaselineRunner(testType CompilerTestType, isSubmodule bool) *CompilerBaselineRunner {
 	testSuitName := testType.String()
 	var basePath string
-	if isDiff {
+	if isSubmodule {
 		basePath = "../_submodules/TypeScript/tests/cases/" + testSuitName
 	} else {
 		basePath = "tests/cases/" + testSuitName
@@ -69,7 +69,7 @@ func NewCompilerBaselineRunner(testType CompilerTestType, isDiff bool) *Compiler
 	return &CompilerBaselineRunner{
 		basePath:     basePath,
 		testSuitName: testSuitName,
-		isDiff:       isDiff,
+		isSubmodule:  isSubmodule,
 	}
 }
 
@@ -108,7 +108,7 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 var localBasePath = filepath.Join(repo.TestDataPath, "baselines", "local")
 
 func (r *CompilerBaselineRunner) cleanUpLocal(t *testing.T) {
-	localPath := filepath.Join(localBasePath, core.IfElse(r.isDiff, "diff", ""), r.testSuitName)
+	localPath := filepath.Join(localBasePath, core.IfElse(r.isSubmodule, "diff", ""), r.testSuitName)
 	err := os.RemoveAll(localPath)
 	if err != nil {
 		panic("Could not clean up local compiler tests: " + err.Error())
@@ -168,8 +168,8 @@ func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compile
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(t, test.filename, &payload, config)
 
-	compilerTest.verifyDiagnostics(t, r.testSuitName, r.isDiff)
-	compilerTest.verifyTypesAndSymbols(t, r.testSuitName, r.isDiff)
+	compilerTest.verifyDiagnostics(t, r.testSuitName, r.isSubmodule)
+	compilerTest.verifyTypesAndSymbols(t, r.testSuitName, r.isSubmodule)
 	// !!! Verify all baselines
 }
 
@@ -310,8 +310,8 @@ func newCompilerTest(
 	}
 }
 
-func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff bool) {
-	if isDiff {
+func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isSubmodule bool) {
+	if isSubmodule {
 		// !!! Enable this when we're ready to diff test diagnostics
 		return
 	}
@@ -319,11 +319,11 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff 
 	t.Run("error", func(t *testing.T) {
 		defer testutil.RecoverAndFail(t, "Panic on creating error baseline for test "+c.filename)
 		files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
-		tsbaseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, c.result.Options.Pretty.IsTrue(), baseline.Options{Subfolder: suiteName, IsDiff: isDiff})
+		tsbaseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, c.result.Options.Pretty.IsTrue(), baseline.Options{Subfolder: suiteName, IsSubmodule: isSubmodule})
 	})
 }
 
-func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isDiff bool) {
+func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isSubmodule bool) {
 	noTypesAndSymbols := c.harnessOptions.NoTypesAndSymbols
 	if noTypesAndSymbols {
 		return
@@ -337,7 +337,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isD
 	)
 
 	headerComponents := tspath.GetPathComponentsRelativeTo(repo.TestDataPath, c.filename, tspath.ComparePathsOptions{})
-	if isDiff {
+	if isSubmodule {
 		headerComponents = headerComponents[4:] // Strip "./../_submodules/TypeScript" prefix
 	}
 	header := tspath.GetPathFromPathComponents(headerComponents)
@@ -347,7 +347,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isD
 		header,
 		program,
 		allFiles,
-		baseline.Options{Subfolder: suiteName, IsDiff: isDiff},
+		baseline.Options{Subfolder: suiteName, IsSubmodule: isSubmodule},
 		false,
 		false,
 		len(c.result.Diagnostics) > 0,
