@@ -322,8 +322,8 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff 
 		tsbaseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, c.result.Options.Pretty.IsTrue(), baseline.Options{Subfolder: suiteName, IsDiff: isDiff})
 	})
 }
-func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isDiff bool) {
 
+func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isDiff bool) {
 	noTypesAndSymbols := c.harnessOptions.NoTypesAndSymbols
 	if noTypesAndSymbols {
 		return
