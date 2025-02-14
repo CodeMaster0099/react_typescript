@@ -371,7 +371,7 @@ func compileFilesWithHost(
 	// 	delete compilerOptions.project;
 	// }
 
-	// !!! Need actual `createProgram` and `getPreEmitDiagnostics` program for this
+	// !!! Need `getPreEmitDiagnostics` program for this
 	// pre-emit/post-emit error comparison requires declaration emit twice, which can be slow. If it's unlikely to flag any error consistency issues
 	// and if the test is running `skipLibCheck` - an indicator that we want the tets to run quickly - skip the before/after error comparison, too
 	// skipErrorComparison := len(rootFiles) >= 100 || options.SkipLibCheck == core.TSTrue && options.Declaration == core.TSTrue
@@ -439,7 +439,6 @@ func newCompilationResult(
 	}
 }
 
-// !!! Temporary while we don't have the real `createProgram`
 func createProgram(host compiler.CompilerHost, options *core.CompilerOptions, rootFiles []string) *compiler.Program {
 	programOptions := compiler.ProgramOptions{
 		RootFiles:      rootFiles,
