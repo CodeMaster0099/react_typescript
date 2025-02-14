@@ -938,7 +938,7 @@ func (b *Binder) bindFunctionOrConstructorType(node *ast.Node) {
 	b.addDeclarationToSymbol(symbol, node, ast.SymbolFlagsSignature)
 	typeLiteralSymbol := b.newSymbol(ast.SymbolFlagsTypeLiteral, ast.InternalSymbolNameType)
 	b.addDeclarationToSymbol(typeLiteralSymbol, node, ast.SymbolFlagsTypeLiteral)
-	typeLiteralSymbol.Members = make(ast.SymbolTable, 1)
+	typeLiteralSymbol.Members = make(ast.SymbolTable)
 	typeLiteralSymbol.Members[symbol.Name] = symbol
 }
 
