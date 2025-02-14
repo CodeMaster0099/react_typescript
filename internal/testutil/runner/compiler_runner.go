@@ -163,7 +163,7 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 
 func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config *harnessutil.NamedTestConfiguration) {
 	t.Parallel()
-	defer testutil.RecoverAndFail(t, fmt.Sprintf("Panic on compiling test %s", test.filename))
+	defer testutil.RecoverAndFail(t, "Panic on compiling test "+test.filename)
 
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(t, test.filename, &payload, config)
@@ -317,7 +317,7 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff 
 	}
 
 	t.Run("error", func(t *testing.T) {
-		defer testutil.RecoverAndFail(t, fmt.Sprintf("Panic on creating error baseline for test %s", c.filename))
+		defer testutil.RecoverAndFail(t, "Panic on creating error baseline for test "+c.filename)
 		files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
 		tsbaseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, c.result.Options.Pretty.IsTrue(), baseline.Options{Subfolder: suiteName, IsDiff: isDiff})
 	})
