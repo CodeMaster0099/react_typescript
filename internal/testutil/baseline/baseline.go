@@ -49,7 +49,7 @@ func getBaselineDiff(t *testing.T, actual string, fileName string) string {
 		return NoContent
 	}
 	var b strings.Builder
-	err := diff.Text("new."+fileName, "old."+fileName, actual, expected, &b)
+	err := diff.Text("old."+fileName, "new."+fileName, expected, actual, &b)
 	if err != nil {
 		t.Fatalf("failed to diff the actual and expected content: %v", err)
 	}
