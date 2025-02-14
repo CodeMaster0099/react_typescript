@@ -24,10 +24,8 @@ func AssertPanics(tb testing.TB, fn func(), expected any, msgAndArgs ...interfac
 }
 
 func RecoverAndFail(t *testing.T, msg string) {
-	defer func() {
-		if r := recover(); r != nil {
-			stack := debug.Stack()
-			t.Fatalf("%s:\n%v\n%s", msg, r, string(stack))
-		}
-	}()
+	if r := recover(); r != nil {
+		stack := debug.Stack()
+		t.Fatalf("%s:\n%v\n%s", msg, r, string(stack))
+	}
 }
