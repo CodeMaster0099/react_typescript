@@ -6,7 +6,8 @@ import (
 	"github.com/microsoft/typescript-go/internal/bundled"
 )
 
-func TestCompilerBaselines(t *testing.T) {
+// Runs the new compiler tests and produces baselines (e.g. `test1.symbols`).
+func TestCompilerNewBaselines(t *testing.T) {
 	t.Parallel()
 
 	if !bundled.Embedded {
@@ -25,7 +26,9 @@ func TestCompilerBaselines(t *testing.T) {
 	}
 }
 
-func TestCompilerDiffBaselines(t *testing.T) {
+// Runs the old compiler tests, and produces new baselines (e.g. `test1.symbols`)
+// and a diff between the new and old baselines (e.g. `test1.symbols.diff`).
+func TestCompilerOldBaselines(t *testing.T) {
 	t.Parallel()
 
 	if !bundled.Embedded {
