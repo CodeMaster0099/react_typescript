@@ -87,11 +87,6 @@ func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
 func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	r.cleanUpLocal(t)
 	files := r.EnumerateTestFiles()
-	crashingTests := []string{
-		// Still unsupported: tsx
-		"tsxResolveExternalModuleExportsTypes.ts",
-		"tsxFragmentChildrenCheck.ts",
-	}
 	deprecatedTests := []string{
 		// Test deprecated `importsNotUsedAsValue`
 		"preserveUnusedImports.ts",
@@ -103,15 +98,6 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 	for _, filename := range files {
 		if slices.Contains(deprecatedTests, tspath.GetBaseFileName(filename)) {
 			t.Logf("Skipping deprecated test %s", filename)
-			continue
-		}
-		if slices.Contains(crashingTests, tspath.GetBaseFileName(filename)) {
-			t.Logf("Skipping crashing test %s", filename)
-			continue
-		}
-		extension := tspath.GetAnyExtensionFromPath(filename, nil, true)
-		if extension == tspath.ExtensionTsx {
-			t.Logf("Skipping jsx test %s", filename)
 			continue
 		}
 		r.runTest(t, filename)
