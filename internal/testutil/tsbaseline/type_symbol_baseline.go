@@ -77,9 +77,9 @@ func checkBaselines(
 	isSymbolBaseline bool,
 ) {
 	fullExtension := core.IfElse(isSymbolBaseline, ".symbols", ".types")
-	outputFileName := tspath.RemoveFileExtension(baselinePath)
+	outputFileName := tsExtension.ReplaceAllString(baselinePath, fullExtension)
 	fullBaseline := generateBaseline(allFiles, fullWalker, header, isSymbolBaseline)
-	baseline.Run(t, outputFileName+fullExtension, fullBaseline, opts)
+	baseline.Run(t, outputFileName, fullBaseline, opts)
 }
 
 func generateBaseline(
