@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/bundled"
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/race"
 	"github.com/microsoft/typescript-go/internal/repo"
 	"github.com/microsoft/typescript-go/internal/tsoptions"
 	"github.com/microsoft/typescript-go/internal/tspath"
@@ -444,7 +445,7 @@ func createProgram(host compiler.CompilerHost, options *core.CompilerOptions, ro
 		RootFiles:      rootFiles,
 		Host:           host,
 		Options:        options,
-		SingleThreaded: true, // TODO(gabritto): disable single threaded when running tests in race mode
+		SingleThreaded: !race.Enabled, // Tests are single-threaded by default for ease of debugging, unless we're testing with race mode
 	}
 	program := compiler.NewProgram(programOptions)
 	return program
