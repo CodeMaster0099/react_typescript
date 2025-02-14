@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/repo"
+	"github.com/microsoft/typescript-go/internal/testutil"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/testutil/tsbaseline"
@@ -162,11 +163,7 @@ func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
 
 func (r *CompilerBaselineRunner) runSingleConfigTest(t *testing.T, test *compilerFileBasedTest, config *harnessutil.NamedTestConfiguration) {
 	t.Parallel()
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("Panic on compiling test for baseline %s:\n%v", test.filename, r)
-		}
-	}()
+	defer testutil.RecoverAndFail(t, fmt.Sprintf("Panic on compiling test %s", test.filename))
 
 	payload := makeUnitsFromTest(test.content, test.filename)
 	compilerTest := newCompilerTest(t, test.filename, &payload, config)
@@ -320,12 +317,13 @@ func (c *compilerTest) verifyDiagnostics(t *testing.T, suiteName string, isDiff 
 	}
 
 	t.Run("error", func(t *testing.T) {
+		defer testutil.RecoverAndFail(t, fmt.Sprintf("Panic on creating error baseline for test %s", c.filename))
 		files := core.Concatenate(c.tsConfigFiles, core.Concatenate(c.toBeCompiled, c.otherFiles))
 		tsbaseline.DoErrorBaseline(t, c.configuredName, files, c.result.Diagnostics, c.result.Options.Pretty.IsTrue(), baseline.Options{Subfolder: suiteName, IsDiff: isDiff})
 	})
 }
-
 func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isDiff bool) {
+
 	noTypesAndSymbols := c.harnessOptions.NoTypesAndSymbols
 	if noTypesAndSymbols {
 		return

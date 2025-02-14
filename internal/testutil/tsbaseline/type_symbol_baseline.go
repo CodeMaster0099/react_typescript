@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/scanner"
+	"github.com/microsoft/typescript-go/internal/testutil"
 	"github.com/microsoft/typescript-go/internal/testutil/baseline"
 	"github.com/microsoft/typescript-go/internal/testutil/harnessutil"
 	"github.com/microsoft/typescript-go/internal/tspath"
@@ -54,15 +55,12 @@ func DoTypeAndSymbolBaseline(
 
 	if !opts.IsDiff {
 		t.Run("type", func(t *testing.T) {
+			defer testutil.RecoverAndFail(t, fmt.Sprintf("Panic on creating type baseline for test %s", header))
 			checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, false /*isSymbolBaseline*/)
 		})
 	}
 	t.Run("symbol", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("Panic on compiling test for baseline %s:\n%v", header, r)
-			}
-		}()
+		defer testutil.RecoverAndFail(t, fmt.Sprintf("Panic on creating symbol baseline for test %s", header))
 		checkBaselines(t, baselinePath, allFiles, fullWalker, header, opts, true /*isSymbolBaseline*/)
 	})
 }
