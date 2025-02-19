@@ -27,6 +27,10 @@ func (r *resolved) shouldContinueSearching() bool {
 	return r == nil
 }
 
+func (r *resolved) isResolved() bool {
+	return r != nil && r.path != ""
+}
+
 func unresolved() *resolved {
 	return &resolved{}
 }
@@ -790,7 +794,9 @@ func (r *resolutionState) loadModuleFromNearestNodeModulesDirectoryWorker(ext ex
 			// !!! stop at global cache
 			if tspath.GetBaseFileName(directory) != "node_modules" {
 				if resolutionFromCache := r.tryFindNonRelativeModuleNameInCache(ModeAwareCacheKey{r.name, mode}, directory); !resolutionFromCache.shouldContinueSearching() {
-					return resolutionFromCache, true
+					if !resolutionFromCache.isResolved() || extensionIsOk(ext, resolutionFromCache.extension) {
+						return resolutionFromCache, true
+					}
 				}
 				result := r.loadModuleFromImmediateNodeModulesDirectory(ext, directory, typesScopeOnly)
 				return result, !result.shouldContinueSearching()
@@ -977,7 +983,7 @@ func (r *resolutionState) createResolvedModule(resolved *resolved, isExternalLib
 
 func (r *resolutionState) createResolvedTypeReferenceDirective(resolved *resolved, primary bool) *ResolvedTypeReferenceDirective {
 	var resolvedTypeReferenceDirective ResolvedTypeReferenceDirective
-	if resolved != nil {
+	if resolved.isResolved() {
 		if !tspath.ExtensionIsTs(resolved.extension) {
 			panic("expected a TypeScript file extension")
 		}
