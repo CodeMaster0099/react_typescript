@@ -55,6 +55,7 @@ type NodeFactory struct {
 	interfaceDeclarationPool         core.Pool[InterfaceDeclaration]
 	jsdocPool                        core.Pool[JSDoc]
 	jsdocTextPool                    core.Pool[JSDocText]
+	keywordExpressionPool            core.Pool[KeywordExpression]
 	keywordTypeNodePool              core.Pool[KeywordTypeNode]
 	literalTypeNodePool              core.Pool[LiteralTypeNode]
 	methodSignatureDeclarationPool   core.Pool[MethodSignatureDeclaration]
@@ -4161,7 +4162,7 @@ type KeywordExpression struct {
 }
 
 func (f *NodeFactory) NewKeywordExpression(kind Kind) *Node {
-	return newNode(kind, &KeywordExpression{})
+	return newNode(kind, f.keywordExpressionPool.New())
 }
 
 // LiteralLikeBase
