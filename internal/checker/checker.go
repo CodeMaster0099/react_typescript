@@ -593,6 +593,7 @@ type Checker struct {
 	suggestionDiagnostics                     ast.DiagnosticsCollection
 	symbolPool                                core.Pool[ast.Symbol]
 	signaturePool                             core.Pool[Signature]
+	signaturePointerPool                      core.Pool[*Signature]
 	indexInfoPool                             core.Pool[IndexInfo]
 	mergedSymbols                             map[*ast.Symbol]*ast.Symbol
 	factory                                   ast.NodeFactory
@@ -799,6 +800,28 @@ type Checker struct {
 	markNodeAssignments                       func(*ast.Node) bool
 	emitResolver                              *emitResolver
 	emitResolverOnce                          sync.Once
+
+	conditionalTypePool             core.Pool[ConditionalType]
+	evolvingArrayTypePool           core.Pool[EvolvingArrayType]
+	indexedAccessTypePool           core.Pool[IndexedAccessType]
+	indexTypePool                   core.Pool[IndexType]
+	instantiationExpressionTypePool core.Pool[InstantiationExpressionType]
+	interfaceTypePool               core.Pool[InterfaceType]
+	intersectionTypePool            core.Pool[IntersectionType]
+	intrinsicTypePool               core.Pool[IntrinsicType]
+	literalTypePool                 core.Pool[LiteralType]
+	mappedTypePool                  core.Pool[MappedType]
+	objectTypePool                  core.Pool[ObjectType]
+	reverseMappedTypePool           core.Pool[ReverseMappedType]
+	singleSignatureTypePool         core.Pool[SingleSignatureType]
+	stringMappingTypePool           core.Pool[StringMappingType]
+	substitutionTypePool            core.Pool[SubstitutionType]
+	templateLiteralTypePool         core.Pool[TemplateLiteralType]
+	tupleTypePool                   core.Pool[TupleType]
+	typeParameterPool               core.Pool[TypeParameter]
+	typeReferencePool               core.Pool[TypeReference]
+	unionTypePool                   core.Pool[UnionType]
+	uniqueESSymbolType              core.Pool[UniqueESSymbolType]
 }
 
 func NewChecker(program Program) *Checker {
@@ -8273,7 +8296,7 @@ func (c *Checker) reorderCandidates(signatures []*Signature, callChainFlags Sign
 	var cutoffIndex int
 	var spliceIndex int
 	specializedIndex := -1
-	result := make([]*Signature, 0, len(signatures))
+	result := c.signaturePointerPool.NewSlice(len(signatures))[:0]
 	for _, signature := range signatures {
 		var symbol *ast.Symbol
 		var parent *ast.Node
@@ -22836,7 +22859,7 @@ func (c *Checker) newIntrinsicType(flags TypeFlags, intrinsicName string) *Type 
 }
 
 func (c *Checker) newIntrinsicTypeEx(flags TypeFlags, intrinsicName string, objectFlags ObjectFlags) *Type {
-	data := &IntrinsicType{}
+	data := c.intrinsicTypePool.New()
 	data.intrinsicName = intrinsicName
 	return c.newType(flags, objectFlags, data)
 }
@@ -22856,7 +22879,7 @@ func (c *Checker) createUnknownUnionType() *Type {
 }
 
 func (c *Checker) newLiteralType(flags TypeFlags, value any, regularType *Type) *Type {
-	data := &LiteralType{}
+	data := c.literalTypePool.New()
 	data.value = value
 	t := c.newType(flags, ObjectFlagsNone, data)
 	if regularType != nil {
@@ -22868,7 +22891,7 @@ func (c *Checker) newLiteralType(flags TypeFlags, value any, regularType *Type) 
 }
 
 func (c *Checker) newUniqueESSymbolType(symbol *ast.Symbol, name string) *Type {
-	data := &UniqueESSymbolType{}
+	data := c.uniqueESSymbolType.New()
 	data.name = name
 	t := c.newType(TypeFlagsUniqueESSymbol, ObjectFlagsNone, data)
 	t.symbol = symbol
@@ -22879,23 +22902,23 @@ func (c *Checker) newObjectType(objectFlags ObjectFlags, symbol *ast.Symbol) *Ty
 	var data TypeData
 	switch {
 	case objectFlags&ObjectFlagsClassOrInterface != 0:
-		data = &InterfaceType{}
+		data = c.interfaceTypePool.New()
 	case objectFlags&ObjectFlagsTuple != 0:
-		data = &TupleType{}
+		data = c.tupleTypePool.New()
 	case objectFlags&ObjectFlagsReference != 0:
-		data = &TypeReference{}
+		data = c.typeReferencePool.New()
 	case objectFlags&ObjectFlagsMapped != 0:
-		data = &MappedType{}
+		data = c.mappedTypePool.New()
 	case objectFlags&ObjectFlagsReverseMapped != 0:
-		data = &ReverseMappedType{}
+		data = c.reverseMappedTypePool.New()
 	case objectFlags&ObjectFlagsEvolvingArray != 0:
-		data = &EvolvingArrayType{}
+		data = c.evolvingArrayTypePool.New()
 	case objectFlags&ObjectFlagsInstantiationExpressionType != 0:
-		data = &InstantiationExpressionType{}
+		data = c.instantiationExpressionTypePool.New()
 	case objectFlags&ObjectFlagsSingleSignatureType != 0:
-		data = &SingleSignatureType{}
+		data = c.singleSignatureTypePool.New()
 	case objectFlags&ObjectFlagsAnonymous != 0:
-		data = &ObjectType{}
+		data = c.objectTypePool.New()
 	default:
 		panic("Unhandled case in newObjectType")
 	}
@@ -22980,7 +23003,7 @@ func (c *Checker) setStructuredTypeMembers(t *Type, members ast.SymbolTable, cal
 }
 
 func (c *Checker) newTypeParameter(symbol *ast.Symbol) *Type {
-	t := c.newType(TypeFlagsTypeParameter, ObjectFlagsNone, &TypeParameter{})
+	t := c.newType(TypeFlagsTypeParameter, ObjectFlagsNone, c.typeParameterPool.New())
 	t.symbol = symbol
 	return t
 }
@@ -23000,19 +23023,19 @@ func (c *Checker) getPropagatingFlagsOfTypes(types []*Type, excludeKinds TypeFla
 }
 
 func (c *Checker) newUnionType(objectFlags ObjectFlags, types []*Type) *Type {
-	data := &UnionType{}
+	data := c.unionTypePool.New()
 	data.types = types
 	return c.newType(TypeFlagsUnion, objectFlags, data)
 }
 
 func (c *Checker) newIntersectionType(objectFlags ObjectFlags, types []*Type) *Type {
-	data := &IntersectionType{}
+	data := c.intersectionTypePool.New()
 	data.types = types
 	return c.newType(TypeFlagsIntersection, objectFlags, data)
 }
 
 func (c *Checker) newIndexedAccessType(objectType *Type, indexType *Type, accessFlags AccessFlags) *Type {
-	data := &IndexedAccessType{}
+	data := c.indexedAccessTypePool.New()
 	data.objectType = objectType
 	data.indexType = indexType
 	data.accessFlags = accessFlags
@@ -23020,21 +23043,21 @@ func (c *Checker) newIndexedAccessType(objectType *Type, indexType *Type, access
 }
 
 func (c *Checker) newIndexType(target *Type, indexFlags IndexFlags) *Type {
-	data := &IndexType{}
+	data := c.indexTypePool.New()
 	data.target = target
 	data.indexFlags = indexFlags
 	return c.newType(TypeFlagsIndex, ObjectFlagsNone, data)
 }
 
 func (c *Checker) newTemplateLiteralType(texts []string, types []*Type) *Type {
-	data := &TemplateLiteralType{}
+	data := c.templateLiteralTypePool.New()
 	data.texts = texts
 	data.types = types
 	return c.newType(TypeFlagsTemplateLiteral, ObjectFlagsNone, data)
 }
 
 func (c *Checker) newStringMappingType(symbol *ast.Symbol, target *Type) *Type {
-	data := &StringMappingType{}
+	data := c.stringMappingTypePool.New()
 	data.target = target
 	t := c.newType(TypeFlagsStringMapping, ObjectFlagsNone, data)
 	t.symbol = symbol
@@ -23042,7 +23065,7 @@ func (c *Checker) newStringMappingType(symbol *ast.Symbol, target *Type) *Type {
 }
 
 func (c *Checker) newConditionalType(root *ConditionalRoot, mapper *TypeMapper, combinedMapper *TypeMapper) *Type {
-	data := &ConditionalType{}
+	data := c.conditionalTypePool.New()
 	data.root = root
 	data.checkType = c.instantiateType(root.checkType, mapper)
 	data.extendsType = c.instantiateType(root.extendsType, mapper)
@@ -23052,7 +23075,7 @@ func (c *Checker) newConditionalType(root *ConditionalRoot, mapper *TypeMapper, 
 }
 
 func (c *Checker) newSubstitutionType(baseType *Type, constraint *Type) *Type {
-	data := &SubstitutionType{}
+	data := c.substitutionTypePool.New()
 	data.baseType = baseType
 	data.constraint = constraint
 	return c.newType(TypeFlagsSubstitution, ObjectFlagsNone, data)
