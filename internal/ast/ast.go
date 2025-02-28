@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -548,7 +549,7 @@ func (n *Node) PropertyName() *Node {
 	case KindBindingElement:
 		return n.AsBindingElement().PropertyName
 	}
-	panic("Unhandled case in Node.PropertyName: " + n.Kind.String())
+	return nil
 }
 
 func (n *Node) PropertyNameOrName() *Node {
@@ -1598,7 +1599,6 @@ func (node *FunctionLikeBase) LocalsContainerData() *LocalsContainerBase {
 	return &node.LocalsContainerBase
 }
 func (node *FunctionLikeBase) FunctionLikeData() *FunctionLikeBase { return node }
-func (node *FunctionLikeBase) BodyData() *BodyBase                 { return nil }
 
 // BodyBase
 
@@ -2784,8 +2784,6 @@ func (node *FunctionDeclaration) Name() *DeclarationName {
 	return node.name
 }
 
-func (node *FunctionDeclaration) BodyData() *BodyBase { return &node.BodyBase }
-
 func IsFunctionDeclaration(node *Node) bool {
 	return node.Kind == KindFunctionDeclaration
 }
@@ -3132,8 +3130,8 @@ type ModuleDeclaration struct {
 	ExportableBase
 	ModifiersBase
 	LocalsContainerBase
+	BodyBase
 	name *ModuleName // ModuleName
-	Body *ModuleBody // ModuleBody. Optional (may be nil in ambient module declaration)
 }
 
 func (f *NodeFactory) NewModuleDeclaration(modifiers *ModifierList, name *ModuleName, body *ModuleBody, flags NodeFlags) *Node {
@@ -7779,52 +7777,77 @@ type SourceFile struct {
 	NodeBase
 	DeclarationBase
 	LocalsContainerBase
-	Text                        string
-	fileName                    string
-	path                        tspath.Path
-	Statements                  *NodeList // NodeList[*Statement]
+
+	// Fields set by NewSourceFile
+
+	Text       string
+	fileName   string
+	path       tspath.Path
+	Statements *NodeList // NodeList[*Statement]
+
+	// Fields set by parser
+
 	diagnostics                 []*Diagnostic
 	jsdocDiagnostics            []*Diagnostic
-	bindDiagnostics             []*Diagnostic
-	BindSuggestionDiagnostics   []*Diagnostic
-	ImpliedNodeFormat           core.ModuleKind
-	lineMapMu                   sync.RWMutex
-	lineMap                     []core.TextPos
 	LanguageVersion             core.ScriptTarget
 	LanguageVariant             core.LanguageVariant
 	ScriptKind                  core.ScriptKind
-	CommonJsModuleIndicator     *Node
-	ExternalModuleIndicator     *Node
-	EndFlowNode                 *FlowNode
-	JsGlobalAugmentations       SymbolTable
 	IsDeclarationFile           bool
-	ModuleReferencesProcessed   bool
 	HasNoDefaultLib             bool
 	UsesUriStyleNodeCoreModules core.Tristate
-	SymbolCount                 int
-	ClassifiableNames           core.Set[string]
 	Identifiers                 map[string]string
 	Imports                     []*LiteralLikeNode // []LiteralLikeNode
 	ModuleAugmentations         []*ModuleName      // []ModuleName
-	PatternAmbientModules       []PatternAmbientModule
 	AmbientModuleNames          []string
 	CommentDirectives           []CommentDirective
 	jsdocCache                  map[*Node][]*Node
-	tokenCacheMu                sync.Mutex
-	tokenCache                  map[*Node][]*Node
 	Pragmas                     []Pragma
 	ReferencedFiles             []*FileReference
 	TypeReferenceDirectives     []*FileReference
 	LibReferenceDirectives      []*FileReference
-	Version                     int
-	isBound                     atomic.Bool
-	bindOnce                    sync.Once
+
+	// Fields set by binder
+
+	isBound                   atomic.Bool
+	bindOnce                  sync.Once
+	bindDiagnostics           []*Diagnostic
+	BindSuggestionDiagnostics []*Diagnostic
+	EndFlowNode               *FlowNode
+	SymbolCount               int
+	ClassifiableNames         core.Set[string]
+	PatternAmbientModules     []PatternAmbientModule
+
+	// Fields set by LineMap
+
+	lineMapMu sync.RWMutex
+	lineMap   []core.TextPos
+
+	// Fields set by document registry
+
+	Version int
+
+	// Fields set by language service
+
+	tokenCacheMu sync.Mutex
+	tokenCache   map[core.TextRange]*Node
+
+	// !!!
+
+	ImpliedNodeFormat       core.ModuleKind
+	CommonJsModuleIndicator *Node
+	ExternalModuleIndicator *Node
+	JsGlobalAugmentations   SymbolTable
 }
 
-func (f *NodeFactory) NewSourceFile(text string, fileName string, statements *NodeList) *Node {
+func (f *NodeFactory) NewSourceFile(text string, fileName string, path tspath.Path, statements *NodeList) *Node {
+	if (tspath.GetEncodedRootLength(fileName) == 0 && !strings.HasPrefix(fileName, "^/")) || fileName != tspath.NormalizePath(fileName) {
+		panic(fmt.Sprintf("fileName should be normalized and absolute: %q", fileName))
+	}
+
 	data := &SourceFile{}
 	data.Text = text
 	data.fileName = fileName
+	data.path = path
 	data.Statements = statements
 	data.LanguageVersion = core.ScriptTargetLatest
 	return newNode(KindSourceFile, data)
@@ -7836,10 +7859,6 @@ func (node *SourceFile) FileName() string {
 
 func (node *SourceFile) Path() tspath.Path {
 	return node.path
-}
-
-func (node *SourceFile) SetPath(p tspath.Path) {
-	node.path = p
 }
 
 func (node *SourceFile) Diagnostics() []*Diagnostic {
@@ -7880,8 +7899,7 @@ func (node *SourceFile) VisitEachChild(v *NodeVisitor) *Node {
 
 func (f *NodeFactory) UpdateSourceFile(node *SourceFile, statements *StatementList) *Node {
 	if statements != node.Statements {
-		updated := f.NewSourceFile(node.Text, node.fileName, statements).AsSourceFile()
-		updated.path = node.path
+		updated := f.NewSourceFile(node.Text, node.fileName, node.path, statements).AsSourceFile()
 		updated.LanguageVersion = node.LanguageVersion
 		updated.LanguageVariant = node.LanguageVariant
 		updated.ScriptKind = node.ScriptKind
@@ -7919,6 +7937,35 @@ func (node *SourceFile) BindOnce(bind func()) {
 		bind()
 		node.isBound.Store(true)
 	})
+}
+
+func (node *SourceFile) GetOrCreateToken(
+	kind Kind,
+	pos int,
+	end int,
+	parent *Node,
+) *TokenNode {
+	node.tokenCacheMu.Lock()
+	defer node.tokenCacheMu.Unlock()
+
+	loc := core.NewTextRange(pos, end)
+	if node.tokenCache == nil {
+		node.tokenCache = make(map[core.TextRange]*Node)
+	} else if token, ok := node.tokenCache[loc]; ok {
+		if token.Kind != kind {
+			panic(fmt.Sprintf("Token cache mismatch: %v != %v", token.Kind, kind))
+		}
+		if token.Parent != parent {
+			panic("Token cache mismatch: parent")
+		}
+		return token
+	}
+
+	token := newNode(kind, &Token{})
+	token.Loc = loc
+	token.Parent = parent
+	node.tokenCache[loc] = token
+	return token
 }
 
 func IsSourceFile(node *Node) bool {
