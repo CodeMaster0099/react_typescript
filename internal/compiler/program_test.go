@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"testing/fstest"
 
 	"github.com/microsoft/typescript-go/internal/bundled"
 	"github.com/microsoft/typescript-go/internal/core"
@@ -215,7 +214,7 @@ func TestProgram(t *testing.T) {
 		t.Run(testCase.testName, func(t *testing.T) {
 			t.Parallel()
 			libPrefix := bundled.LibPath() + "/"
-			fs := vfstest.FromMapFS(fstest.MapFS{}, tspath.CaseInsensitive)
+			fs := vfstest.FromMap[any](nil, tspath.CaseInsensitive)
 			fs = bundled.WrapFS(fs)
 
 			for _, testFile := range testCase.files {
