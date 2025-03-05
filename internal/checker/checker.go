@@ -17658,7 +17658,9 @@ func (c *Checker) getTypeWithThisArgument(t *Type, thisArgument *Type, needAppar
 			if thisArgument == nil {
 				thisArgument = target.AsInterfaceType().thisType
 			}
-			return c.createTypeReference(target, core.Concatenate(typeArguments, []*Type{thisArgument}))
+			types := c.typePointerPool.NewSlice(1)
+			types[0] = thisArgument
+			return c.createTypeReference(target, core.Concatenate(typeArguments, types))
 		}
 		return t
 	} else if t.flags&TypeFlagsIntersection != 0 {
