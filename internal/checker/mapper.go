@@ -31,39 +31,39 @@ type TypeMapperData interface {
 
 // Factory functions
 
-func newTypeMapper(sources []*Type, targets []*Type) *TypeMapper {
+func (c *Checker) newTypeMapper(sources []*Type, targets []*Type) *TypeMapper {
 	if len(sources) == 1 {
-		return newSimpleTypeMapper(sources[0], targets[0])
+		return c.typeMapperFactory.newSimpleTypeMapper(sources[0], targets[0])
 	}
-	return newArrayTypeMapper(sources, targets)
+	return c.typeMapperFactory.newArrayTypeMapper(sources, targets)
 }
 
 func (c *Checker) combineTypeMappers(m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
 	if m1 != nil {
-		return newCompositeTypeMapper(c, m1, m2)
+		return c.typeMapperFactory.newCompositeTypeMapper(c, m1, m2)
 	}
 	return m2
 }
 
-func mergeTypeMappers(m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
+func (c *Checker) mergeTypeMappers(m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
 	if m1 != nil {
-		return newMergedTypeMapper(m1, m2)
+		return c.typeMapperFactory.newMergedTypeMapper(m1, m2)
 	}
 	return m2
 }
 
-func prependTypeMapping(source *Type, target *Type, mapper *TypeMapper) *TypeMapper {
+func (c *Checker) prependTypeMapping(source *Type, target *Type, mapper *TypeMapper) *TypeMapper {
 	if mapper == nil {
-		return newSimpleTypeMapper(source, target)
+		return c.typeMapperFactory.newSimpleTypeMapper(source, target)
 	}
-	return newMergedTypeMapper(newSimpleTypeMapper(source, target), mapper)
+	return c.typeMapperFactory.newMergedTypeMapper(c.typeMapperFactory.newSimpleTypeMapper(source, target), mapper)
 }
 
-func appendTypeMapping(mapper *TypeMapper, source *Type, target *Type) *TypeMapper {
+func (c *Checker) appendTypeMapping(mapper *TypeMapper, source *Type, target *Type) *TypeMapper {
 	if mapper == nil {
-		return newSimpleTypeMapper(source, target)
+		return c.typeMapperFactory.newSimpleTypeMapper(source, target)
 	}
-	return newMergedTypeMapper(mapper, newSimpleTypeMapper(source, target))
+	return c.typeMapperFactory.newMergedTypeMapper(mapper, c.typeMapperFactory.newSimpleTypeMapper(source, target))
 }
 
 // Maps forward-references to later types parameters to the empty object type.
@@ -73,7 +73,7 @@ func (c *Checker) newBackreferenceMapper(context *InferenceContext, index int) *
 	typeParameters := core.Map(forwardInferences, func(i *InferenceInfo) *Type {
 		return i.typeParameter
 	})
-	return newArrayToSingleTypeMapper(typeParameters, c.unknownType)
+	return c.typeMapperFactory.newArrayToSingleTypeMapper(typeParameters, c.unknownType)
 }
 
 // TypeMapperBase
@@ -85,6 +85,17 @@ type TypeMapperBase struct {
 func (m *TypeMapperBase) Map(t *Type) *Type    { return t }
 func (m *TypeMapperBase) Kind() TypeMapperKind { return TypeMapperKindUnknown }
 
+type TypeMapperFactory struct {
+	simpleTypeMapperPool        core.Pool[SimpleTypeMapper]
+	arrayTypeMapperPool         core.Pool[ArrayTypeMapper]
+	arrayToSingleTypeMapperPool core.Pool[ArrayToSingleTypeMapper]
+	deferredTypeMapperPool      core.Pool[DeferredTypeMapper]
+	functionTypeMapperPool      core.Pool[FunctionTypeMapper]
+	mergedTypeMapperPool        core.Pool[MergedTypeMapper]
+	compositeTypeMapperPool     core.Pool[CompositeTypeMapper]
+	inferenceTypeMapperPool     core.Pool[InferenceTypeMapper]
+}
+
 // SimpleTypeMapper
 
 type SimpleTypeMapper struct {
@@ -93,8 +104,8 @@ type SimpleTypeMapper struct {
 	target *Type
 }
 
-func newSimpleTypeMapper(source *Type, target *Type) *TypeMapper {
-	m := &SimpleTypeMapper{}
+func (f *TypeMapperFactory) newSimpleTypeMapper(source *Type, target *Type) *TypeMapper {
+	m := f.simpleTypeMapperPool.New()
 	m.data = m
 	m.source = source
 	m.target = target
@@ -120,8 +131,8 @@ type ArrayTypeMapper struct {
 	targets []*Type
 }
 
-func newArrayTypeMapper(sources []*Type, targets []*Type) *TypeMapper {
-	m := &ArrayTypeMapper{}
+func (f *TypeMapperFactory) newArrayTypeMapper(sources []*Type, targets []*Type) *TypeMapper {
+	m := f.arrayTypeMapperPool.New()
 	m.data = m
 	m.sources = sources
 	m.targets = targets
@@ -149,8 +160,8 @@ type ArrayToSingleTypeMapper struct {
 	target  *Type
 }
 
-func newArrayToSingleTypeMapper(sources []*Type, target *Type) *TypeMapper {
-	m := &ArrayToSingleTypeMapper{}
+func (f *TypeMapperFactory) newArrayToSingleTypeMapper(sources []*Type, target *Type) *TypeMapper {
+	m := f.arrayToSingleTypeMapperPool.New()
 	m.data = m
 	m.sources = sources
 	m.target = target
@@ -174,8 +185,8 @@ type DeferredTypeMapper struct {
 	targets []func() *Type
 }
 
-func newDeferredTypeMapper(sources []*Type, targets []func() *Type) *TypeMapper {
-	m := &DeferredTypeMapper{}
+func (f *TypeMapperFactory) newDeferredTypeMapper(sources []*Type, targets []func() *Type) *TypeMapper {
+	m := f.deferredTypeMapperPool.New()
 	m.data = m
 	m.sources = sources
 	m.targets = targets
@@ -198,8 +209,8 @@ type FunctionTypeMapper struct {
 	fn func(*Type) *Type
 }
 
-func newFunctionTypeMapper(fn func(*Type) *Type) *TypeMapper {
-	m := &FunctionTypeMapper{}
+func (f *TypeMapperFactory) newFunctionTypeMapper(fn func(*Type) *Type) *TypeMapper {
+	m := f.functionTypeMapperPool.New()
 	m.data = m
 	m.fn = fn
 	return &m.TypeMapper
@@ -217,8 +228,8 @@ type MergedTypeMapper struct {
 	m2 *TypeMapper
 }
 
-func newMergedTypeMapper(m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
-	m := &MergedTypeMapper{}
+func (f *TypeMapperFactory) newMergedTypeMapper(m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
+	m := f.mergedTypeMapperPool.New()
 	m.data = m
 	m.m1 = m1
 	m.m2 = m2
@@ -242,8 +253,8 @@ type CompositeTypeMapper struct {
 	m2 *TypeMapper
 }
 
-func newCompositeTypeMapper(c *Checker, m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
-	m := &CompositeTypeMapper{}
+func (f *TypeMapperFactory) newCompositeTypeMapper(c *Checker, m1 *TypeMapper, m2 *TypeMapper) *TypeMapper {
+	m := f.compositeTypeMapperPool.New()
 	m.data = m
 	m.c = c
 	m.m1 = m1
@@ -268,8 +279,8 @@ type InferenceTypeMapper struct {
 	fixing bool
 }
 
-func (c *Checker) newInferenceTypeMapper(n *InferenceContext, fixing bool) *TypeMapper {
-	m := &InferenceTypeMapper{}
+func (f *TypeMapperFactory) newInferenceTypeMapper(c *Checker, n *InferenceContext, fixing bool) *TypeMapper {
+	m := f.inferenceTypeMapperPool.New()
 	m.data = m
 	m.c = c
 	m.n = n

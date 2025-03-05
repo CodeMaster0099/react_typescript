@@ -599,6 +599,7 @@ type Checker struct {
 	typePointerPool                           core.Pool[*Type]
 	mergedSymbols                             map[*ast.Symbol]*ast.Symbol
 	factory                                   ast.NodeFactory
+	typeMapperFactory                         TypeMapperFactory
 	nodeLinks                                 core.LinkStore[*ast.Node, NodeLinks]
 	signatureLinks                            core.LinkStore[*ast.Node, SignatureLinks]
 	typeNodeLinks                             core.LinkStore[*ast.Node, TypeNodeLinks]
@@ -935,11 +936,11 @@ func NewChecker(program Program) *Checker {
 	c.numericStringType = c.getTemplateLiteralType([]string{"", ""}, []*Type{c.numberType}) // The `${number}` type
 	c.templateConstraintType = c.getUnionType([]*Type{c.stringType, c.numberType, c.booleanType, c.bigintType, c.nullType, c.undefinedType})
 	c.uniqueLiteralType = c.newIntrinsicType(TypeFlagsNever, "never") // Special `never` flagged by union reduction to behave as a literal
-	c.uniqueLiteralMapper = newFunctionTypeMapper(c.getUniqueLiteralTypeForTypeParameter)
-	c.reportUnreliableMapper = newFunctionTypeMapper(c.reportUnreliableWorker)
-	c.reportUnmeasurableMapper = newFunctionTypeMapper(c.reportUnmeasurableWorker)
-	c.restrictiveMapper = newFunctionTypeMapper(c.restrictiveMapperWorker)
-	c.permissiveMapper = newFunctionTypeMapper(c.permissiveMapperWorker)
+	c.uniqueLiteralMapper = c.typeMapperFactory.newFunctionTypeMapper(c.getUniqueLiteralTypeForTypeParameter)
+	c.reportUnreliableMapper = c.typeMapperFactory.newFunctionTypeMapper(c.reportUnreliableWorker)
+	c.reportUnmeasurableMapper = c.typeMapperFactory.newFunctionTypeMapper(c.reportUnmeasurableWorker)
+	c.restrictiveMapper = c.typeMapperFactory.newFunctionTypeMapper(c.restrictiveMapperWorker)
+	c.permissiveMapper = c.typeMapperFactory.newFunctionTypeMapper(c.permissiveMapperWorker)
 	c.emptyObjectType = c.newAnonymousType(nil /*symbol*/, nil, nil, nil, nil)
 	c.emptyTypeLiteralType = c.newAnonymousType(c.newSymbol(ast.SymbolFlagsTypeLiteral, ast.InternalSymbolNameType), nil, nil, nil, nil)
 	c.unknownEmptyObjectType = c.newAnonymousType(nil /*symbol*/, nil, nil, nil, nil)
@@ -2342,7 +2343,7 @@ func (c *Checker) checkTypeParameter(node *ast.Node) {
 	constraintType := c.getConstraintOfTypeParameter(typeParameter)
 	defaultType := c.getDefaultFromTypeParameter(typeParameter)
 	if constraintType != nil && defaultType != nil {
-		c.checkTypeAssignableTo(defaultType, c.getTypeWithThisArgument(c.instantiateType(constraintType, newSimpleTypeMapper(typeParameter, defaultType)), defaultType, false), tpNode.DefaultType, diagnostics.Type_0_does_not_satisfy_the_constraint_1)
+		c.checkTypeAssignableTo(defaultType, c.getTypeWithThisArgument(c.instantiateType(constraintType, c.typeMapperFactory.newSimpleTypeMapper(typeParameter, defaultType)), defaultType, false), tpNode.DefaultType, diagnostics.Type_0_does_not_satisfy_the_constraint_1)
 	}
 	c.checkTypeNameIsReserved(node.Name(), diagnostics.Type_parameter_name_cannot_be_0)
 	c.checkNodeDeferred(node)
@@ -2727,7 +2728,7 @@ func (c *Checker) checkTypeArgumentConstraints(node *ast.Node, typeParameters []
 		if constraint != nil {
 			if typeArguments == nil {
 				typeArguments = c.getEffectiveTypeArguments(node, typeParameters)
-				mapper = newTypeMapper(typeParameters, typeArguments)
+				mapper = c.newTypeMapper(typeParameters, typeArguments)
 			}
 			result = result && c.checkTypeAssignableTo(typeArguments[i], c.instantiateType(constraint, mapper), core.ElementOrNil(node.TypeArguments(), i), diagnostics.Type_0_does_not_satisfy_the_constraint_1)
 		}
@@ -7025,7 +7026,7 @@ func (c *Checker) getUniqueTypeParameters(context *InferenceContext, typeParamet
 		}
 	}
 	if len(newTypeParameters) != 0 {
-		mapper := newTypeMapper(oldTypeParameters, newTypeParameters)
+		mapper := c.newTypeMapper(oldTypeParameters, newTypeParameters)
 		for _, tp := range newTypeParameters {
 			tp.AsTypeParameter().mapper = mapper
 		}
@@ -8462,7 +8463,7 @@ func (c *Checker) getImplementationSignature(signature *Signature) *Signature {
 	if cached := c.cachedSignatures[key]; cached != nil {
 		return cached
 	}
-	result := c.instantiateSignature(signature, newTypeMapper(nil, nil))
+	result := c.instantiateSignature(signature, c.newTypeMapper(nil, nil))
 	c.cachedSignatures[key] = result
 	return result
 }
@@ -8601,7 +8602,7 @@ func (c *Checker) checkTypeArguments(signature *Signature, typeArgumentNodes []*
 		if constraint != nil {
 			typeArgumentHeadMessage := core.OrElse(headMessage, diagnostics.Type_0_does_not_satisfy_the_constraint_1)
 			if mapper == nil {
-				mapper = newTypeMapper(typeParameters, typeArgumentTypes)
+				mapper = c.newTypeMapper(typeParameters, typeArgumentTypes)
 			}
 			typeArgument := typeArgumentTypes[i]
 			var errorNode *ast.Node
@@ -15424,7 +15425,7 @@ func (c *Checker) getInferredTypeParameterConstraint(t *Type, omitTypeReferences
 								//   type Foo<T extends string, U extends T> = [T, U];
 								//   type Bar<T> = T extends Foo<infer X, infer X> ? Foo<X, X> : T;
 								// the instantiated constraint for U is X, so we discard that inference.
-								mapper := newDeferredTypeMapper(typeParameters, core.MapIndex(typeParameters, func(_ *Type, index int) func() *Type {
+								mapper := c.typeMapperFactory.newDeferredTypeMapper(typeParameters, core.MapIndex(typeParameters, func(_ *Type, index int) func() *Type {
 									return func() *Type {
 										return c.getEffectiveTypeArgumentAtIndex(parent, typeParameters, index)
 									}
@@ -15453,7 +15454,7 @@ func (c *Checker) getInferredTypeParameterConstraint(t *Type, omitTypeReferences
 					checkMappedType := parent.Parent.AsConditionalTypeNode().CheckType
 					nodeType := c.getTypeFromTypeNode(checkMappedType.AsMappedTypeNode().Type)
 					checkMappedTypeParameter := checkMappedType.AsMappedTypeNode().TypeParameter
-					mapper := newSimpleTypeMapper(c.getDeclaredTypeOfTypeParameter(c.getSymbolOfDeclaration(checkMappedTypeParameter)),
+					mapper := c.typeMapperFactory.newSimpleTypeMapper(c.getDeclaredTypeOfTypeParameter(c.getSymbolOfDeclaration(checkMappedTypeParameter)),
 						core.IfElse(checkMappedTypeParameter.AsTypeParameter().Constraint != nil,
 							c.getTypeFromTypeNode(checkMappedTypeParameter.AsTypeParameter().Constraint),
 							c.stringNumberSymbolType))
@@ -15585,7 +15586,7 @@ func (c *Checker) getConstraintOfDistributiveConditionalType(t *Type) *Type {
 				constraint = c.getConstraintOfType(constraint)
 			}
 			if constraint != nil && constraint != d.checkType {
-				instantiated := c.getConditionalTypeInstantiation(t, prependTypeMapping(d.root.checkType, constraint, d.mapper), true /*forConstraint*/, nil)
+				instantiated := c.getConditionalTypeInstantiation(t, c.prependTypeMapping(d.root.checkType, constraint, d.mapper), true /*forConstraint*/, nil)
 				if instantiated.flags&TypeFlagsNever == 0 {
 					d.resolvedConstraintOfDistributive = instantiated
 					return instantiated
@@ -17198,7 +17199,7 @@ func (c *Checker) resolveObjectTypeMembers(t *Type, source *Type, typeParameters
 		indexInfos = resolved.declaredIndexInfos
 	} else {
 		instantiated = true
-		mapper = newTypeMapper(typeParameters, typeArguments)
+		mapper = c.newTypeMapper(typeParameters, typeArguments)
 		members = c.instantiateSymbolTable(resolved.declaredMembers, mapper, len(typeParameters) == 1 /*mappingThisOnly*/)
 		callSignatures = c.instantiateSignatures(resolved.declaredCallSignatures, mapper)
 		constructSignatures = c.instantiateSignatures(resolved.declaredConstructSignatures, mapper)
@@ -17406,7 +17407,7 @@ func (c *Checker) createSignatureInstantiation(sig *Signature, typeArguments []*
 }
 
 func (c *Checker) createSignatureTypeMapper(sig *Signature, typeArguments []*Type) *TypeMapper {
-	return newTypeMapper(c.getTypeParametersForMapper(sig), typeArguments)
+	return c.newTypeMapper(c.getTypeParametersForMapper(sig), typeArguments)
 }
 
 func (c *Checker) getTypeParametersForMapper(sig *Signature) []*Type {
@@ -17481,7 +17482,7 @@ func (c *Checker) getErasedSignature(signature *Signature) *Signature {
 	key := CachedSignatureKey{sig: signature, key: SignatureKeyErased}
 	erased := c.cachedSignatures[key]
 	if erased == nil {
-		erased = c.instantiateSignatureEx(signature, newArrayToSingleTypeMapper(signature.typeParameters, c.anyType), true /*eraseTypeParameters*/)
+		erased = c.instantiateSignatureEx(signature, c.typeMapperFactory.newArrayToSingleTypeMapper(signature.typeParameters, c.anyType), true /*eraseTypeParameters*/)
 		c.cachedSignatures[key] = erased
 	}
 	return erased
@@ -17524,7 +17525,7 @@ func (c *Checker) getBaseSignature(signature *Signature) *Signature {
 	if cached := c.cachedSignatures[key]; cached != nil {
 		return cached
 	}
-	baseConstraintMapper := newTypeMapper(typeParameters, core.Map(typeParameters, func(tp *Type) *Type {
+	baseConstraintMapper := c.newTypeMapper(typeParameters, core.Map(typeParameters, func(tp *Type) *Type {
 		return core.OrElse(c.getConstraintOfTypeParameter(tp), c.unknownType)
 	}))
 	baseConstraints := core.Map(typeParameters, func(tp *Type) *Type {
@@ -17536,8 +17537,8 @@ func (c *Checker) getBaseSignature(signature *Signature) *Signature {
 		baseConstraints = c.instantiateTypes(baseConstraints, baseConstraintMapper)
 	}
 	// and then apply a type eraser to remove any remaining circularly dependent type parameters
-	baseConstraints = c.instantiateTypes(baseConstraints, newArrayToSingleTypeMapper(typeParameters, c.anyType))
-	result := c.instantiateSignatureEx(signature, newTypeMapper(typeParameters, baseConstraints), true /*eraseTypeParameters*/)
+	baseConstraints = c.instantiateTypes(baseConstraints, c.typeMapperFactory.newArrayToSingleTypeMapper(typeParameters, c.anyType))
+	result := c.instantiateSignatureEx(signature, c.newTypeMapper(typeParameters, baseConstraints), true /*eraseTypeParameters*/)
 	c.cachedSignatures[key] = result
 	return result
 }
@@ -18647,7 +18648,7 @@ func (c *Checker) instantiateSignatureEx(sig *Signature, m *TypeMapper, eraseTyp
 		// new type parameters in the mapper function. Finally store this mapper in the new type
 		// parameters such that we can use it when instantiating constraints.
 		freshTypeParameters = core.Map(sig.typeParameters, c.cloneTypeParameter)
-		m = c.combineTypeMappers(newTypeMapper(sig.typeParameters, freshTypeParameters), m)
+		m = c.combineTypeMappers(c.newTypeMapper(sig.typeParameters, freshTypeParameters), m)
 		for _, tp := range freshTypeParameters {
 			tp.AsTypeParameter().mapper = m
 		}
@@ -18982,7 +18983,7 @@ func (c *Checker) resolveMappedTypeMembers(t *Type) {
 			case propNameType.flags&(TypeFlagsNumber|TypeFlagsEnum) != 0:
 				indexKeyType = c.numberType
 			}
-			propType := c.instantiateType(templateType, appendTypeMapping(t.AsMappedType().mapper, typeParameter, keyType))
+			propType := c.instantiateType(templateType, c.appendTypeMapping(t.AsMappedType().mapper, typeParameter, keyType))
 			modifiersIndexInfo := c.getApplicableIndexInfo(modifiersType, propNameType)
 			isReadonly := templateModifiers&MappedTypeModifiersIncludeReadonly != 0 || templateModifiers&MappedTypeModifiersExcludeReadonly == 0 && modifiersIndexInfo != nil && modifiersIndexInfo.isReadonly
 			indexInfo := c.newIndexInfo(indexKeyType, propType, isReadonly, nil)
@@ -18992,7 +18993,7 @@ func (c *Checker) resolveMappedTypeMembers(t *Type) {
 	addMemberForKeyType := func(keyType *Type) {
 		propNameType := keyType
 		if nameType != nil {
-			propNameType = c.instantiateType(nameType, appendTypeMapping(t.AsMappedType().mapper, typeParameter, keyType))
+			propNameType = c.instantiateType(nameType, c.appendTypeMapping(t.AsMappedType().mapper, typeParameter, keyType))
 		}
 		forEachType(propNameType, func(t *Type) {
 			addMemberForKeyTypeWorker(keyType, t)
@@ -19016,7 +19017,7 @@ func (c *Checker) getTypeOfMappedSymbol(symbol *ast.Symbol) *Type {
 			return c.errorType
 		}
 		templateType := c.getTemplateTypeFromMappedType(core.OrElse(mappedType.AsMappedType().target, mappedType))
-		mapper := appendTypeMapping(mappedType.AsMappedType().mapper, c.getTypeParameterFromMappedType(mappedType), c.mappedSymbolLinks.Get(symbol).keyType)
+		mapper := c.appendTypeMapping(mappedType.AsMappedType().mapper, c.getTypeParameterFromMappedType(mappedType), c.mappedSymbolLinks.Get(symbol).keyType)
 		propType := c.instantiateType(templateType, mapper)
 		// When creating an optional property in strictNullChecks mode, if 'undefined' isn't assignable to the
 		// type, we include 'undefined' in the type. Similarly, when creating a non-optional property in strictNullChecks
@@ -19054,7 +19055,7 @@ func (c *Checker) getLowerBoundOfKeyType(t *Type) *Type {
 			checkType := t.AsConditionalType().checkType
 			constraint := c.getLowerBoundOfKeyType(checkType)
 			if constraint != checkType {
-				return c.getConditionalTypeInstantiation(t, prependTypeMapping(t.AsConditionalType().root.checkType, constraint, t.AsConditionalType().mapper), false /*forConstraint*/, nil)
+				return c.getConditionalTypeInstantiation(t, c.prependTypeMapping(t.AsConditionalType().root.checkType, constraint, t.AsConditionalType().mapper), false /*forConstraint*/, nil)
 			}
 		}
 		return t
@@ -19211,7 +19212,7 @@ func (c *Checker) combineUnionOrIntersectionMemberSignatures(left *Signature, ri
 	var paramMapper *TypeMapper
 	if len(left.typeParameters) != 0 && len(right.typeParameters) != 0 {
 		// We just use the type parameter defaults from the first signature
-		paramMapper = newTypeMapper(right.typeParameters, left.typeParameters)
+		paramMapper = c.newTypeMapper(right.typeParameters, left.typeParameters)
 	}
 	flags := (left.flags | right.flags) & (SignatureFlagsPropagatingFlags & ^SignatureFlagsHasRestParameter)
 	declaration := left.declaration
@@ -19800,7 +19801,7 @@ func (c *Checker) getResolvedApparentTypeOfMappedType(t *Type) *Type {
 			baseConstraint = c.getBaseConstraintOfType(modifiersType)
 		}
 		if baseConstraint != nil && everyType(baseConstraint, func(t *Type) bool { return c.isArrayOrTupleType(t) || c.isArrayOrTupleOrIntersection(t) }) {
-			return c.instantiateType(target, prependTypeMapping(typeVariable, baseConstraint, t.AsMappedType().mapper))
+			return c.instantiateType(target, c.prependTypeMapping(typeVariable, baseConstraint, t.AsMappedType().mapper))
 		}
 	}
 	return t
@@ -20030,7 +20031,7 @@ func (c *Checker) fillMissingTypeArguments(typeArguments []*Type, typeParameters
 		for i := numTypeArguments; i < numTypeParameters; i++ {
 			defaultType := c.getDefaultFromTypeParameter(typeParameters[i])
 			if defaultType != nil {
-				result[i] = c.instantiateType(defaultType, newTypeMapper(typeParameters, result))
+				result[i] = c.instantiateType(defaultType, c.newTypeMapper(typeParameters, result))
 			} else {
 				result[i] = c.unknownType
 			}
@@ -20347,7 +20348,7 @@ func (c *Checker) getObjectTypeInstantiation(t *Type, m *TypeMapper, alias *Type
 			data.instantiations[key] = result
 			return result
 		}
-		newMapper := newTypeMapper(typeParameters, typeArguments)
+		newMapper := c.newTypeMapper(typeParameters, typeArguments)
 		switch {
 		case target.objectFlags&ObjectFlagsReference != 0:
 			result = c.createDeferredTypeReference(t.Target(), t.AsTypeReference().node, newMapper, newAlias)
@@ -20425,7 +20426,7 @@ func (c *Checker) instantiateAnonymousType(t *Type, m *TypeMapper, alias *TypeAl
 		origTypeParameter := c.getTypeParameterFromMappedType(t)
 		freshTypeParameter := c.cloneTypeParameter(origTypeParameter)
 		result.AsMappedType().typeParameter = freshTypeParameter
-		m = c.combineTypeMappers(newSimpleTypeMapper(origTypeParameter, freshTypeParameter), m)
+		m = c.combineTypeMappers(c.typeMapperFactory.newSimpleTypeMapper(origTypeParameter, freshTypeParameter), m)
 		freshTypeParameter.AsTypeParameter().mapper = m
 	case t.objectFlags&ObjectFlagsInstantiationExpressionType != 0:
 		result.AsInstantiationExpressionType().node = t.AsInstantiationExpressionType().node
@@ -20455,7 +20456,7 @@ func (c *Checker) getConditionalTypeInstantiation(t *Type, mapper *TypeMapper, f
 		key := getConditionalTypeKey(typeArguments, alias, forConstraint)
 		result := root.instantiations[key]
 		if result == nil {
-			newMapper := newTypeMapper(root.outerTypeParameters, typeArguments)
+			newMapper := c.newTypeMapper(root.outerTypeParameters, typeArguments)
 			checkType := root.checkType
 			var distributionType *Type
 			if root.isDistributive {
@@ -20466,7 +20467,7 @@ func (c *Checker) getConditionalTypeInstantiation(t *Type, mapper *TypeMapper, f
 			// result is (A extends U ? X : Y) | (B extends U ? X : Y).
 			if distributionType != nil && checkType != distributionType && distributionType.flags&(TypeFlagsUnion|TypeFlagsNever) != 0 {
 				result = c.mapTypeWithAlias(distributionType, func(t *Type) *Type {
-					return c.getConditionalType(root, prependTypeMapping(checkType, t, newMapper), forConstraint, nil)
+					return c.getConditionalType(root, c.prependTypeMapping(checkType, t, newMapper), forConstraint, nil)
 				}, alias)
 			} else {
 				result = c.getConditionalType(root, newMapper, forConstraint, alias)
@@ -20516,7 +20517,7 @@ func (c *Checker) instantiateMappedType(t *Type, m *TypeMapper, alias *TypeAlias
 		}
 		if d.declaration.NameType == nil {
 			if c.isArrayType(s) || s.flags&TypeFlagsAny != 0 && c.findResolutionCycleStartIndex(typeVariable, TypeSystemPropertyNameResolvedBaseConstraint) < 0 && c.hasArrayOrTypeTypeConstraint(typeVariable) {
-				return c.instantiateMappedArrayType(s, t, prependTypeMapping(typeVariable, s, m))
+				return c.instantiateMappedArrayType(s, t, c.prependTypeMapping(typeVariable, s, m))
 			}
 			if isTupleType(s) {
 				return c.instantiateMappedTupleType(s, t, typeVariable, m)
@@ -20525,7 +20526,7 @@ func (c *Checker) instantiateMappedType(t *Type, m *TypeMapper, alias *TypeAlias
 				return c.getIntersectionType(core.Map(s.Types(), instantiateConstituent))
 			}
 		}
-		return c.instantiateAnonymousType(t, prependTypeMapping(typeVariable, s, m), nil)
+		return c.instantiateAnonymousType(t, c.prependTypeMapping(typeVariable, s, m), nil)
 	}
 	if typeVariable != nil {
 		mappedTypeVariable := c.instantiateType(typeVariable, m)
@@ -20567,7 +20568,7 @@ func (c *Checker) instantiateMappedTupleType(tupleType *Type, mappedType *Type, 
 	fixedLength := tupleType.TargetTupleType().fixedLength
 	fixedMapper := m
 	if fixedLength != 0 {
-		fixedMapper = prependTypeMapping(typeVariable, tupleType, m)
+		fixedMapper = c.prependTypeMapping(typeVariable, tupleType, m)
 	}
 	modifiers := getMappedTypeModifiers(mappedType)
 	elementTypes := c.getElementTypes(tupleType)
@@ -20580,9 +20581,9 @@ func (c *Checker) instantiateMappedTupleType(tupleType *Type, mappedType *Type, 
 		case i < fixedLength:
 			mapped = c.instantiateMappedTypeTemplate(mappedType, c.getStringLiteralType(strconv.Itoa(i)), flags&ElementFlagsOptional != 0, fixedMapper)
 		case flags&ElementFlagsVariadic != 0:
-			mapped = c.instantiateType(mappedType, prependTypeMapping(typeVariable, e, m))
+			mapped = c.instantiateType(mappedType, c.prependTypeMapping(typeVariable, e, m))
 		default:
-			mapped = c.getElementTypeOfArrayType(c.instantiateType(mappedType, prependTypeMapping(typeVariable, c.createArrayType(e), m)))
+			mapped = c.getElementTypeOfArrayType(c.instantiateType(mappedType, c.prependTypeMapping(typeVariable, c.createArrayType(e), m)))
 			if mapped == nil {
 				mapped = c.unknownType
 			}
@@ -20607,7 +20608,7 @@ func (c *Checker) instantiateMappedTupleType(tupleType *Type, mappedType *Type, 
 }
 
 func (c *Checker) instantiateMappedTypeTemplate(t *Type, key *Type, isOptional bool, m *TypeMapper) *Type {
-	templateMapper := appendTypeMapping(m, c.getTypeParameterFromMappedType(t), key)
+	templateMapper := c.appendTypeMapping(m, c.getTypeParameterFromMappedType(t), key)
 	propType := c.instantiateType(c.getTemplateTypeFromMappedType(core.OrElse(t.AsMappedType().target, t)), templateMapper)
 	modifiers := getMappedTypeModifiers(t)
 	switch {
@@ -20682,7 +20683,7 @@ func (c *Checker) getApparentMappedTypeKeys(nameType *Type, targetType *Type) *T
 	modifiersType := c.getApparentType(c.getModifiersTypeFromMappedType(targetType))
 	var mappedKeys []*Type
 	c.forEachMappedTypePropertyKeyTypeAndIndexSignatureKeyType(modifiersType, TypeFlagsStringOrNumberLiteralOrUnique, false, func(t *Type) {
-		mappedKeys = append(mappedKeys, c.instantiateType(nameType, appendTypeMapping(targetType.Mapper(), c.getTypeParameterFromMappedType(targetType), t)))
+		mappedKeys = append(mappedKeys, c.instantiateType(nameType, c.appendTypeMapping(targetType.Mapper(), c.getTypeParameterFromMappedType(targetType), t)))
 	})
 	return c.getUnionType(mappedKeys)
 }
@@ -21517,7 +21518,7 @@ func (c *Checker) getTypeAliasInstantiation(symbol *ast.Symbol, typeArguments []
 	key := getTypeAliasInstantiationKey(typeArguments, alias)
 	instantiation := links.instantiations[key]
 	if instantiation == nil {
-		mapper := newTypeMapper(typeParameters, c.fillMissingTypeArguments(typeArguments, typeParameters, c.getMinTypeArgumentCount(typeParameters)))
+		mapper := c.newTypeMapper(typeParameters, c.fillMissingTypeArguments(typeArguments, typeParameters, c.getMinTypeArgumentCount(typeParameters)))
 		instantiation = c.instantiateTypeWithAlias(t, mapper, alias)
 		links.instantiations[key] = instantiation
 	}
@@ -22308,7 +22309,7 @@ func (c *Checker) getTailRecursionRoot(newType *Type, newMapper *TypeMapper) (*C
 		if len(newRoot.outerTypeParameters) != 0 {
 			typeParamMapper := c.combineTypeMappers(newType.AsConditionalType().mapper, newMapper)
 			typeArguments := core.Map(newRoot.outerTypeParameters, func(t *Type) *Type { return typeParamMapper.Map(t) })
-			newRootMapper := newTypeMapper(newRoot.outerTypeParameters, typeArguments)
+			newRootMapper := c.newTypeMapper(newRoot.outerTypeParameters, typeArguments)
 			var newCheckType *Type
 			if newRoot.isDistributive {
 				newCheckType = newRootMapper.Map(newRoot.checkType)
@@ -22760,7 +22761,7 @@ func (c *Checker) isGenericMappedType(t *Type) bool {
 		// To determine this, we substitute the constraint type (that we now know isn't generic) for the iteration
 		// type and check whether the resulting type is generic.
 		nameType := c.getNameTypeFromMappedType(t)
-		if nameType != nil && c.isGenericIndexType(c.instantiateType(nameType, newSimpleTypeMapper(c.getTypeParameterFromMappedType(t), constraint))) {
+		if nameType != nil && c.isGenericIndexType(c.instantiateType(nameType, c.typeMapperFactory.newSimpleTypeMapper(c.getTypeParameterFromMappedType(t), constraint))) {
 			return true
 		}
 	}
@@ -24647,7 +24648,7 @@ func (c *Checker) getIndexTypeForMappedType(t *Type, indexFlags IndexFlags) *Typ
 	addMemberForKeyType := func(keyType *Type) {
 		propNameType := keyType
 		if nameType != nil {
-			propNameType = c.instantiateType(nameType, appendTypeMapping(t.AsMappedType().mapper, typeParameter, keyType))
+			propNameType = c.instantiateType(nameType, c.appendTypeMapping(t.AsMappedType().mapper, typeParameter, keyType))
 		}
 		// `keyof` currently always returns `string | number` for concrete `string` index signatures - the below ternary keeps that behavior for mapped types
 		// See `getLiteralTypeFromProperties` where there's a similar ternary to cause the same behavior.
@@ -25743,7 +25744,7 @@ func (c *Checker) getSingleBaseForNonAugmentingSubtype(t *Type) *Type {
 	if len(typeParameters) == 0 {
 		instantiatedBase = bases[0]
 	} else {
-		instantiatedBase = c.instantiateType(bases[0], newTypeMapper(typeParameters, c.getTypeArguments(t)[:len(typeParameters)]))
+		instantiatedBase = c.instantiateType(bases[0], c.newTypeMapper(typeParameters, c.getTypeArguments(t)[:len(typeParameters)]))
 	}
 	if len(c.getTypeArguments(t)) > len(typeParameters) {
 		instantiatedBase = c.getTypeWithThisArgument(instantiatedBase, core.LastOrNil(c.getTypeArguments(t)), false)
@@ -26563,7 +26564,7 @@ func (c *Checker) getStringMappingTypeForGenericType(symbol *ast.Symbol, t *Type
 // are optional. If the modifiers type is generic, conservatively estimate optionality by recursively looking for
 // mapped types that include '?' modifiers.
 func (c *Checker) substituteIndexedMappedType(objectType *Type, index *Type) *Type {
-	mapper := newSimpleTypeMapper(c.getTypeParameterFromMappedType(objectType), index)
+	mapper := c.typeMapperFactory.newSimpleTypeMapper(c.getTypeParameterFromMappedType(objectType), index)
 	templateMapper := c.combineTypeMappers(objectType.AsMappedType().mapper, mapper)
 	instantiatedTemplateType := c.instantiateType(c.getTemplateTypeFromMappedType(core.OrElse(objectType.AsMappedType().target, objectType)), templateMapper)
 	isOptional := getMappedTypeOptionality(objectType) > 0

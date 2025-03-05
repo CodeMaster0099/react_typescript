@@ -1398,7 +1398,7 @@ func (c *Checker) getVariancesWorker(symbol *ast.Symbol, typeParameters []*Type)
 }
 
 func (c *Checker) createMarkerType(symbol *ast.Symbol, source *Type, target *Type) *Type {
-	mapper := newSimpleTypeMapper(source, target)
+	mapper := c.typeMapperFactory.newSimpleTypeMapper(source, target)
 	t := c.getDeclaredTypeOfSymbol(symbol)
 	if c.isErrorType(t) {
 		return t
@@ -2156,7 +2156,7 @@ func (c *Checker) compareSignaturesIdentical(source *Signature, target *Signatur
 	// Check that type parameter constraints and defaults match. If they do, instantiate the source
 	// signature with the type parameters of the target signature and continue the comparison.
 	if target.typeParameters != nil {
-		mapper := newTypeMapper(source.typeParameters, target.typeParameters)
+		mapper := c.newTypeMapper(source.typeParameters, target.typeParameters)
 		for i := range len(target.typeParameters) {
 			s := source.typeParameters[i]
 			t := target.typeParameters[i]
@@ -2226,7 +2226,7 @@ func (c *Checker) compareTypeParametersIdentical(sourceParams []*Type, targetPar
 	if len(sourceParams) != len(targetParams) {
 		return false
 	}
-	mapper := newTypeMapper(targetParams, sourceParams)
+	mapper := c.newTypeMapper(targetParams, sourceParams)
 	for i := range sourceParams {
 		source := sourceParams[i]
 		target := targetParams[i]
@@ -3896,7 +3896,7 @@ func (r *Relater) mappedTypeRelatedTo(source *Type, target *Type, reportErrors b
 		targetConstraint := r.c.getConstraintTypeFromMappedType(target)
 		sourceConstraint := r.c.instantiateType(r.c.getConstraintTypeFromMappedType(source), core.IfElse(r.c.getCombinedMappedTypeOptionality(source) < 0, r.c.reportUnmeasurableMapper, r.c.reportUnreliableMapper))
 		if result := r.isRelatedTo(targetConstraint, sourceConstraint, RecursionFlagsBoth, reportErrors); result != TernaryFalse {
-			mapper := newSimpleTypeMapper(r.c.getTypeParameterFromMappedType(source), r.c.getTypeParameterFromMappedType(target))
+			mapper := r.c.typeMapperFactory.newSimpleTypeMapper(r.c.getTypeParameterFromMappedType(source), r.c.getTypeParameterFromMappedType(target))
 			if r.c.instantiateType(r.c.getNameTypeFromMappedType(source), mapper) == r.c.instantiateType(r.c.getNameTypeFromMappedType(target), mapper) {
 				return result & r.isRelatedTo(r.c.instantiateType(r.c.getTemplateTypeFromMappedType(source), mapper), r.c.getTemplateTypeFromMappedType(target), RecursionFlagsBoth, reportErrors)
 			}
@@ -4643,7 +4643,7 @@ func (r *Relater) reportErrorResults(originalSource *Type, originalTarget *Type,
 	r.reportRelationError(headMessage, source, target)
 	if source.flags&TypeFlagsTypeParameter != 0 && source.symbol != nil && len(source.symbol.Declarations) != 0 && r.c.getConstraintOfType(source) == nil {
 		syntheticParam := r.c.cloneTypeParameter(source)
-		syntheticParam.AsTypeParameter().constraint = r.c.instantiateType(target, newSimpleTypeMapper(source, syntheticParam))
+		syntheticParam.AsTypeParameter().constraint = r.c.instantiateType(target, r.c.typeMapperFactory.newSimpleTypeMapper(source, syntheticParam))
 		if r.c.hasNonCircularBaseConstraint(syntheticParam) {
 			targetConstraintString := r.c.TypeToString(target)
 			r.relatedInfo = append(r.relatedInfo, NewDiagnosticForNode(source.symbol.Declarations[0], diagnostics.This_type_parameter_might_need_an_extends_0_constraint, targetConstraintString))

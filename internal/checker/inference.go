@@ -1095,7 +1095,7 @@ func (c *Checker) replaceIndexedAccess(instantiable *Type, t *Type, replacement 
 	// map type.indexType to 0
 	// map type.objectType to `[TReplacement]`
 	// thus making the indexed access `[TReplacement][0]` or `TReplacement`
-	return c.instantiateType(instantiable, newTypeMapper([]*Type{t.AsIndexedAccessType().indexType, t.AsIndexedAccessType().objectType}, []*Type{c.getNumberLiteralType(0), c.createTupleType([]*Type{replacement})}))
+	return c.instantiateType(instantiable, c.newTypeMapper([]*Type{t.AsIndexedAccessType().indexType, t.AsIndexedAccessType().objectType}, []*Type{c.getNumberLiteralType(0), c.createTupleType([]*Type{replacement})}))
 }
 
 func (c *Checker) typesDefinitelyUnrelated(source *Type, target *Type) bool {
@@ -1193,8 +1193,8 @@ func (c *Checker) newInferenceContextWorker(inferences []*InferenceInfo, signatu
 		flags:        flags,
 		compareTypes: compareTypes,
 	}
-	n.mapper = c.newInferenceTypeMapper(n, true /*fixing*/)
-	n.nonFixingMapper = c.newInferenceTypeMapper(n, false /*fixing*/)
+	n.mapper = c.typeMapperFactory.newInferenceTypeMapper(c, n, true /*fixing*/)
+	n.nonFixingMapper = c.typeMapperFactory.newInferenceTypeMapper(c, n, false /*fixing*/)
 	return n
 }
 
@@ -1281,7 +1281,7 @@ func (c *Checker) getInferredType(n *InferenceContext, index int) *Type {
 				if defaultType != nil {
 					// Instantiate the default type. Any forward reference to a type
 					// parameter should be instantiated to the empty object type.
-					inferredType = c.instantiateType(defaultType, mergeTypeMappers(c.newBackreferenceMapper(n, index), n.nonFixingMapper))
+					inferredType = c.instantiateType(defaultType, c.mergeTypeMappers(c.newBackreferenceMapper(n, index), n.nonFixingMapper))
 				}
 			}
 		} else {
