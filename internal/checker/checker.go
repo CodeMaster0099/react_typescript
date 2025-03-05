@@ -20325,7 +20325,7 @@ func (c *Checker) getObjectTypeInstantiation(t *Type, m *TypeMapper, alias *Type
 	// mapper to the type parameters to produce the effective list of type arguments, and compute the
 	// instantiation cache key from the type IDs of the type arguments.
 	combinedMapper := c.combineTypeMappers(t.Mapper(), m)
-	typeArguments := make([]*Type, len(typeParameters))
+	typeArguments := c.typePointerPool.NewSlice(len(typeParameters))
 	for i, tp := range typeParameters {
 		typeArguments[i] = combinedMapper.Map(tp)
 	}
@@ -22547,7 +22547,9 @@ func (c *Checker) createArrayType(elementType *Type) *Type {
 }
 
 func (c *Checker) createArrayTypeEx(elementType *Type, readonly bool) *Type {
-	return c.createTypeFromGenericGlobalType(core.IfElse(readonly, c.globalReadonlyArrayType, c.globalArrayType), []*Type{elementType})
+	types := c.typePointerPool.NewSlice(1)
+	types[0] = elementType
+	return c.createTypeFromGenericGlobalType(core.IfElse(readonly, c.globalReadonlyArrayType, c.globalArrayType), types)
 }
 
 func (c *Checker) getTupleElementFlags(node *ast.Node) ElementFlags {
@@ -23838,7 +23840,7 @@ func (c *Checker) getIntersectionType(types []*Type) *Type {
 
 func (c *Checker) getIntersectionTypeEx(types []*Type, flags IntersectionFlags, alias *TypeAlias) *Type {
 	var orderedTypes orderedSet[*Type]
-	orderedTypes.values = make([]*Type, 0, len(types))
+	orderedTypes.values = c.typePointerPool.NewSlice(len(types))[:0]
 	orderedTypes.valuesByKey = make(map[*Type]struct{}, len(types))
 	includes := c.addTypesToIntersection(&orderedTypes, 0, types)
 	typeSet := orderedTypes.values
