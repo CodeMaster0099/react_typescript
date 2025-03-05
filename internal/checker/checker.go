@@ -596,6 +596,7 @@ type Checker struct {
 	signaturePool                             core.Pool[Signature]
 	signaturePointerPool                      core.Pool[*Signature]
 	indexInfoPool                             core.Pool[IndexInfo]
+	indexInfoPointerPool                      core.Pool[*IndexInfo]
 	typePointerPool                           core.Pool[*Type]
 	mergedSymbols                             map[*ast.Symbol]*ast.Symbol
 	factory                                   ast.NodeFactory
@@ -20729,26 +20730,26 @@ func (c *Checker) instantiateTypeAlias(alias *TypeAlias, m *TypeMapper) *TypeAli
 }
 
 func (c *Checker) instantiateTypes(types []*Type, m *TypeMapper) []*Type {
-	return instantiateList(c, types, m, (*Checker).instantiateType)
+	return instantiateList(c, &c.typePointerPool, types, m, (*Checker).instantiateType)
 }
 
 func (c *Checker) instantiateSymbols(symbols []*ast.Symbol, m *TypeMapper) []*ast.Symbol {
-	return instantiateList(c, symbols, m, (*Checker).instantiateSymbol)
+	return instantiateList(c, &c.symbolPointerPool, symbols, m, (*Checker).instantiateSymbol)
 }
 
 func (c *Checker) instantiateSignatures(signatures []*Signature, m *TypeMapper) []*Signature {
-	return instantiateList(c, signatures, m, (*Checker).instantiateSignature)
+	return instantiateList(c, &c.signaturePointerPool, signatures, m, (*Checker).instantiateSignature)
 }
 
 func (c *Checker) instantiateIndexInfos(indexInfos []*IndexInfo, m *TypeMapper) []*IndexInfo {
-	return instantiateList(c, indexInfos, m, (*Checker).instantiateIndexInfo)
+	return instantiateList(c, &c.indexInfoPointerPool, indexInfos, m, (*Checker).instantiateIndexInfo)
 }
 
-func instantiateList[T comparable](c *Checker, values []T, m *TypeMapper, instantiator func(c *Checker, value T, m *TypeMapper) T) []T {
+func instantiateList[T comparable](c *Checker, pool *core.Pool[T], values []T, m *TypeMapper, instantiator func(c *Checker, value T, m *TypeMapper) T) []T {
 	for i, value := range values {
 		mapped := instantiator(c, value, m)
 		if mapped != value {
-			result := make([]T, len(values))
+			result := pool.NewSlice(len(values))
 			copy(result, values[:i])
 			result[i] = mapped
 			for j := i + 1; j < len(values); j++ {
