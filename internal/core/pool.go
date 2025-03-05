@@ -43,6 +43,12 @@ func (p *Pool[T]) NewSlice(size int) []T {
 	return slice
 }
 
+func (p *Pool[T]) SliceOne(element T) []T {
+	slice := p.NewSlice(1)
+	slice[0] = element
+	return slice
+}
+
 func nextPoolSize(size int) int {
 	// This compiles down branch-free.
 	size = max(size, 1)

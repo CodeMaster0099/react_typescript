@@ -17658,9 +17658,7 @@ func (c *Checker) getTypeWithThisArgument(t *Type, thisArgument *Type, needAppar
 			if thisArgument == nil {
 				thisArgument = target.AsInterfaceType().thisType
 			}
-			types := c.typePointerPool.NewSlice(1)
-			types[0] = thisArgument
-			return c.createTypeReference(target, core.Concatenate(typeArguments, types))
+			return c.createTypeReference(target, core.Concatenate(typeArguments, c.typePointerPool.SliceOne(thisArgument)))
 		}
 		return t
 	} else if t.flags&TypeFlagsIntersection != 0 {
@@ -22550,9 +22548,7 @@ func (c *Checker) createArrayType(elementType *Type) *Type {
 }
 
 func (c *Checker) createArrayTypeEx(elementType *Type, readonly bool) *Type {
-	types := c.typePointerPool.NewSlice(1)
-	types[0] = elementType
-	return c.createTypeFromGenericGlobalType(core.IfElse(readonly, c.globalReadonlyArrayType, c.globalArrayType), types)
+	return c.createTypeFromGenericGlobalType(core.IfElse(readonly, c.globalReadonlyArrayType, c.globalArrayType), c.typePointerPool.SliceOne(elementType))
 }
 
 func (c *Checker) getTupleElementFlags(node *ast.Node) ElementFlags {

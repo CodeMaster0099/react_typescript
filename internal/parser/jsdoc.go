@@ -40,7 +40,7 @@ func (p *Parser) withJSDoc(node *ast.Node, hasJSDoc bool) {
 	p.hasDeprecatedTag = false
 	ranges := getJSDocCommentRanges(&p.factory, p.jsdocCommentRangesSpace, node, p.sourceText)
 	p.jsdocCommentRangesSpace = ranges[:0]
-	jsDoc := p.nodeSlicePool.NewSlice(len(ranges))[:0]
+	jsDoc := p.nodePointerPool.NewSlice(len(ranges))[:0]
 	pos := node.Pos()
 	for _, comment := range ranges {
 		if parsed := p.parseJSDocComment(node, comment.Pos(), comment.End(), pos); parsed != nil {
@@ -164,11 +164,11 @@ func (p *Parser) parseJSDocComment(parent *ast.Node, start int, end int, fullSta
 func (p *Parser) parseJSDocCommentWorker(start int, end int, fullStart int, indent int) *ast.Node {
 	// Initially we can parse out a tag.  We also have seen a starting asterisk.
 	// This is so that /** * @type */ doesn't parse.
-	tags := p.nodeSlicePool.NewSlice(1)[:0]
+	tags := p.nodePointerPool.NewSlice(1)[:0]
 	tagsPos := -1
 	tagsEnd := -1
 	state := jsdocStateSawAsterisk
-	commentParts := p.nodeSlicePool.NewSlice(1)[:0]
+	commentParts := p.nodePointerPool.NewSlice(1)[:0]
 	comments := p.jsdocCommentsSpace
 	commentsPos := -1
 	linkEnd := start

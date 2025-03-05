@@ -70,7 +70,7 @@ type Binder struct {
 	symbolPool             core.Pool[ast.Symbol]
 	flowNodePool           core.Pool[ast.FlowNode]
 	flowListPool           core.Pool[ast.FlowList]
-	singleDeclarationsPool core.Pool[*ast.Node]
+	nodePointerPool        core.Pool[*ast.Node]
 }
 
 type ActiveLabel struct {
@@ -520,12 +520,6 @@ func (b *Binder) combineFlowLists(head *ast.FlowList, tail *ast.FlowList) *ast.F
 		return tail
 	}
 	return b.newFlowList(head.Flow, b.combineFlowLists(head.Next, tail))
-}
-
-func (b *Binder) newSingleDeclaration(declaration *ast.Node) []*ast.Node {
-	nodes := b.singleDeclarationsPool.NewSlice(1)
-	nodes[0] = declaration
-	return nodes
 }
 
 func setFlowNodeReferenced(flow *ast.FlowNode) {
@@ -2447,7 +2441,7 @@ func (b *Binder) addDeclarationToSymbol(symbol *ast.Symbol, node *ast.Node, symb
 	symbol.Flags |= symbolFlags
 	node.DeclarationData().Symbol = symbol
 	if symbol.Declarations == nil {
-		symbol.Declarations = b.newSingleDeclaration(node)
+		symbol.Declarations = b.nodePointerPool.SliceOne(node)
 	} else {
 		symbol.Declarations = core.AppendIfUnique(symbol.Declarations, node)
 	}

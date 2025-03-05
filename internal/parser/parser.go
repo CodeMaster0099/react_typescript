@@ -69,7 +69,7 @@ type Parser struct {
 
 	identifiers             map[string]string
 	notParenthesizedArrow   core.Set[int]
-	nodeSlicePool           core.Pool[*ast.Node]
+	nodePointerPool         core.Pool[*ast.Node]
 	jsdocCache              map[*ast.Node][]*ast.Node
 	possibleAwaitSpans      []int
 	jsdocCommentsSpace      []string
@@ -449,7 +449,7 @@ func (p *Parser) parseListIndex(kind ParsingContext, parseElement func(p *Parser
 		}
 	}
 	p.parsingContexts = saveParsingContexts
-	slice := p.nodeSlicePool.NewSlice(len(list))
+	slice := p.nodePointerPool.NewSlice(len(list))
 	copy(slice, list)
 	return p.newNodeList(core.NewTextRange(pos, p.nodePos()), slice)
 }
@@ -513,7 +513,7 @@ func (p *Parser) parseDelimitedList(kind ParsingContext, parseElement func(p *Pa
 		}
 	}
 	p.parsingContexts = saveParsingContexts
-	slice := p.nodeSlicePool.NewSlice(len(list))
+	slice := p.nodePointerPool.NewSlice(len(list))
 	copy(slice, list)
 	return p.newNodeList(core.NewTextRange(pos, p.nodePos()), slice)
 }
@@ -2462,7 +2462,7 @@ func (p *Parser) parseUnionOrIntersectionType(operator ast.Kind, parseConstituen
 		typeNode = parseConstituentType(p)
 	}
 	if p.token == operator || hasLeadingOperator {
-		types := p.nodeSlicePool.NewSlice(2)[:1]
+		types := p.nodePointerPool.NewSlice(2)[:1]
 		types[0] = typeNode
 		for p.parseOptional(operator) {
 			types = append(types, p.parseFunctionOrConstructorTypeToError(isUnionType, parseConstituentType))
@@ -3663,9 +3663,7 @@ func (p *Parser) parseModifiersForConstructorType() *ast.ModifierList {
 		modifier := p.factory.NewModifier(p.token)
 		p.nextToken()
 		p.finishNode(modifier, pos)
-		nodes := p.nodeSlicePool.NewSlice(1)
-		nodes[0] = modifier
-		return p.newModifierList(modifier.Loc, nodes)
+		return p.newModifierList(modifier.Loc, p.nodePointerPool.SliceOne(modifier))
 	}
 	return nil
 }
@@ -3757,7 +3755,7 @@ func (p *Parser) parseModifiersEx(allowDecorators bool, permitConstAsModifier bo
 		}
 	}
 	if len(list) != 0 {
-		nodes := p.nodeSlicePool.NewSlice(len(list))
+		nodes := p.nodePointerPool.NewSlice(len(list))
 		copy(nodes, list)
 		return p.newModifierList(core.NewTextRange(pos, p.nodePos()), nodes)
 	}
@@ -4307,9 +4305,7 @@ func (p *Parser) parseModifiersForArrowFunction() *ast.ModifierList {
 		p.nextToken()
 		modifier := p.factory.NewModifier(ast.KindAsyncKeyword)
 		p.finishNode(modifier, pos)
-		nodes := p.nodeSlicePool.NewSlice(1)
-		nodes[0] = modifier
-		return p.newModifierList(modifier.Loc, nodes)
+		return p.newModifierList(modifier.Loc, p.nodePointerPool.SliceOne(modifier))
 	}
 	return nil
 }
