@@ -17902,13 +17902,14 @@ func (c *Checker) getSignatureFromDeclaration(declaration *ast.Node) *Signature 
 	if links.resolvedSignature != nil {
 		return links.resolvedSignature
 	}
-	var parameters []*ast.Symbol
+	parameterNodes := declaration.Parameters()
+	parameters := c.symbolPointerPool.NewSlice(len(parameterNodes))[:0]
 	var flags SignatureFlags
 	var thisParameter *ast.Symbol
 	minArgumentCount := 0
 	hasThisParameter := false
 	iife := ast.GetImmediatelyInvokedFunctionExpression(declaration)
-	for i, param := range declaration.Parameters() {
+	for i, param := range parameterNodes {
 		paramSymbol := param.Symbol()
 		typeNode := param.Type()
 		// Include parameter symbol instead of property symbol in the signature
