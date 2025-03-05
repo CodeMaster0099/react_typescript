@@ -39,8 +39,13 @@ func (c *Checker) inferTypes(inferences []*InferenceInfo, originalSource *Type, 
 	n.inferencePriority = InferencePriorityMaxValue
 	n.contravariant = contravariant
 	c.inferFromTypes(n, originalSource, originalTarget)
-	c.inferenceStates[inferenceStateCount] = InferenceState{}
 	c.inferenceStates = c.inferenceStates[:inferenceStateCount]
+	clear(n.visited)
+	*n = InferenceState{
+		visited:     n.visited,
+		sourceStack: n.sourceStack[:0],
+		targetStack: n.targetStack[:0],
+	}
 }
 
 func (c *Checker) inferFromTypes(n *InferenceState, source *Type, target *Type) {
