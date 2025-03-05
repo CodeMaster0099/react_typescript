@@ -595,6 +595,7 @@ type Checker struct {
 	signaturePool                             core.Pool[Signature]
 	signaturePointerPool                      core.Pool[*Signature]
 	indexInfoPool                             core.Pool[IndexInfo]
+	typePointerPool                           core.Pool[*Type]
 	mergedSymbols                             map[*ast.Symbol]*ast.Symbol
 	factory                                   ast.NodeFactory
 	nodeLinks                                 core.LinkStore[*ast.Node, NodeLinks]
@@ -23457,7 +23458,7 @@ func (c *Checker) getUnionTypeEx(types []*Type, unionReduction UnionReduction, a
 }
 
 func (c *Checker) getUnionTypeWorker(types []*Type, unionReduction UnionReduction, alias *TypeAlias, origin *Type) *Type {
-	typeSet, includes := c.addTypesToUnion(make([]*Type, 0, len(types)), 0, types)
+	typeSet, includes := c.addTypesToUnion(c.typePointerPool.NewSlice(len(types))[:0], 0, types)
 	if unionReduction != UnionReductionNone {
 		if includes&TypeFlagsAnyOrUnknown != 0 {
 			if includes&TypeFlagsAny != 0 {
