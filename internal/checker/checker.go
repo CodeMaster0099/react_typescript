@@ -592,6 +592,7 @@ type Checker struct {
 	diagnostics                               ast.DiagnosticsCollection
 	suggestionDiagnostics                     ast.DiagnosticsCollection
 	symbolPool                                core.Pool[ast.Symbol]
+	symbolPointerPool                         core.Pool[*ast.Symbol]
 	signaturePool                             core.Pool[Signature]
 	signaturePointerPool                      core.Pool[*Signature]
 	indexInfoPool                             core.Pool[IndexInfo]
@@ -20093,7 +20094,7 @@ func (c *Checker) getDefaultOrUnknownFromTypeParameter(t *Type) *Type {
 }
 
 func (c *Checker) getNamedMembers(members ast.SymbolTable) []*ast.Symbol {
-	result := make([]*ast.Symbol, 0, len(members))
+	result := c.symbolPointerPool.NewSlice(len(members))[:0]
 	for id, symbol := range members {
 		if c.isNamedMember(symbol, id) {
 			result = append(result, symbol)
