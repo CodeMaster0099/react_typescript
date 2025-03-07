@@ -20653,7 +20653,7 @@ func (c *Checker) getESSymbolLikeTypeForNode(node *ast.Node) *Type {
 		if symbol != nil {
 			uniqueType := c.uniqueESSymbolTypes[symbol]
 			if uniqueType == nil {
-				var b KeyBuilder
+				var b hasher
 				b.WriteString(ast.InternalSymbolNamePrefix)
 				b.WriteByte('@')
 				b.WriteString(symbol.Name)

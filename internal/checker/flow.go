@@ -1595,14 +1595,14 @@ func (c *Checker) isMatchingReference(source *ast.Node, target *ast.Node) bool {
 // leftmost identifier followed by zero or more property names separated by dots.
 // The result is an empty string if the reference isn't a dotted name.
 func (c *Checker) getFlowReferenceKey(f *FlowState) string {
-	var b KeyBuilder
+	var b hasher
 	if c.writeFlowCacheKey(&b, f.reference, f.declaredType, f.initialType, f.flowContainer) {
 		return b.String()
 	}
 	return "?" // Reference isn't a dotted name
 }
 
-func (c *Checker) writeFlowCacheKey(b *KeyBuilder, node *ast.Node, declaredType *Type, initialType *Type, flowContainer *ast.Node) bool {
+func (c *Checker) writeFlowCacheKey(b *hasher, node *ast.Node, declaredType *Type, initialType *Type, flowContainer *ast.Node) bool {
 	switch node.Kind {
 	case ast.KindIdentifier:
 		if !isThisInTypeQuery(node) {

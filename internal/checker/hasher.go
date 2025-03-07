@@ -7,7 +7,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 )
 
-type KeyBuilder struct {
+type hasher struct {
 	strings.Builder
 }
 
@@ -18,22 +18,22 @@ var base64chars = []byte{
 	'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '$', '%',
 }
 
-func (b *KeyBuilder) WriteInt(value int) {
+func (b *hasher) WriteInt(value int) {
 	for value != 0 {
 		b.WriteByte(base64chars[value&0x3F])
 		value >>= 6
 	}
 }
 
-func (b *KeyBuilder) WriteSymbol(s *ast.Symbol) {
+func (b *hasher) WriteSymbol(s *ast.Symbol) {
 	b.WriteInt(int(ast.GetSymbolId(s)))
 }
 
-func (b *KeyBuilder) WriteType(t *Type) {
+func (b *hasher) WriteType(t *Type) {
 	b.WriteInt(int(t.id))
 }
 
-func (b *KeyBuilder) WriteTypes(types []*Type) {
+func (b *hasher) WriteTypes(types []*Type) {
 	i := 0
 	var tail bool
 	for i < len(types) {
@@ -55,7 +55,7 @@ func (b *KeyBuilder) WriteTypes(types []*Type) {
 	}
 }
 
-func (b *KeyBuilder) WriteAlias(alias *TypeAlias) {
+func (b *hasher) WriteAlias(alias *TypeAlias) {
 	if alias != nil {
 		b.WriteByte('@')
 		b.WriteSymbol(alias.symbol)
@@ -66,7 +66,7 @@ func (b *KeyBuilder) WriteAlias(alias *TypeAlias) {
 	}
 }
 
-func (b *KeyBuilder) WriteGenericTypeReferences(source *Type, target *Type, ignoreConstraints bool) bool {
+func (b *hasher) WriteGenericTypeReferences(source *Type, target *Type, ignoreConstraints bool) bool {
 	var constrained bool
 	typeParameters := make([]*Type, 0, 8)
 	var writeTypeReference func(*Type, int)
@@ -103,26 +103,26 @@ func (b *KeyBuilder) WriteGenericTypeReferences(source *Type, target *Type, igno
 	return constrained
 }
 
-func (b *KeyBuilder) WriteNode(node *ast.Node) {
+func (b *hasher) WriteNode(node *ast.Node) {
 	if node != nil {
 		b.WriteInt(int(ast.GetNodeId(node)))
 	}
 }
 
 func getTypeListKey(types []*Type) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteTypes(types)
 	return b.String()
 }
 
 func getAliasKey(alias *TypeAlias) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteAlias(alias)
 	return b.String()
 }
 
 func getUnionKey(types []*Type, origin *Type, alias *TypeAlias) string {
-	var b KeyBuilder
+	var b hasher
 	switch {
 	case origin == nil:
 		b.WriteTypes(types)
@@ -146,7 +146,7 @@ func getUnionKey(types []*Type, origin *Type, alias *TypeAlias) string {
 }
 
 func getIntersectionKey(types []*Type, flags IntersectionFlags, alias *TypeAlias) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteTypes(types)
 	if flags&IntersectionFlagsNoConstraintReduction == 0 {
 		b.WriteAlias(alias)
@@ -157,7 +157,7 @@ func getIntersectionKey(types []*Type, flags IntersectionFlags, alias *TypeAlias
 }
 
 func getTupleKey(elementInfos []TupleElementInfo, readonly bool) string {
-	var b KeyBuilder
+	var b hasher
 	for _, e := range elementInfos {
 		switch {
 		case e.flags&ElementFlagsRequired != 0:
@@ -184,7 +184,7 @@ func getTypeAliasInstantiationKey(typeArguments []*Type, alias *TypeAlias) strin
 }
 
 func getTypeInstantiationKey(typeArguments []*Type, alias *TypeAlias, singleSignature bool) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteTypes(typeArguments)
 	b.WriteAlias(alias)
 	if singleSignature {
@@ -194,7 +194,7 @@ func getTypeInstantiationKey(typeArguments []*Type, alias *TypeAlias, singleSign
 }
 
 func getIndexedAccessKey(objectType *Type, indexType *Type, accessFlags AccessFlags, alias *TypeAlias) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteType(objectType)
 	b.WriteByte(',')
 	b.WriteType(indexType)
@@ -205,7 +205,7 @@ func getIndexedAccessKey(objectType *Type, indexType *Type, accessFlags AccessFl
 }
 
 func getTemplateTypeKey(texts []string, types []*Type) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteTypes(types)
 	b.WriteByte('|')
 	for i, s := range texts {
@@ -222,7 +222,7 @@ func getTemplateTypeKey(texts []string, types []*Type) string {
 }
 
 func getConditionalTypeKey(typeArguments []*Type, alias *TypeAlias, forConstraint bool) string {
-	var b KeyBuilder
+	var b hasher
 	b.WriteTypes(typeArguments)
 	b.WriteAlias(alias)
 	if forConstraint {
@@ -235,7 +235,7 @@ func getRelationKey(source *Type, target *Type, intersectionState IntersectionSt
 	if isIdentity && source.id > target.id {
 		source, target = target, source
 	}
-	var b KeyBuilder
+	var b hasher
 	var constrained bool
 	if isTypeReferenceWithGenericArguments(source) && isTypeReferenceWithGenericArguments(target) {
 		constrained = b.WriteGenericTypeReferences(source, target, ignoreConstraints)
@@ -257,7 +257,7 @@ func getRelationKey(source *Type, target *Type, intersectionState IntersectionSt
 }
 
 func getNodeListKey(nodes []*ast.Node) string {
-	var b KeyBuilder
+	var b hasher
 	for i, n := range nodes {
 		if i > 0 {
 			b.WriteByte(',')
