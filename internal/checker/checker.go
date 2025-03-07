@@ -20654,11 +20654,11 @@ func (c *Checker) getESSymbolLikeTypeForNode(node *ast.Node) *Type {
 			uniqueType := c.uniqueESSymbolTypes[symbol]
 			if uniqueType == nil {
 				var b hasher
-				b.WriteString(ast.InternalSymbolNamePrefix)
-				b.WriteByte('@')
-				b.WriteString(symbol.Name)
-				b.WriteByte('@')
-				b.WriteSymbol(symbol)
+				b.writeString(ast.InternalSymbolNamePrefix)
+				b.writeByte('@')
+				b.writeString(symbol.Name)
+				b.writeByte('@')
+				b.writeSymbol(symbol)
 				uniqueType = c.newUniqueESSymbolType(symbol, b.String())
 				c.uniqueESSymbolTypes[symbol] = uniqueType
 			}

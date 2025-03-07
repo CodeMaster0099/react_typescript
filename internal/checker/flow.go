@@ -1610,19 +1610,19 @@ func (c *Checker) writeFlowCacheKey(b *hasher, node *ast.Node, declaredType *Typ
 			if symbol == c.unknownSymbol {
 				return false
 			}
-			b.WriteSymbol(symbol)
+			b.writeSymbol(symbol)
 		}
 		fallthrough
 	case ast.KindThisKeyword:
-		b.WriteByte(':')
-		b.WriteType(declaredType)
+		b.writeByte(':')
+		b.writeType(declaredType)
 		if initialType != declaredType {
-			b.WriteByte('=')
-			b.WriteType(initialType)
+			b.writeByte('=')
+			b.writeType(initialType)
 		}
 		if flowContainer != nil {
-			b.WriteByte('@')
-			b.WriteInt(int(ast.GetNodeId(flowContainer)))
+			b.writeByte('@')
+			b.writeInt(int(ast.GetNodeId(flowContainer)))
 		}
 		return true
 	case ast.KindNonNullExpression, ast.KindParenthesizedExpression:
@@ -1631,16 +1631,16 @@ func (c *Checker) writeFlowCacheKey(b *hasher, node *ast.Node, declaredType *Typ
 		if !c.writeFlowCacheKey(b, node.AsQualifiedName().Left, declaredType, initialType, flowContainer) {
 			return false
 		}
-		b.WriteByte('.')
-		b.WriteString(node.AsQualifiedName().Right.Text())
+		b.writeByte('.')
+		b.writeString(node.AsQualifiedName().Right.Text())
 		return true
 	case ast.KindPropertyAccessExpression, ast.KindElementAccessExpression:
 		if propName, ok := c.getAccessedPropertyName(node); ok {
 			if !c.writeFlowCacheKey(b, node.Expression(), declaredType, initialType, flowContainer) {
 				return false
 			}
-			b.WriteByte('.')
-			b.WriteString(propName)
+			b.writeByte('.')
+			b.writeString(propName)
 			return true
 		}
 		if ast.IsElementAccessExpression(node) && ast.IsIdentifier(node.AsElementAccessExpression().ArgumentExpression) {
@@ -1649,16 +1649,16 @@ func (c *Checker) writeFlowCacheKey(b *hasher, node *ast.Node, declaredType *Typ
 				if !c.writeFlowCacheKey(b, node.Expression(), declaredType, initialType, flowContainer) {
 					return false
 				}
-				b.WriteString(".@")
-				b.WriteSymbol(symbol)
+				b.writeString(".@")
+				b.writeSymbol(symbol)
 				return true
 			}
 		}
 	case ast.KindObjectBindingPattern, ast.KindArrayBindingPattern, ast.KindFunctionDeclaration,
 		ast.KindFunctionExpression, ast.KindArrowFunction, ast.KindMethodDeclaration:
-		b.WriteInt(int(ast.GetNodeId(node)))
-		b.WriteByte('#')
-		b.WriteType(declaredType)
+		b.writeInt(int(ast.GetNodeId(node)))
+		b.writeByte('#')
+		b.writeType(declaredType)
 		return true
 	}
 	return false

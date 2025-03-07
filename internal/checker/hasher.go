@@ -8,7 +8,19 @@ import (
 )
 
 type hasher struct {
-	strings.Builder
+	sb strings.Builder
+}
+
+func (h *hasher) writeString(s string) (int, error) {
+	return h.sb.WriteString(s)
+}
+
+func (h *hasher) writeByte(b byte) error {
+	return h.sb.WriteByte(b)
+}
+
+func (h *hasher) String() string {
+	return h.sb.String()
 }
 
 var base64chars = []byte{
@@ -18,22 +30,22 @@ var base64chars = []byte{
 	'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '$', '%',
 }
 
-func (b *hasher) WriteInt(value int) {
+func (h *hasher) writeInt(value int) {
 	for value != 0 {
-		b.WriteByte(base64chars[value&0x3F])
+		h.writeByte(base64chars[value&0x3F])
 		value >>= 6
 	}
 }
 
-func (b *hasher) WriteSymbol(s *ast.Symbol) {
-	b.WriteInt(int(ast.GetSymbolId(s)))
+func (h *hasher) writeSymbol(s *ast.Symbol) {
+	h.writeInt(int(ast.GetSymbolId(s)))
 }
 
-func (b *hasher) WriteType(t *Type) {
-	b.WriteInt(int(t.id))
+func (h *hasher) writeType(t *Type) {
+	h.writeInt(int(t.id))
 }
 
-func (b *hasher) WriteTypes(types []*Type) {
+func (h *hasher) writeTypes(types []*Type) {
 	i := 0
 	var tail bool
 	for i < len(types) {
@@ -43,37 +55,37 @@ func (b *hasher) WriteTypes(types []*Type) {
 			count++
 		}
 		if tail {
-			b.WriteByte(',')
+			h.writeByte(',')
 		}
-		b.WriteInt(int(startId))
+		h.writeInt(int(startId))
 		if count > 1 {
-			b.WriteByte(':')
-			b.WriteInt(count)
+			h.writeByte(':')
+			h.writeInt(count)
 		}
 		i += count
 		tail = true
 	}
 }
 
-func (b *hasher) WriteAlias(alias *TypeAlias) {
+func (h *hasher) writeAlias(alias *TypeAlias) {
 	if alias != nil {
-		b.WriteByte('@')
-		b.WriteSymbol(alias.symbol)
+		h.writeByte('@')
+		h.writeSymbol(alias.symbol)
 		if len(alias.typeArguments) != 0 {
-			b.WriteByte(':')
-			b.WriteTypes(alias.typeArguments)
+			h.writeByte(':')
+			h.writeTypes(alias.typeArguments)
 		}
 	}
 }
 
-func (b *hasher) WriteGenericTypeReferences(source *Type, target *Type, ignoreConstraints bool) bool {
+func (h *hasher) writeGenericTypeReferences(source *Type, target *Type, ignoreConstraints bool) bool {
 	var constrained bool
 	typeParameters := make([]*Type, 0, 8)
 	var writeTypeReference func(*Type, int)
 	// writeTypeReference(A<T, number, U>) writes "111=0-12=1"
 	// where A.id=111 and number.id=12
 	writeTypeReference = func(ref *Type, depth int) {
-		b.WriteType(ref.Target())
+		h.writeType(ref.Target())
 		for _, t := range ref.AsTypeReference().resolvedTypeArguments {
 			if t.flags&TypeFlagsTypeParameter != 0 {
 				if ignoreConstraints || t.checker.getConstraintOfTypeParameter(t) == nil {
@@ -82,42 +94,42 @@ func (b *hasher) WriteGenericTypeReferences(source *Type, target *Type, ignoreCo
 						index = len(typeParameters)
 						typeParameters = append(typeParameters, t)
 					}
-					b.WriteByte('=')
-					b.WriteInt(index)
+					h.writeByte('=')
+					h.writeInt(index)
 					continue
 				}
 				constrained = true
 			} else if depth < 4 && isTypeReferenceWithGenericArguments(t) {
-				b.WriteByte('<')
+				h.writeByte('<')
 				writeTypeReference(t, depth+1)
-				b.WriteByte('>')
+				h.writeByte('>')
 				continue
 			}
-			b.WriteByte('-')
-			b.WriteType(t)
+			h.writeByte('-')
+			h.writeType(t)
 		}
 	}
 	writeTypeReference(source, 0)
-	b.WriteByte(',')
+	h.writeByte(',')
 	writeTypeReference(target, 0)
 	return constrained
 }
 
-func (b *hasher) WriteNode(node *ast.Node) {
+func (h *hasher) writeNode(node *ast.Node) {
 	if node != nil {
-		b.WriteInt(int(ast.GetNodeId(node)))
+		h.writeInt(int(ast.GetNodeId(node)))
 	}
 }
 
 func getTypeListKey(types []*Type) string {
 	var b hasher
-	b.WriteTypes(types)
+	b.writeTypes(types)
 	return b.String()
 }
 
 func getAliasKey(alias *TypeAlias) string {
 	var b hasher
-	b.WriteAlias(alias)
+	b.writeAlias(alias)
 	return b.String()
 }
 
@@ -125,33 +137,33 @@ func getUnionKey(types []*Type, origin *Type, alias *TypeAlias) string {
 	var b hasher
 	switch {
 	case origin == nil:
-		b.WriteTypes(types)
+		b.writeTypes(types)
 	case origin.flags&TypeFlagsUnion != 0:
-		b.WriteByte('|')
-		b.WriteTypes(origin.Types())
+		b.writeByte('|')
+		b.writeTypes(origin.Types())
 	case origin.flags&TypeFlagsIntersection != 0:
-		b.WriteByte('&')
-		b.WriteTypes(origin.Types())
+		b.writeByte('&')
+		b.writeTypes(origin.Types())
 	case origin.flags&TypeFlagsIndex != 0:
 		// origin type id alone is insufficient, as `keyof x` may resolve to multiple WIP values while `x` is still resolving
-		b.WriteByte('#')
-		b.WriteType(origin)
-		b.WriteByte('|')
-		b.WriteTypes(types)
+		b.writeByte('#')
+		b.writeType(origin)
+		b.writeByte('|')
+		b.writeTypes(types)
 	default:
 		panic("Unhandled case in getUnionKey")
 	}
-	b.WriteAlias(alias)
+	b.writeAlias(alias)
 	return b.String()
 }
 
 func getIntersectionKey(types []*Type, flags IntersectionFlags, alias *TypeAlias) string {
 	var b hasher
-	b.WriteTypes(types)
+	b.writeTypes(types)
 	if flags&IntersectionFlagsNoConstraintReduction == 0 {
-		b.WriteAlias(alias)
+		b.writeAlias(alias)
 	} else {
-		b.WriteByte('*')
+		b.writeByte('*')
 	}
 	return b.String()
 }
@@ -161,20 +173,20 @@ func getTupleKey(elementInfos []TupleElementInfo, readonly bool) string {
 	for _, e := range elementInfos {
 		switch {
 		case e.flags&ElementFlagsRequired != 0:
-			b.WriteByte('#')
+			b.writeByte('#')
 		case e.flags&ElementFlagsOptional != 0:
-			b.WriteByte('?')
+			b.writeByte('?')
 		case e.flags&ElementFlagsRest != 0:
-			b.WriteByte('.')
+			b.writeByte('.')
 		default:
-			b.WriteByte('*')
+			b.writeByte('*')
 		}
 		if e.labeledDeclaration != nil {
-			b.WriteInt(int(ast.GetNodeId(e.labeledDeclaration)))
+			b.writeInt(int(ast.GetNodeId(e.labeledDeclaration)))
 		}
 	}
 	if readonly {
-		b.WriteByte('!')
+		b.writeByte('!')
 	}
 	return b.String()
 }
@@ -185,48 +197,48 @@ func getTypeAliasInstantiationKey(typeArguments []*Type, alias *TypeAlias) strin
 
 func getTypeInstantiationKey(typeArguments []*Type, alias *TypeAlias, singleSignature bool) string {
 	var b hasher
-	b.WriteTypes(typeArguments)
-	b.WriteAlias(alias)
+	b.writeTypes(typeArguments)
+	b.writeAlias(alias)
 	if singleSignature {
-		b.WriteByte('!')
+		b.writeByte('!')
 	}
 	return b.String()
 }
 
 func getIndexedAccessKey(objectType *Type, indexType *Type, accessFlags AccessFlags, alias *TypeAlias) string {
 	var b hasher
-	b.WriteType(objectType)
-	b.WriteByte(',')
-	b.WriteType(indexType)
-	b.WriteByte(',')
-	b.WriteInt(int(accessFlags))
-	b.WriteAlias(alias)
+	b.writeType(objectType)
+	b.writeByte(',')
+	b.writeType(indexType)
+	b.writeByte(',')
+	b.writeInt(int(accessFlags))
+	b.writeAlias(alias)
 	return b.String()
 }
 
 func getTemplateTypeKey(texts []string, types []*Type) string {
 	var b hasher
-	b.WriteTypes(types)
-	b.WriteByte('|')
+	b.writeTypes(types)
+	b.writeByte('|')
 	for i, s := range texts {
 		if i != 0 {
-			b.WriteByte(',')
+			b.writeByte(',')
 		}
-		b.WriteInt(len(s))
+		b.writeInt(len(s))
 	}
-	b.WriteByte('|')
+	b.writeByte('|')
 	for _, s := range texts {
-		b.WriteString(s)
+		b.writeString(s)
 	}
 	return b.String()
 }
 
 func getConditionalTypeKey(typeArguments []*Type, alias *TypeAlias, forConstraint bool) string {
 	var b hasher
-	b.WriteTypes(typeArguments)
-	b.WriteAlias(alias)
+	b.writeTypes(typeArguments)
+	b.writeAlias(alias)
 	if forConstraint {
-		b.WriteByte('!')
+		b.writeByte('!')
 	}
 	return b.String()
 }
@@ -238,20 +250,20 @@ func getRelationKey(source *Type, target *Type, intersectionState IntersectionSt
 	var b hasher
 	var constrained bool
 	if isTypeReferenceWithGenericArguments(source) && isTypeReferenceWithGenericArguments(target) {
-		constrained = b.WriteGenericTypeReferences(source, target, ignoreConstraints)
+		constrained = b.writeGenericTypeReferences(source, target, ignoreConstraints)
 	} else {
-		b.WriteType(source)
-		b.WriteByte(',')
-		b.WriteType(target)
+		b.writeType(source)
+		b.writeByte(',')
+		b.writeType(target)
 	}
 	if intersectionState != IntersectionStateNone {
-		b.WriteByte(':')
-		b.WriteInt(int(intersectionState))
+		b.writeByte(':')
+		b.writeInt(int(intersectionState))
 	}
 	if constrained {
 		// We mark keys with type references that reference constrained type parameters such that we know
 		// to obtain and look for a "broadest equivalent key" in the cache.
-		b.WriteByte('*')
+		b.writeByte('*')
 	}
 	return b.String()
 }
@@ -260,9 +272,9 @@ func getNodeListKey(nodes []*ast.Node) string {
 	var b hasher
 	for i, n := range nodes {
 		if i > 0 {
-			b.WriteByte(',')
+			b.writeByte(',')
 		}
-		b.WriteNode(n)
+		b.writeNode(n)
 	}
 	return b.String()
 }
