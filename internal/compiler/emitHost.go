@@ -2,8 +2,8 @@ package compiler
 
 import (
 	"github.com/microsoft/typescript-go/internal/ast"
-	"github.com/microsoft/typescript-go/internal/checker"
 	"github.com/microsoft/typescript-go/internal/core"
+	"github.com/microsoft/typescript-go/internal/printer"
 	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
@@ -24,7 +24,7 @@ type EmitHost interface {
 	CommonSourceDirectory() string
 	IsEmitBlocked(file string) bool
 	WriteFile(fileName string, text string, writeByteOrderMark bool, relatedSourceFiles []*ast.SourceFile, data *WriteFileData) error
-	GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) checker.EmitResolver
+	GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) printer.EmitResolver
 }
 
 var _ EmitHost = (*emitHost)(nil)
@@ -51,7 +51,7 @@ func (host *emitHost) WriteFile(fileName string, text string, writeByteOrderMark
 	return host.program.host.FS().WriteFile(fileName, text, writeByteOrderMark)
 }
 
-func (host *emitHost) GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) checker.EmitResolver {
+func (host *emitHost) GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) printer.EmitResolver {
 	checker := host.program.GetTypeCheckerForFile(file)
 	return checker.GetEmitResolver(file, skipDiagnostics)
 }
