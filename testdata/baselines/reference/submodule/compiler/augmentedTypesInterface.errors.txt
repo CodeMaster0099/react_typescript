@@ -1,8 +1,10 @@
 augmentedTypesInterface.ts(23,11): error TS2567: Enum declarations can only merge with namespace or other enum declarations.
+augmentedTypesInterface.ts(23,11): error TS2567: Enum declarations can only merge with namespace or other enum declarations.
+augmentedTypesInterface.ts(26,6): error TS2567: Enum declarations can only merge with namespace or other enum declarations.
 augmentedTypesInterface.ts(26,6): error TS2567: Enum declarations can only merge with namespace or other enum declarations.
 
 
-==== augmentedTypesInterface.ts (2 errors) ====
+==== augmentedTypesInterface.ts (4 errors) ====
     // interface then interface
     
     interface i {
@@ -28,9 +30,13 @@ augmentedTypesInterface.ts(26,6): error TS2567: Enum declarations can only merge
     interface i3 { // error
               ~~
 !!! error TS2567: Enum declarations can only merge with namespace or other enum declarations.
+              ~~
+!!! error TS2567: Enum declarations can only merge with namespace or other enum declarations.
         foo(): void;
     }
     enum i3 { One }; // error
+         ~~
+!!! error TS2567: Enum declarations can only merge with namespace or other enum declarations.
          ~~
 !!! error TS2567: Enum declarations can only merge with namespace or other enum declarations.
     

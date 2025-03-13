@@ -1,21 +1,32 @@
 reachabilityChecks1.ts(2,1): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(2,1): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(6,5): error TS7027: Unreachable code detected.
 reachabilityChecks1.ts(6,5): error TS7027: Unreachable code detected.
 reachabilityChecks1.ts(18,5): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(18,5): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(30,5): error TS7027: Unreachable code detected.
 reachabilityChecks1.ts(30,5): error TS7027: Unreachable code detected.
 reachabilityChecks1.ts(47,5): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(47,5): error TS7027: Unreachable code detected.
 reachabilityChecks1.ts(60,5): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(60,5): error TS7027: Unreachable code detected.
+reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
 reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
 
 
-==== reachabilityChecks1.ts (7 errors) ====
+==== reachabilityChecks1.ts (14 errors) ====
     while (true);
     var x = 1;
+    ~~~~~~~~~~
+!!! error TS7027: Unreachable code detected.
     ~~~~~~~~~~
 !!! error TS7027: Unreachable code detected.
     
     module A {
         while (true);
         let x;
+        ~~~~~~
+!!! error TS7027: Unreachable code detected.
         ~~~~~~
 !!! error TS7027: Unreachable code detected.
     }
@@ -31,9 +42,13 @@ reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
         while (true);
         module A {
         ~~~~~~~~~~
+        ~~~~~~~~~~
             var x = 1;
     ~~~~~~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~~~~~~
         }
+    ~~~~~
+!!! error TS7027: Unreachable code detected.
     ~~~~~
 !!! error TS7027: Unreachable code detected.
     }
@@ -47,9 +62,13 @@ reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
         while (true);
         module A {
         ~~~~~~~~~~
+        ~~~~~~~~~~
             const enum E { X }
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~
         }
+    ~~~~~
+!!! error TS7027: Unreachable code detected.
     ~~~~~
 !!! error TS7027: Unreachable code detected.
     }
@@ -68,7 +87,10 @@ reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
         return;
         class A {
         ~~~~~~~~~
+        ~~~~~~~~~
         }
+    ~~~~~
+!!! error TS7027: Unreachable code detected.
     ~~~~~
 !!! error TS7027: Unreachable code detected.
     }
@@ -84,9 +106,13 @@ reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
         } while (true);
         enum E {
         ~~~~~~~~
+        ~~~~~~~~
             X = 1
     ~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~
         }
+    ~~~~~
+!!! error TS7027: Unreachable code detected.
     ~~~~~
 !!! error TS7027: Unreachable code detected.
     }
@@ -97,9 +123,13 @@ reachabilityChecks1.ts(69,5): error TS7027: Unreachable code detected.
         }
         const enum E {
         ~~~~~~~~~~~~~~
+        ~~~~~~~~~~~~~~
             X = 1
     ~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~
         }
+    ~~~~~
+!!! error TS7027: Unreachable code detected.
     ~~~~~
 !!! error TS7027: Unreachable code detected.
     }

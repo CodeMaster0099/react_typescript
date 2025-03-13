@@ -2,17 +2,21 @@
 +++ new.autoAccessor11.errors.txt
 @@= skipped -0, +0 lines =@@
  autoAccessor11.ts(2,5): error TS2300: Duplicate identifier 'accessor'.
++autoAccessor11.ts(2,5): error TS2300: Duplicate identifier 'accessor'.
 +autoAccessor11.ts(5,12): error TS2300: Duplicate identifier 'accessor'.
  autoAccessor11.ts(9,5): error TS2300: Duplicate identifier 'accessor'.
  autoAccessor11.ts(12,14): error TS2300: Duplicate identifier 'accessor'.
++autoAccessor11.ts(12,14): error TS2300: Duplicate identifier 'accessor'.
  
  
 -==== autoAccessor11.ts (3 errors) ====
-+==== autoAccessor11.ts (4 errors) ====
++==== autoAccessor11.ts (6 errors) ====
      class C {
          accessor
          ~~~~~~~~
-@@= skipped -10, +11 lines =@@
+ !!! error TS2300: Duplicate identifier 'accessor'.
++        ~~~~~~~~
++!!! error TS2300: Duplicate identifier 'accessor'.
          a
      
          static accessor
@@ -21,3 +25,12 @@
          b
      
          static
+@@= skipped -21, +28 lines =@@
+         accessor accessor
+                  ~~~~~~~~
+ !!! error TS2300: Duplicate identifier 'accessor'.
++                 ~~~~~~~~
++!!! error TS2300: Duplicate identifier 'accessor'.
+         d;
+     }
+     
