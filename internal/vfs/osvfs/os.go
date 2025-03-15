@@ -38,7 +38,7 @@ var osCaseSensitivity = func() tspath.CaseSensitivity {
 
 	if runtime.GOARCH == "wasm" {
 		// !!! Who knows; this depends on the host implementation.
-		return true
+		return tspath.CaseSensitive
 	}
 
 	// As a proxy for case-insensitivity, we check if the current executable exists under a different case.
