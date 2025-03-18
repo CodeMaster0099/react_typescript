@@ -193,7 +193,7 @@ func fileNameToDocumentUri(fileName string) lsproto.DocumentUri {
 }
 
 func (c *converters) lineAndCharacterToPosition(scriptInfo *project.ScriptInfo, lineAndCharacter lsproto.Position) core.TextPos {
-	// UTF-8/16 0-indexed line and character to UTF-8 offset
+	// UTF-8/16/32 0-indexed line and character to UTF-8 offset
 
 	lineMap := scriptInfo.LineMapLSP()
 
@@ -209,23 +209,30 @@ func (c *converters) lineAndCharacterToPosition(scriptInfo *project.ScriptInfo, 
 		return start + char
 	}
 
-	var utf8Char core.TextPos
-	var utf16Char core.TextPos
+	var u8Char core.TextPos
+	var encodedChar core.TextPos
 
-	for i, r := range scriptInfo.Text()[start:] {
-		u16Len := core.TextPos(utf16.RuneLen(r))
-		if utf16Char+u16Len > char {
-			break
+	runeLen := utf16.RuneLen
+	if c.positionEncoding == lsproto.PositionEncodingKindUTF32 {
+		runeLen = func(r rune) int {
+			return 1
 		}
-		utf16Char += u16Len
-		utf8Char = core.TextPos(i + utf8.RuneLen(r))
 	}
 
-	return start + utf8Char
+	for i, r := range scriptInfo.Text()[start:] {
+		encodedLen := core.TextPos(runeLen(r))
+		if encodedChar+encodedLen > char {
+			break
+		}
+		encodedChar += encodedLen
+		u8Char = core.TextPos(i + utf8.RuneLen(r))
+	}
+
+	return start + u8Char
 }
 
 func (c *converters) positionToLineAndCharacter(scriptInfo *project.ScriptInfo, position core.TextPos) lsproto.Position {
-	// UTF-8 offset to UTF-8/16 0-indexed line and character
+	// UTF-8 offset to UTF-8/16/32 0-indexed line and character
 
 	lineMap := scriptInfo.LineMapLSP()
 
@@ -239,6 +246,8 @@ func (c *converters) positionToLineAndCharacter(scriptInfo *project.ScriptInfo, 
 	var character core.TextPos
 	if lineMap.AsciiOnly || c.positionEncoding == lsproto.PositionEncodingKindUTF8 {
 		character = position - start
+	} else if c.positionEncoding == lsproto.PositionEncodingKindUTF32 {
+		character = core.TextPos(utf8.RuneCountInString(scriptInfo.Text()[start:position]))
 	} else {
 		// We need to rescan the text as UTF-16 to find the character offset.
 		for _, r := range scriptInfo.Text()[start:position] {
