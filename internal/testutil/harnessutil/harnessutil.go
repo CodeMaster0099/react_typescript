@@ -642,8 +642,8 @@ func (c *CompilationResult) getOutputPath(path string, ext string) string {
 			common := c.Program.CommonSourceDirectory()
 			if common != "" {
 				path = tspath.GetRelativePathFromDirectory(common, path, tspath.ComparePathsOptions{
-					UseCaseSensitiveFileNames: c.Program.Host().FS().UseCaseSensitiveFileNames(),
-					CurrentDirectory:          c.Program.Host().GetCurrentDirectory(),
+					CaseSensitivity:  c.Program.Host().FS().CaseSensitivity(),
+					CurrentDirectory: c.Program.Host().GetCurrentDirectory(),
 				})
 				path = tspath.CombinePaths(tspath.ResolvePath(c.Program.Host().GetCurrentDirectory(), c.Options.OutDir), path)
 			}
