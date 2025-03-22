@@ -49,7 +49,7 @@
         "**/node_modules",
         "**/*-lock.json",
         "**/testdata",
-        "_submodules/**",
+        "_ts/**",
         "**/*_generated.go",
         "internal/bundled/libs/**",
         "internal/lsp/lsproto/_generate/*.json",

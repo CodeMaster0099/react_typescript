@@ -65,7 +65,7 @@ func NewCompilerBaselineRunner(testType CompilerTestType, isSubmodule bool) *Com
 	testSuitName := testType.String()
 	var basePath string
 	if isSubmodule {
-		basePath = "../_submodules/TypeScript/tests/cases/" + testSuitName
+		basePath = "../_ts/tests/cases/" + testSuitName
 	} else {
 		basePath = "tests/cases/" + testSuitName
 	}
@@ -364,7 +364,7 @@ func (c *compilerTest) verifyJavaScriptOutput(t *testing.T, suiteName string, is
 		defer testutil.RecoverAndFail(t, "Panic on creating js output for test "+c.filename)
 		headerComponents := tspath.GetPathComponentsRelativeTo(repo.TestDataPath, c.filename, tspath.ComparePathsOptions{})
 		if isSubmodule {
-			headerComponents = headerComponents[4:] // Strip "./../_submodules/TypeScript" prefix
+			headerComponents = headerComponents[3:] // Strip "./../_ts" prefix
 		}
 		header := tspath.GetPathFromPathComponents(headerComponents)
 		tsbaseline.DoJsEmitBaseline(
@@ -397,7 +397,7 @@ func (c *compilerTest) verifyTypesAndSymbols(t *testing.T, suiteName string, isS
 
 	headerComponents := tspath.GetPathComponentsRelativeTo(repo.TestDataPath, c.filename, tspath.ComparePathsOptions{})
 	if isSubmodule {
-		headerComponents = headerComponents[4:] // Strip "./../_submodules/TypeScript" prefix
+		headerComponents = headerComponents[3:] // Strip "./../_ts" prefix
 	}
 	header := tspath.GetPathFromPathComponents(headerComponents)
 	tsbaseline.DoTypeAndSymbolBaseline(

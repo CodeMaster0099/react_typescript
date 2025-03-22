@@ -20,7 +20,7 @@ func init() {
 	}
 	filename = filepath.FromSlash(filename) // runtime.Caller always returns forward slashes; https://go.dev/issues/3335, https://go.dev/cl/603275
 	RootPath = findGoMod(filepath.Dir(filename))
-	TypeScriptSubmodulePath = filepath.Join(RootPath, "_submodules", "TypeScript")
+	TypeScriptSubmodulePath = filepath.Join(RootPath, "_ts")
 	TestDataPath = filepath.Join(RootPath, "testdata")
 }
 

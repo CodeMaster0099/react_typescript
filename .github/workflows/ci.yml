@@ -199,10 +199,10 @@ jobs:
       - run: npx hereby build --race
 
       - run: npm ci && npx hereby generate-diagnostics
-        working-directory: ./_submodules/TypeScript
+        working-directory: ./_ts
 
-      - run: ./built/local/tsgo -p ./_submodules/TypeScript/src/compiler --singleThreaded
-      - run: ./built/local/tsgo -p ./_submodules/TypeScript/src/compiler
+      - run: ./built/local/tsgo -p ./_ts/src/compiler --singleThreaded
+      - run: ./built/local/tsgo -p ./_ts/src/compiler
 
   misc:
     runs-on: ubuntu-latest

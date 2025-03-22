@@ -72,7 +72,7 @@ function memoize(fn) {
     };
 }
 
-const typeScriptSubmodulePath = path.join(__dirname, "_submodules", "TypeScript");
+const typeScriptSubmodulePath = path.join(__dirname, "_ts");
 
 const isTypeScriptSubmoduleCloned = memoize(() => {
     try {
@@ -94,7 +94,7 @@ const warnIfTypeScriptSubmoduleNotCloned = memoize(() => {
 
 function assertTypeScriptCloned() {
     if (!isTypeScriptSubmoduleCloned()) {
-        throw new Error("_submodules/TypeScript does not exist; try running `git submodule update --init --recursive`");
+        throw new Error("_ts does not exist; try running `git submodule update --init --recursive`");
     }
 }
 

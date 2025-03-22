@@ -14,7 +14,7 @@
     // Use 'postCreateCommand' to run commands after the container is created.
     "postCreateCommand": {
         "Configure Node.js Build Tools": "npm install -g hereby; npm ci",
-        "Initialize Submodules": "git submodule update --init --recursive; cd _submodules/TypeScript; npm ci",
+        "Initialize Submodules": "git submodule update --init --recursive; cd _ts; npm ci",
         "Install pprof": "go install github.com/google/pprof@latest",
         "Install Graphviz": "sudo apt update -y; sudo apt install -y graphviz"
     },

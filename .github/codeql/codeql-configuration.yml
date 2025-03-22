@@ -1,7 +1,7 @@
 name: CodeQL Configuration
 
 paths-ignore:
-  - _submodules/**
+  - _ts/**
   - '**/testdata/**'
   - 'internal/bundled/libs/**'
 
