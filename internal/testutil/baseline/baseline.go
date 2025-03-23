@@ -146,17 +146,22 @@ func RunAgainstSubmodule(t *testing.T, fileName string, actual string, opts Opti
 	writeComparison(t, actual, local, reference, true)
 }
 
-var mkdirAllCache sync.Map
+var (
+	mkdirAllCache       sync.Map
+	mkdirAllCacheMarker any = new(int)
+)
 
 func mkdirAllCached(t *testing.T, path string) error {
-	cached, ok := mkdirAllCache.Load(path)
-	if ok {
-		return cached.(error)
+	if _, ok := mkdirAllCache.Load(path); ok {
+		return nil
 	}
 
-	err := os.MkdirAll(path, 0o755)
-	cached, _ = mkdirAllCache.LoadOrStore(path, err)
-	return cached.(error)
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return err
+	}
+
+	mkdirAllCache.Store(path, mkdirAllCacheMarker)
+	return nil
 }
 
 func writeComparison(t *testing.T, actualContent string, local, reference string, comparingAgainstSubmodule bool) {
