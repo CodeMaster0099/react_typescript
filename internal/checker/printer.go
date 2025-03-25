@@ -22,6 +22,8 @@ func (c *Checker) getTypePrecedence(t *Type) ast.TypePrecedence {
 			return ast.TypePrecedenceTypeOperator
 		case c.isArrayType(t):
 			return ast.TypePrecedencePostfix
+		case t.objectFlags&ObjectFlagsClassOrInterface == 0 && c.getSingleCallOrConstructSignature(t) != nil:
+			return ast.TypePrecedenceFunction
 		}
 	}
 	return ast.TypePrecedenceNonArray
@@ -471,6 +473,11 @@ func (p *Printer) printSignature(sig *Signature, returnSeparator string) {
 	}
 	p.print("(")
 	var tail bool
+	if sig.thisParameter != nil {
+		p.print("this: ")
+		p.printType(p.c.getTypeOfSymbol(sig.thisParameter))
+		tail = true
+	}
 	for i, param := range sig.parameters {
 		if tail {
 			p.print(", ")
@@ -619,7 +626,7 @@ func (p *Printer) printMappedType(t *Type) {
 	}
 	p.print(": ")
 	p.printType(p.c.getTemplateTypeFromMappedType(t))
-	p.print(" }")
+	p.print("; }")
 }
 
 func (p *Printer) printSourceFileWithTypes(sourceFile *ast.SourceFile) {
