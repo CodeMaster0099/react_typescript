@@ -373,6 +373,19 @@ func (s *Server) handleDefinition(req *lsproto.RequestMessage) error {
 	return s.sendResult(req.ID, &lsproto.Definition{Locations: &lspLocations})
 }
 
+func (s *Server) handleCompletion(req *lsproto.RequestMessage) error {
+	params := req.Params.(*lsproto.CompletionParams)
+	file, project := s.getFileAndProject(params.TextDocument.Uri)
+	pos, err := s.converters.lineAndCharacterToPositionForFile(params.Position, file.FileName())
+	if err != nil {
+		return s.sendError(req.ID, err)
+	}
+
+	list := project.LanguageService().ProvideCompletion(file.FileName(), pos)
+	// !!! convert completion to `lsproto.CompletionList`
+	return s.sendResult(req.ID, nil) // !!!
+}
+
 func (s *Server) getFileAndProject(uri lsproto.DocumentUri) (*project.ScriptInfo, *project.Project) {
 	fileName := documentUriToFileName(uri)
 	return s.projectService.EnsureDefaultProjectForFile(fileName)

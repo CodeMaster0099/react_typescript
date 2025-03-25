@@ -20251,13 +20251,6 @@ func (c *Checker) isNamedMember(symbol *ast.Symbol, id string) bool {
 	return !isReservedMemberName(id) && c.symbolIsValue(symbol)
 }
 
-// A reserved member name consists of the byte 0xFE (which is an invalid UTF-8 encoding) followed by one or more
-// characters where the first character is not '@' or '#'. The '@' character indicates that the name is denoted by
-// a well known ES Symbol instance and the '#' character indicates that the name is a PrivateIdentifier.
-func isReservedMemberName(name string) bool {
-	return len(name) >= 2 && name[0] == '\xFE' && name[1] != '@' && name[1] != '#'
-}
-
 func (c *Checker) symbolIsValue(symbol *ast.Symbol) bool {
 	return c.symbolIsValueEx(symbol, false /*includeTypeOnlyMembers*/)
 }
@@ -29522,4 +29515,88 @@ func (c *Checker) GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) pr
 		c.checkSourceFile(file)
 	}
 	return c.emitResolver
+}
+
+func (c *Checker) GetSymbolsInScope(location *ast.Node, meaning ast.SymbolFlags) []*ast.Symbol {
+	return c.getSymbolsInScope(location, meaning)
+}
+
+func (c *Checker) getSymbolsInScope(location *ast.Node, meaning ast.SymbolFlags) []*ast.Symbol {
+	if location.Flags&ast.NodeFlagsInWithStatement != 0 {
+		// We cannot answer semantic questions within a with block, do not proceed any further
+		return nil
+	}
+
+	symbols := createSymbolTable(nil)
+	isStaticSymbol := false
+
+	// Copy the given symbol into symbol tables if the symbol has the given meaning
+	// and it doesn't already exists in the symbol table.
+	copySymbol := func(symbol *ast.Symbol, meaning ast.SymbolFlags) {
+
+		// !!!
+	}
+
+	copySymbols := func(source ast.SymbolTable, meaning ast.SymbolFlags) {
+		// !!!
+	}
+
+	copyLocallyVisibleExportSymbols := func(source ast.SymbolTable, meaning ast.SymbolFlags) {
+		// !!!
+	}
+
+	populateSymbols := func() {
+		for location != nil {
+			if canHaveLocals(location) && location.Locals() != nil && !ast.IsGlobalSourceFile(location) {
+				copySymbols(location.Locals(), meaning)
+			}
+
+			switch location.Kind {
+			case ast.KindSourceFile:
+				if !ast.IsExternalModule(location.AsSourceFile()) {
+					break
+				}
+				fallthrough
+			case ast.KindModuleDeclaration:
+				copyLocallyVisibleExportSymbols(c.getSymbolOfDeclaration(location).Exports, meaning&ast.SymbolFlagsModuleMember)
+			case ast.KindEnumDeclaration:
+				copySymbols(c.getSymbolOfDeclaration(location).Exports, meaning&ast.SymbolFlagsEnumMember)
+			case ast.KindClassExpression:
+				className := location.AsClassExpression().Name()
+				if className != nil {
+					copySymbol(location.Symbol(), meaning)
+				}
+				// this fall-through is necessary because we would like to handle
+				// type parameter inside class expression similar to how we handle it in classDeclaration and interface Declaration.
+				fallthrough
+			case ast.KindClassDeclaration, ast.KindInterfaceDeclaration:
+				// If we didn't come from static member of class or interface,
+				// add the type parameters into the symbol table
+				// (type parameters of classDeclaration/classExpression and interface are in member property of the symbol.
+				// Note: that the memberFlags come from previous iteration.
+				if !isStaticSymbol {
+					copySymbols(c.getMembersOfSymbol(c.getSymbolOfDeclaration(location)), meaning&ast.SymbolFlagsType)
+				}
+			case ast.KindFunctionExpression:
+				funcName := location.Name()
+				if funcName != nil {
+					copySymbol(location.Symbol(), meaning)
+				}
+			}
+
+			if introducesArgumentsExoticObject(location) {
+				copySymbol(c.argumentsSymbol, meaning)
+			}
+
+			isStaticSymbol = ast.IsStatic(location)
+			location = location.Parent
+		}
+
+		copySymbols(c.globals, meaning)
+	}
+
+	populateSymbols()
+
+	delete(symbols, ast.InternalSymbolNameThis) // Not a symbol, a keyword
+	return symbolsToArray(symbols)
 }

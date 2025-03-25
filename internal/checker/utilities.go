@@ -2111,3 +2111,29 @@ func allDeclarationsInSameSourceFile(symbol *ast.Symbol) bool {
 	}
 	return true
 }
+
+// A reserved member name consists of the byte 0xFE (which is an invalid UTF-8 encoding) followed by one or more
+// characters where the first character is not '@' or '#'. The '@' character indicates that the name is denoted by
+// a well known ES Symbol instance and the '#' character indicates that the name is a PrivateIdentifier.
+func isReservedMemberName(name string) bool {
+	return len(name) >= 2 && name[0] == '\xFE' && name[1] != '@' && name[1] != '#'
+}
+
+func introducesArgumentsExoticObject(node *ast.Node) bool {
+	switch node.Kind {
+	case ast.KindMethodDeclaration, ast.KindMethodSignature, ast.KindConstructor, ast.KindGetAccessor,
+		ast.KindSetAccessor, ast.KindFunctionDeclaration, ast.KindFunctionExpression:
+		return true
+	}
+	return false
+}
+
+func symbolsToArray(symbols ast.SymbolTable) []*ast.Symbol {
+	var result []*ast.Symbol
+	for id, symbol := range symbols {
+		if !isReservedMemberName(id) {
+			result = append(result, symbol)
+		}
+	}
+	return result
+}
