@@ -501,7 +501,7 @@ func getSourceFileOfModule(module *ast.Symbol) *ast.SourceFile {
 
 func getNonAugmentationDeclaration(symbol *ast.Symbol) *ast.Node {
 	return core.Find(symbol.Declarations, func(d *ast.Node) bool {
-		return !isExternalModuleAugmentation(d) && !(ast.IsModuleDeclaration(d) && ast.IsGlobalScopeAugmentation(d))
+		return !isExternalModuleAugmentation(d) && !ast.IsGlobalScopeAugmentation(d)
 	})
 }
 
@@ -1237,7 +1237,7 @@ func isValidBigIntString(s string, roundTripOnly bool) bool {
 	// * the full length of the input string (so the scanner is one character beyond the augmented input length)
 	// * it does not contain a numeric separator (the `BigInt` constructor does not accept a numeric separator in its input)
 	return success && result == ast.KindBigIntLiteral && scanner.TokenEnd() == len(s)+1 && flags&ast.TokenFlagsContainsSeparator == 0 &&
-		(!roundTripOnly || s == pseudoBigIntToString(jsnum.PseudoBigInt{Negative: negative, Base10Value: jsnum.ParsePseudoBigInt(scanner.TokenValue())}))
+		(!roundTripOnly || s == pseudoBigIntToString(jsnum.NewPseudoBigInt(jsnum.ParsePseudoBigInt(scanner.TokenValue()), negative)))
 }
 
 func isValidESSymbolDeclaration(node *ast.Node) bool {
@@ -1859,7 +1859,9 @@ func isModuleExportsAccessExpression(node *ast.Node) bool {
 func getNonModifierTokenRangeOfNode(node *ast.Node) core.TextRange {
 	pos := node.Pos()
 	if node.Modifiers() != nil {
-		pos = core.LastOrNil(node.Modifiers().Nodes).End()
+		if last := ast.FindLastVisibleNode(node.Modifiers().Nodes); last != nil {
+			pos = last.Pos()
+		}
 	}
 	return scanner.GetRangeOfTokenAtPosition(ast.GetSourceFileOfNode(node), pos)
 }

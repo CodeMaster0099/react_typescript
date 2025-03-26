@@ -74,16 +74,28 @@ function memoize(fn) {
 
 const typeScriptSubmodulePath = path.join(__dirname, "_submodules", "TypeScript");
 
-function assertTypeScriptCloned() {
+const isTypeScriptSubmoduleCloned = memoize(() => {
     try {
         const stat = fs.statSync(path.join(typeScriptSubmodulePath, "package.json"));
         if (stat.isFile()) {
-            return;
+            return true;
         }
     }
     catch {}
 
-    throw new Error("_submodules/TypeScript does not exist; try running `git submodule update --init --recursive`");
+    return false;
+});
+
+const warnIfTypeScriptSubmoduleNotCloned = memoize(() => {
+    if (!isTypeScriptSubmoduleCloned()) {
+        console.warn(pc.yellow("Warning: TypeScript submodule is not cloned; some tests may be skipped."));
+    }
+});
+
+function assertTypeScriptCloned() {
+    if (!isTypeScriptSubmoduleCloned()) {
+        throw new Error("_submodules/TypeScript does not exist; try running `git submodule update --init --recursive`");
+    }
 }
 
 const tools = new Map([
@@ -209,12 +221,20 @@ const goTestFlags = [
 
 const goTestEnv = {
     ...(options.concurrentTestPrograms ? { TS_TEST_PROGRAM_SINGLE_THREADED: "false" } : {}),
+    // Go test caching takes a long time on Windows.
+    // https://github.com/golang/go/issues/72992
+    ...(process.platform === "win32" ? { GOFLAGS: "-count=1" } : {}),
 };
+
+const goTestSumFlags = [
+    "--format-hide-empty-pkg",
+    ...(!isCI ? ["--hide-summary", "skipped"] : []),
+];
 
 const $test = $({ env: goTestEnv });
 
 const gotestsum = memoize(() => {
-    const args = isInstalled("gotestsum") ? ["gotestsum", "--format-hide-empty-pkg", "--"] : ["go", "test"];
+    const args = isInstalled("gotestsum") ? ["gotestsum", ...goTestSumFlags, "--"] : ["go", "test"];
     return args.concat(goTestFlags);
 });
 
@@ -223,6 +243,7 @@ const goTest = memoize(() => {
 });
 
 async function runTests() {
+    warnIfTypeScriptSubmoduleNotCloned();
     await $test`${gotestsum()} ./... ${isCI ? ["--timeout=45m"] : []}`;
 }
 
@@ -232,6 +253,7 @@ export const test = task({
 });
 
 async function runTestBenchmarks() {
+    warnIfTypeScriptSubmoduleNotCloned();
     // Run the benchmarks once to ensure they compile and run without errors.
     await $test`${goTest()} -run=- -bench=. -benchtime=1x ./...`;
 }
@@ -263,14 +285,18 @@ export const testAll = task({
 const customLinterPath = "./_tools/custom-gcl";
 const customLinterHashPath = customLinterPath + ".hash";
 
-const golangciLintVersion = memoize(() => {
+const golangciLintPackage = memoize(() => {
     const golangciLintYml = fs.readFileSync(".custom-gcl.yml", "utf8");
     const pattern = /^version:\s*(v\d+\.\d+\.\d+).*$/m;
     const match = pattern.exec(golangciLintYml);
     if (!match) {
         throw new Error("Expected version in .custom-gcl.yml");
     }
-    return match[1];
+    const version = match[1];
+    const major = version.split(".")[0];
+    const versionSuffix = ["v0", "v1"].includes(major) ? "" : "/" + major;
+
+    return `github.com/golangci/golangci-lint${versionSuffix}/cmd/golangci-lint@${version}`;
 });
 
 const customlintHash = memoize(() => {
@@ -305,7 +331,7 @@ const buildCustomLinter = memoize(async () => {
         return;
     }
 
-    await $`go run github.com/golangci/golangci-lint/cmd/golangci-lint@${golangciLintVersion()} custom`;
+    await $`go run ${golangciLintPackage()} custom`;
     await $`${customLinterPath} cache clean`;
 
     fs.writeFileSync(customLinterHashPath, hash);
@@ -316,10 +342,7 @@ export const lint = task({
     run: async () => {
         await buildCustomLinter();
 
-        const lintArgs = ["run", "--sort-results", "--show-stats"];
-        if (isCI) {
-            lintArgs.push("--timeout=5m");
-        }
+        const lintArgs = ["run"];
         if (defaultGoBuildTags.length) {
             lintArgs.push("--build-tags", defaultGoBuildTags.join(","));
         }
@@ -392,6 +415,7 @@ function baselineAcceptTask(localBaseline, refBaseline) {
         for (const p of toDelete) {
             const out = localPathToRefPath(p).replace(/\.delete$/, "");
             await rimraf(out);
+            await rimraf(p); // also delete the .delete file so that it no longer shows up in a diff tool.
         }
     };
 }
