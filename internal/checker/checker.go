@@ -1711,7 +1711,7 @@ func (c *Checker) onSuccessfullyResolvedSymbol(errorLocation *ast.Node, result *
 			importDecl := core.Find(nonValueSymbol.Declarations, func(d *ast.Node) bool {
 				return ast.NodeKindIs(d, ast.KindImportSpecifier, ast.KindImportClause, ast.KindNamespaceImport, ast.KindImportEqualsDeclaration)
 			})
-			if importDecl != nil && !isTypeOnlyImportDeclaration(importDecl) {
+			if importDecl != nil && !ast.IsTypeOnlyImportDeclaration(importDecl) {
 				c.error(importDecl, diagnostics.Import_0_conflicts_with_global_value_used_in_this_file_so_must_be_declared_with_a_type_only_import_when_isolatedModules_is_enabled, name)
 			}
 		}
@@ -4994,7 +4994,7 @@ func (c *Checker) checkImportAttributes(declaration *ast.Node) {
 	if importAttributesType != c.emptyObjectType {
 		c.checkTypeAssignableTo(c.getTypeFromImportAttributes(node), c.getNullableType(importAttributesType, TypeFlagsUndefined), node, nil)
 	}
-	isTypeOnly := isTypeOnlyImportOrExportDeclaration(declaration)
+	isTypeOnly := ast.IsTypeOnlyImportOrExportDeclaration(declaration)
 	override := c.getResolutionModeOverride(node.AsImportAttributes(), isTypeOnly)
 	isImportAttributes := node.AsImportAttributes().Token == ast.KindWithKeyword
 	if isTypeOnly && override != core.ResolutionModeNone {
@@ -6243,12 +6243,12 @@ func (c *Checker) checkAliasSymbol(node *ast.Node) {
 	} else if !ast.IsExportSpecifier(node) {
 		// Look at 'compilerOptions.isolatedModules' and not 'getIsolatedModules(...)' (which considers 'verbatimModuleSyntax')
 		// here because 'verbatimModuleSyntax' will already have an error for importing a type without 'import type'.
-		appearsValueyToTranspiler := c.compilerOptions.IsolatedModules.IsTrue() && ast.FindAncestor(node, isTypeOnlyImportOrExportDeclaration) == nil
+		appearsValueyToTranspiler := c.compilerOptions.IsolatedModules.IsTrue() && ast.FindAncestor(node, ast.IsTypeOnlyImportOrExportDeclaration) == nil
 		if appearsValueyToTranspiler && symbol.Flags&(ast.SymbolFlagsValue|ast.SymbolFlagsExportValue) != 0 {
 			c.error(node, diagnostics.Import_0_conflicts_with_local_value_so_must_be_declared_with_a_type_only_import_when_isolatedModules_is_enabled, c.symbolToString(symbol), c.getIsolatedModulesLikeFlagName())
 		}
 	}
-	if c.compilerOptions.GetIsolatedModules() && !isTypeOnlyImportOrExportDeclaration(node) && node.Flags&ast.NodeFlagsAmbient == 0 {
+	if c.compilerOptions.GetIsolatedModules() && !ast.IsTypeOnlyImportOrExportDeclaration(node) && node.Flags&ast.NodeFlagsAmbient == 0 {
 		typeOnlyAlias := c.getTypeOnlyAliasDeclaration(symbol)
 		isType := targetFlags&ast.SymbolFlagsValue == 0
 		if isType || typeOnlyAlias != nil {
@@ -6297,7 +6297,7 @@ func (c *Checker) checkAliasSymbol(node *ast.Node) {
 			c.error(node, diagnostics.ESM_syntax_is_not_allowed_in_a_CommonJS_module_when_module_is_set_to_preserve)
 		}
 		// !!!
-		// if c.compilerOptions.VerbatimModuleSyntax.IsTrue() && !isTypeOnlyImportOrExportDeclaration(node) && node.Flags&ast.NodeFlagsAmbient == 0 && targetFlags&ast.SymbolFlagsConstEnum != 0 {
+		// if c.compilerOptions.VerbatimModuleSyntax.IsTrue() && !ast.IsTypeOnlyImportOrExportDeclaration(node) && node.Flags&ast.NodeFlagsAmbient == 0 && targetFlags&ast.SymbolFlagsConstEnum != 0 {
 		// 	constEnumDeclaration := target.ValueDeclaration
 		// 	redirect := host.getRedirectReferenceForResolutionFromSourceOfProject(ast.GetSourceFileOfNode(constEnumDeclaration).ResolvedPath)
 		// 	if constEnumDeclaration.Flags&ast.NodeFlagsAmbient != 0 && (redirect == nil || !shouldPreserveConstEnums(redirect.commandLine.options)) {
@@ -6847,7 +6847,7 @@ func (c *Checker) checkNonNullTypeWithReporter(t *Type, node *ast.Node, reportEr
 	facts := c.getTypeFacts(t, TypeFactsIsUndefinedOrNull)
 	if facts&TypeFactsIsUndefinedOrNull != 0 {
 		reportError(c, node, facts)
-		nonNullable := c.getNonNullableType(t)
+		nonNullable := c.GetNonNullableType(t)
 		if nonNullable.flags&(TypeFlagsNullable|TypeFlagsNever) != 0 {
 			return c.errorType
 		}
@@ -7030,7 +7030,7 @@ func (c *Checker) instantiateTypeWithSingleGenericCallSignature(node *ast.Node, 
 	if contextualType == nil {
 		return t
 	}
-	contextualSignature := c.getSingleSignature(c.getNonNullableType(contextualType), core.IfElse(callSignature != nil, SignatureKindCall, SignatureKindConstruct), false /*allowMembers*/)
+	contextualSignature := c.getSingleSignature(c.GetNonNullableType(contextualType), core.IfElse(callSignature != nil, SignatureKindCall, SignatureKindConstruct), false /*allowMembers*/)
 	if contextualSignature == nil || len(contextualSignature.typeParameters) != 0 {
 		return t
 	}
@@ -8891,7 +8891,7 @@ func (c *Checker) getThisArgumentType(node *ast.Node) *Type {
 	thisArgumentType := c.checkExpression(node)
 	switch {
 	case ast.IsOptionalChainRoot(node.Parent):
-		return c.getNonNullableType(thisArgumentType)
+		return c.GetNonNullableType(thisArgumentType)
 	case ast.IsOptionalChain(node.Parent):
 		return c.removeOptionalTypeMarker(thisArgumentType)
 	}
@@ -9925,7 +9925,7 @@ func (c *Checker) needCollisionCheckForIdentifier(node *ast.Node, identifier *as
 	}
 	if ast.IsImportClause(node) || ast.IsImportEqualsDeclaration(node) || ast.IsImportSpecifier(node) {
 		// type-only imports do not require collision checks against runtime values.
-		if isTypeOnlyImportOrExportDeclaration(node) {
+		if ast.IsTypeOnlyImportOrExportDeclaration(node) {
 			return false
 		}
 	}
@@ -9946,13 +9946,13 @@ func (c *Checker) checkNonNullAssertion(node *ast.Node) *Type {
 	if node.Flags&ast.NodeFlagsOptionalChain != 0 {
 		return c.checkNonNullChain(node)
 	}
-	return c.getNonNullableType(c.checkExpression(node.Expression()))
+	return c.GetNonNullableType(c.checkExpression(node.Expression()))
 }
 
 func (c *Checker) checkNonNullChain(node *ast.Node) *Type {
 	leftType := c.checkExpression(node.Expression())
 	nonOptionalType := c.getOptionalExpressionType(leftType, node.Expression())
-	return c.propagateOptionalTypeMarker(c.getNonNullableType(nonOptionalType), node, nonOptionalType != leftType)
+	return c.propagateOptionalTypeMarker(c.GetNonNullableType(nonOptionalType), node, nonOptionalType != leftType)
 }
 
 func (c *Checker) checkExpressionWithTypeArguments(node *ast.Node) *Type {
@@ -10522,7 +10522,7 @@ func (c *Checker) checkIdentifier(node *ast.Node, checkMode CheckMode) *Type {
 	}
 	var flowType *Type
 	if isAutomaticTypeInNonNull {
-		flowType = c.getNonNullableType(c.getFlowTypeOfReferenceEx(node, t, initialType, flowContainer, nil))
+		flowType = c.GetNonNullableType(c.getFlowTypeOfReferenceEx(node, t, initialType, flowContainer, nil))
 	} else {
 		flowType = c.getFlowTypeOfReferenceEx(node, t, initialType, flowContainer, nil)
 	}
@@ -10871,7 +10871,7 @@ func (c *Checker) reportNonexistentProperty(propNode *ast.Node, containingType *
 		typeName := c.TypeToString(containingType)
 		diagnostic = NewDiagnosticChainForNode(diagnostic, propNode, diagnostics.Property_0_does_not_exist_on_type_1_Did_you_mean_to_access_the_static_member_2_instead, propName, typeName, typeName+"."+propName)
 	} else {
-		promisedType := c.getPromisedTypeOfPromise(containingType)
+		promisedType := c.GetPromisedTypeOfPromise(containingType)
 		if promisedType != nil && c.getPropertyOfType(promisedType, propNode.Text()) != nil {
 			diagnostic = NewDiagnosticChainForNode(diagnostic, propNode, diagnostics.Property_0_does_not_exist_on_type_1, scanner.DeclarationNameToString(propNode), c.TypeToString(containingType))
 			diagnostic.AddRelatedInfo(NewDiagnosticForNode(propNode, diagnostics.Did_you_forget_to_use_await))
@@ -11377,7 +11377,7 @@ func (c *Checker) getContextualThisParameterType(fn *ast.Node) *Type {
 			// for 'this' is the non-null form of the contextual type for the containing object literal or
 			// the type of the object literal itself.
 			if contextualType != nil {
-				thisType = c.getNonNullableType(contextualType)
+				thisType = c.GetNonNullableType(contextualType)
 			} else {
 				thisType = c.checkExpressionCached(containingLiteral)
 			}
@@ -11788,7 +11788,7 @@ func (c *Checker) checkBinaryLikeExpression(left *ast.Node, operatorToken *ast.N
 	case ast.KindBarBarToken, ast.KindBarBarEqualsToken:
 		resultType := leftType
 		if c.hasTypeFacts(leftType, TypeFactsFalsy) {
-			resultType = c.getUnionTypeEx([]*Type{c.getNonNullableType(c.removeDefinitelyFalsyTypes(leftType)), rightType}, UnionReductionSubtype, nil, nil)
+			resultType = c.getUnionTypeEx([]*Type{c.GetNonNullableType(c.removeDefinitelyFalsyTypes(leftType)), rightType}, UnionReductionSubtype, nil, nil)
 		}
 		if operator == ast.KindBarBarEqualsToken {
 			c.checkAssignmentOperator(left, operator, right, leftType, rightType)
@@ -11800,7 +11800,7 @@ func (c *Checker) checkBinaryLikeExpression(left *ast.Node, operatorToken *ast.N
 		}
 		resultType := leftType
 		if c.hasTypeFacts(leftType, TypeFactsEQUndefinedOrNull) {
-			resultType = c.getUnionTypeEx([]*Type{c.getNonNullableType(leftType), rightType}, UnionReductionSubtype, nil, nil)
+			resultType = c.getUnionTypeEx([]*Type{c.GetNonNullableType(leftType), rightType}, UnionReductionSubtype, nil, nil)
 		}
 		if operator == ast.KindQuestionQuestionEqualsToken {
 			c.checkAssignmentOperator(left, operator, right, leftType, rightType)
@@ -13588,7 +13588,7 @@ func (c *Checker) getTargetOfImportEqualsDeclaration(node *ast.Node, dontResolve
 	commonJSPropertyAccess := c.getCommonJSPropertyAccess(node)
 	if commonJSPropertyAccess != nil {
 		access := commonJSPropertyAccess.AsPropertyAccessExpression()
-		name := getLeftmostAccessExpression(access.Expression).AsCallExpression().Arguments.Nodes[0]
+		name := ast.GetLeftmostAccessExpression(access.Expression).AsCallExpression().Arguments.Nodes[0]
 		if ast.IsIdentifier(access.Name()) {
 			return c.resolveSymbol(c.getPropertyOfType(c.resolveExternalModuleTypeByLiteral(name), access.Name().Text()))
 		}
@@ -14197,7 +14197,7 @@ func (c *Checker) markSymbolOfAliasDeclarationIfTypeOnly(aliasDeclaration *ast.N
 	}
 	// If the declaration itself is type-only, mark it and return. No need to check what it resolves to.
 	sourceSymbol := c.getSymbolOfDeclaration(aliasDeclaration)
-	if isTypeOnlyImportOrExportDeclaration(aliasDeclaration) {
+	if ast.IsTypeOnlyImportOrExportDeclaration(aliasDeclaration) {
 		links := c.aliasSymbolLinks.Get(sourceSymbol)
 		links.typeOnlyDeclaration = aliasDeclaration
 		return true
@@ -14218,7 +14218,7 @@ func (c *Checker) markSymbolOfAliasDeclarationIfTypeOnlyWorker(aliasDeclarationL
 	if target != nil && (!aliasDeclarationLinks.typeOnlyDeclarationResolved || overwriteEmpty && aliasDeclarationLinks.typeOnlyDeclaration == nil) {
 		exportSymbol := core.OrElse(target.Exports[ast.InternalSymbolNameExportEquals], target)
 		aliasDeclarationLinks.typeOnlyDeclarationResolved = true
-		if typeOnly := core.Find(exportSymbol.Declarations, isTypeOnlyImportOrExportDeclaration); typeOnly != nil {
+		if typeOnly := core.Find(exportSymbol.Declarations, ast.IsTypeOnlyImportOrExportDeclaration); typeOnly != nil {
 			aliasDeclarationLinks.typeOnlyDeclaration = typeOnly
 		} else {
 			aliasDeclarationLinks.typeOnlyDeclaration = c.aliasSymbolLinks.Get(exportSymbol).typeOnlyDeclaration
@@ -16319,7 +16319,7 @@ func (c *Checker) getBindingElementTypeFromParentType(declaration *ast.Node, par
 	pattern := declaration.Parent
 	// Relax null check on ambient destructuring parameters, since the parameters have no implementation and are just documentation
 	if c.strictNullChecks && declaration.Flags&ast.NodeFlagsAmbient != 0 && ast.IsPartOfParameterDeclaration(declaration) {
-		parentType = c.getNonNullableType(parentType)
+		parentType = c.GetNonNullableType(parentType)
 	} else if c.strictNullChecks && pattern.Parent.Initializer() != nil && !(c.hasTypeFacts(c.getTypeOfInitializer(pattern.Parent.Initializer()), TypeFactsEQUndefined)) {
 		parentType = c.getTypeWithFacts(parentType, TypeFactsNEUndefined)
 	}
@@ -17071,20 +17071,20 @@ func (c *Checker) getNullableType(t *Type, flags TypeFlags) *Type {
 	return c.getUnionType([]*Type{t, c.undefinedType, c.nullType})
 }
 
-func (c *Checker) getNonNullableType(t *Type) *Type {
+func (c *Checker) GetNonNullableType(t *Type) *Type {
 	if c.strictNullChecks {
 		return c.getAdjustedTypeWithFacts(t, TypeFactsNEUndefinedOrNull)
 	}
 	return t
 }
 
-func (c *Checker) isNullableType(t *Type) bool {
+func (c *Checker) IsNullableType(t *Type) bool {
 	return c.hasTypeFacts(t, TypeFactsIsUndefinedOrNull)
 }
 
 func (c *Checker) getNonNullableTypeIfNeeded(t *Type) *Type {
-	if c.isNullableType(t) {
-		return c.getNonNullableType(t)
+	if c.IsNullableType(t) {
+		return c.GetNonNullableType(t)
 	}
 	return t
 }
@@ -18755,7 +18755,7 @@ func (c *Checker) getWidenedLiteralLikeTypeForContextualReturnTypeIfNeeded(t *Ty
 		case contextualSignatureReturnType == nil:
 			// No contextual type
 		case isAsync:
-			contextualType = c.getPromisedTypeOfPromise(contextualSignatureReturnType)
+			contextualType = c.GetPromisedTypeOfPromise(contextualSignatureReturnType)
 		default:
 			contextualType = contextualSignatureReturnType
 		}
@@ -26531,7 +26531,7 @@ func (c *Checker) markEntityNameOrEntityExpressionAsReference(typeName *ast.Node
 			c.compilerOptions.GetIsolatedModules() &&
 			c.compilerOptions.GetEmitModuleKind() >= core.ModuleKindES2015 &&
 			!c.symbolIsValue(rootSymbol) &&
-			!core.Some(rootSymbol.Declarations, isTypeOnlyImportOrExportDeclaration) {
+			!core.Some(rootSymbol.Declarations, ast.IsTypeOnlyImportOrExportDeclaration) {
 			diag := c.error(typeName, diagnostics.A_type_referenced_in_a_decorated_signature_must_be_imported_with_import_type_or_a_namespace_import_when_isolatedModules_and_emitDecoratorMetadata_are_enabled)
 			var aliasDeclaration *ast.Node
 			for _, decl := range rootSymbol.Declarations {
@@ -26574,7 +26574,7 @@ func (c *Checker) markTypeNodeAsReferenced(node *ast.TypeNode) {
 	}
 }
 
-func (c *Checker) getPromisedTypeOfPromise(t *Type) *Type {
+func (c *Checker) GetPromisedTypeOfPromise(t *Type) *Type {
 	return c.getPromisedTypeOfPromiseEx(t, nil, nil)
 }
 
@@ -26722,7 +26722,7 @@ func isPartialMappedType(t *Type) bool {
 func (c *Checker) getOptionalExpressionType(exprType *Type, expression *ast.Node) *Type {
 	switch {
 	case ast.IsExpressionOfOptionalChainRoot(expression):
-		return c.getNonNullableType(exprType)
+		return c.GetNonNullableType(exprType)
 	case ast.IsOptionalChain(expression):
 		return c.removeOptionalTypeMarker(exprType)
 	default:
@@ -29705,88 +29705,4 @@ func (c *Checker) GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) pr
 		c.checkSourceFile(file)
 	}
 	return c.emitResolver
-}
-
-func (c *Checker) GetSymbolsInScope(location *ast.Node, meaning ast.SymbolFlags) []*ast.Symbol {
-	return c.getSymbolsInScope(location, meaning)
-}
-
-func (c *Checker) getSymbolsInScope(location *ast.Node, meaning ast.SymbolFlags) []*ast.Symbol {
-	if location.Flags&ast.NodeFlagsInWithStatement != 0 {
-		// We cannot answer semantic questions within a with block, do not proceed any further
-		return nil
-	}
-
-	symbols := createSymbolTable(nil)
-	isStaticSymbol := false
-
-	// Copy the given symbol into symbol tables if the symbol has the given meaning
-	// and it doesn't already exists in the symbol table.
-	copySymbol := func(symbol *ast.Symbol, meaning ast.SymbolFlags) {
-
-		// !!!
-	}
-
-	copySymbols := func(source ast.SymbolTable, meaning ast.SymbolFlags) {
-		// !!!
-	}
-
-	copyLocallyVisibleExportSymbols := func(source ast.SymbolTable, meaning ast.SymbolFlags) {
-		// !!!
-	}
-
-	populateSymbols := func() {
-		for location != nil {
-			if canHaveLocals(location) && location.Locals() != nil && !ast.IsGlobalSourceFile(location) {
-				copySymbols(location.Locals(), meaning)
-			}
-
-			switch location.Kind {
-			case ast.KindSourceFile:
-				if !ast.IsExternalModule(location.AsSourceFile()) {
-					break
-				}
-				fallthrough
-			case ast.KindModuleDeclaration:
-				copyLocallyVisibleExportSymbols(c.getSymbolOfDeclaration(location).Exports, meaning&ast.SymbolFlagsModuleMember)
-			case ast.KindEnumDeclaration:
-				copySymbols(c.getSymbolOfDeclaration(location).Exports, meaning&ast.SymbolFlagsEnumMember)
-			case ast.KindClassExpression:
-				className := location.AsClassExpression().Name()
-				if className != nil {
-					copySymbol(location.Symbol(), meaning)
-				}
-				// this fall-through is necessary because we would like to handle
-				// type parameter inside class expression similar to how we handle it in classDeclaration and interface Declaration.
-				fallthrough
-			case ast.KindClassDeclaration, ast.KindInterfaceDeclaration:
-				// If we didn't come from static member of class or interface,
-				// add the type parameters into the symbol table
-				// (type parameters of classDeclaration/classExpression and interface are in member property of the symbol.
-				// Note: that the memberFlags come from previous iteration.
-				if !isStaticSymbol {
-					copySymbols(c.getMembersOfSymbol(c.getSymbolOfDeclaration(location)), meaning&ast.SymbolFlagsType)
-				}
-			case ast.KindFunctionExpression:
-				funcName := location.Name()
-				if funcName != nil {
-					copySymbol(location.Symbol(), meaning)
-				}
-			}
-
-			if introducesArgumentsExoticObject(location) {
-				copySymbol(c.argumentsSymbol, meaning)
-			}
-
-			isStaticSymbol = ast.IsStatic(location)
-			location = location.Parent
-		}
-
-		copySymbols(c.globals, meaning)
-	}
-
-	populateSymbols()
-
-	delete(symbols, ast.InternalSymbolNameThis) // Not a symbol, a keyword
-	return symbolsToArray(symbols)
 }

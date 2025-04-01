@@ -309,7 +309,7 @@ func (c *Checker) narrowTypeByTypePredicate(f *FlowState, t *Type, predicate *Ty
 			if c.isMatchingReference(f.reference, predicateArgument) {
 				return c.getNarrowedType(t, predicate.t, assumeTrue, false /*checkDerived*/)
 			}
-			if c.strictNullChecks && c.optionalChainContainsReference(predicateArgument, f.reference) && (assumeTrue && !(c.hasTypeFacts(predicate.t, TypeFactsEQUndefined)) || !assumeTrue && everyType(predicate.t, c.isNullableType)) {
+			if c.strictNullChecks && c.optionalChainContainsReference(predicateArgument, f.reference) && (assumeTrue && !(c.hasTypeFacts(predicate.t, TypeFactsEQUndefined)) || !assumeTrue && everyType(predicate.t, c.IsNullableType)) {
 				t = c.getAdjustedTypeWithFacts(t, TypeFactsNEUndefinedOrNull)
 			}
 			access := c.getDiscriminantPropertyAccess(f, predicateArgument, t)
@@ -2423,7 +2423,7 @@ func (c *Checker) getFlowTypeInConstructor(symbol *ast.Symbol, constructor *ast.
 		c.error(symbol.ValueDeclaration, diagnostics.Member_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.TypeToString(flowType))
 	}
 	// We don't infer a type if assignments are only null or undefined.
-	if everyType(flowType, c.isNullableType) {
+	if everyType(flowType, c.IsNullableType) {
 		return nil
 	}
 	return c.convertAutoToAny(flowType)
@@ -2446,7 +2446,7 @@ func (c *Checker) getFlowTypeInStaticBlocks(symbol *ast.Symbol, staticBlocks []*
 			c.error(symbol.ValueDeclaration, diagnostics.Member_0_implicitly_has_an_1_type, c.symbolToString(symbol), c.TypeToString(flowType))
 		}
 		// We don't infer a type if assignments are only null or undefined.
-		if everyType(flowType, c.isNullableType) {
+		if everyType(flowType, c.IsNullableType) {
 			continue
 		}
 		return c.convertAutoToAny(flowType)

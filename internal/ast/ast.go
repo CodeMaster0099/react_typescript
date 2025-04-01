@@ -1575,6 +1575,9 @@ type (
 	JSDocComment                = Node // JSDocText | JSDocLink | JSDocLinkCode | JSDocLinkPlain;
 	JSDocTag                    = Node // Node with JSDocTagBase
 	SignatureDeclaration        = Node // CallSignatureDeclaration | ConstructSignatureDeclaration | MethodSignature | IndexSignatureDeclaration | FunctionTypeNode | ConstructorTypeNode | FunctionDeclaration | MethodDeclaration | ConstructorDeclaration | AccessorDeclaration | FunctionExpression | ArrowFunction;
+	StringLiteralLike           = Node // StringLiteral | NoSubstitutionTemplateLiteral
+	AnyValidImportOrReExport    = Node // (ImportDeclaration | ExportDeclaration | JSDocImportTag) & { moduleSpecifier: StringLiteral } | ImportEqualsDeclaration & { moduleReference: ExternalModuleReference & { expression: StringLiteral }} | RequireOrImportCall | ValidImportTypeNode
+	ValidImportTypeNode         = Node // ImportTypeNode & { argument: LiteralTypeNode & { literal: StringLiteral } }
 )
 
 // Aliases for node singletons

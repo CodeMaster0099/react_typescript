@@ -524,3 +524,20 @@ func levenshteinWithMax(s1 []rune, s2 []rune, maxValue float64) float64 {
 func Identity[T any](t T) T {
 	return t
 }
+
+func AddToSeen[K comparable, V any](seen map[K]V, key K, value V) bool {
+	if _, ok := seen[key]; ok {
+		return false
+	}
+	seen[key] = value
+	return true
+}
+
+func CheckEachDefined[S any](s []*S, msg string) []*S {
+	for _, value := range s {
+		if value == nil {
+			panic(msg)
+		}
+	}
+	return s
+}

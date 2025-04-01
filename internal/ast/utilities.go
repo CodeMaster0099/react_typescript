@@ -510,7 +510,7 @@ func IsFunctionLikeDeclaration(node *Node) bool {
 	return node != nil && isFunctionLikeDeclarationKind(node.Kind)
 }
 
-func isFunctionLikeKind(kind Kind) bool {
+func IsFunctionLikeKind(kind Kind) bool {
 	switch kind {
 	case KindMethodSignature,
 		KindCallSignature,
@@ -527,7 +527,7 @@ func isFunctionLikeKind(kind Kind) bool {
 // Determines if a node is function- or signature-like.
 func IsFunctionLike(node *Node) bool {
 	// TODO(rbuckton): Move `node != nil` test to call sites
-	return node != nil && isFunctionLikeKind(node.Kind)
+	return node != nil && IsFunctionLikeKind(node.Kind)
 }
 
 func IsFunctionLikeOrClassStaticBlockDeclaration(node *Node) bool {
@@ -2568,4 +2568,54 @@ func IsRequireCall(node *Node, requireStringLiteralLikeArgument bool) bool {
 		return false
 	}
 	return !requireStringLiteralLikeArgument || IsStringLiteralLike(call.Arguments.Nodes[0])
+}
+
+func IsCheckJsEnabledForFile(sourceFile *SourceFile, compilerOptions *core.CompilerOptions) bool {
+	// !!!
+	// if sourceFile.CheckJsDirective != nil {
+	// 	return sourceFile.CheckJsDirective.Enabled
+	// }
+	return compilerOptions.CheckJs == core.TSTrue
+}
+
+func GetLeftmostAccessExpression(expr *Node) *Node {
+	for IsAccessExpression(expr) {
+		expr = expr.Expression()
+	}
+	return expr
+}
+
+func IsSourceFileJs(file *SourceFile) bool {
+	return IsInJSFile(file.AsNode())
+}
+
+func IsTypeOnlyImportDeclaration(node *Node) bool {
+	switch node.Kind {
+	case KindImportSpecifier:
+		return node.AsImportSpecifier().IsTypeOnly || node.Parent.Parent.AsImportClause().IsTypeOnly
+	case KindNamespaceImport:
+		return node.Parent.AsImportClause().IsTypeOnly
+	case KindImportClause:
+		return node.AsImportClause().IsTypeOnly
+	case KindImportEqualsDeclaration:
+		return node.AsImportEqualsDeclaration().IsTypeOnly
+	}
+	return false
+}
+
+func isTypeOnlyExportDeclaration(node *Node) bool {
+	switch node.Kind {
+	case KindExportSpecifier:
+		return node.AsExportSpecifier().IsTypeOnly || node.Parent.Parent.AsExportDeclaration().IsTypeOnly
+	case KindExportDeclaration:
+		d := node.AsExportDeclaration()
+		return d.IsTypeOnly && d.ModuleSpecifier != nil && d.ExportClause == nil
+	case KindNamespaceExport:
+		return node.Parent.AsExportDeclaration().IsTypeOnly
+	}
+	return false
+}
+
+func IsTypeOnlyImportOrExportDeclaration(node *Node) bool {
+	return IsTypeOnlyImportDeclaration(node) || isTypeOnlyExportDeclaration(node)
 }

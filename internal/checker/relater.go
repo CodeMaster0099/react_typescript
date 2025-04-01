@@ -1533,10 +1533,10 @@ func (c *Checker) compareSignaturesRelated(source *Signature, target *Signature,
 			var sourceSig *Signature
 			var targetSig *Signature
 			if checkMode&SignatureCheckModeCallback == 0 && !c.isInstantiatedGenericParameter(source, i) {
-				sourceSig = c.getSingleCallSignature(c.getNonNullableType(sourceType))
+				sourceSig = c.getSingleCallSignature(c.GetNonNullableType(sourceType))
 			}
 			if checkMode&SignatureCheckModeCallback == 0 && !c.isInstantiatedGenericParameter(target, i) {
-				targetSig = c.getSingleCallSignature(c.getNonNullableType(targetType))
+				targetSig = c.getSingleCallSignature(c.GetNonNullableType(targetType))
 			}
 			callbacks := sourceSig != nil && targetSig != nil && c.getTypePredicateOfSignature(sourceSig) == nil && c.getTypePredicateOfSignature(targetSig) == nil &&
 				c.getTypeFacts(sourceType, TypeFactsIsUndefinedOrNull) == c.getTypeFacts(targetType, TypeFactsIsUndefinedOrNull)

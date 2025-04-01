@@ -120,18 +120,11 @@ func isVariableDeclarationInitializedWithRequireHelper(node *ast.Node, allowAcce
 	if node.Kind == ast.KindVariableDeclaration && node.AsVariableDeclaration().Initializer != nil {
 		initializer := node.AsVariableDeclaration().Initializer
 		if allowAccessedRequire {
-			initializer = getLeftmostAccessExpression(initializer)
+			initializer = ast.GetLeftmostAccessExpression(initializer)
 		}
 		return isRequireCall(initializer, true /*requireStringLiteralLikeArgument*/)
 	}
 	return false
-}
-
-func getLeftmostAccessExpression(expr *ast.Node) *ast.Node {
-	for ast.IsAccessExpression(expr) {
-		expr = expr.Expression()
-	}
-	return expr
 }
 
 func isRequireCall(node *ast.Node, requireStringLiteralLikeArgument bool) bool {
@@ -253,37 +246,6 @@ func isInTypeQuery(node *ast.Node) bool {
 		}
 		return ast.FindAncestorQuit
 	}) != nil
-}
-
-func isTypeOnlyImportDeclaration(node *ast.Node) bool {
-	switch node.Kind {
-	case ast.KindImportSpecifier:
-		return node.AsImportSpecifier().IsTypeOnly || node.Parent.Parent.AsImportClause().IsTypeOnly
-	case ast.KindNamespaceImport:
-		return node.Parent.AsImportClause().IsTypeOnly
-	case ast.KindImportClause:
-		return node.AsImportClause().IsTypeOnly
-	case ast.KindImportEqualsDeclaration:
-		return node.AsImportEqualsDeclaration().IsTypeOnly
-	}
-	return false
-}
-
-func isTypeOnlyExportDeclaration(node *ast.Node) bool {
-	switch node.Kind {
-	case ast.KindExportSpecifier:
-		return node.AsExportSpecifier().IsTypeOnly || node.Parent.Parent.AsExportDeclaration().IsTypeOnly
-	case ast.KindExportDeclaration:
-		d := node.AsExportDeclaration()
-		return d.IsTypeOnly && d.ModuleSpecifier != nil && d.ExportClause == nil
-	case ast.KindNamespaceExport:
-		return node.Parent.AsExportDeclaration().IsTypeOnly
-	}
-	return false
-}
-
-func isTypeOnlyImportOrExportDeclaration(node *ast.Node) bool {
-	return isTypeOnlyImportDeclaration(node) || isTypeOnlyExportDeclaration(node)
 }
 
 func getNameFromImportDeclaration(node *ast.Node) *ast.Node {
@@ -468,7 +430,7 @@ func isSideEffectImport(node *ast.Node) bool {
 
 func getExternalModuleRequireArgument(node *ast.Node) *ast.Node {
 	if isVariableDeclarationInitializedToBareOrAccessedRequire(node) {
-		return getLeftmostAccessExpression(node.AsVariableDeclaration().Initializer).AsCallExpression().Arguments.Nodes[0]
+		return ast.GetLeftmostAccessExpression(node.AsVariableDeclaration().Initializer).AsCallExpression().Arguments.Nodes[0]
 	}
 	return nil
 }
@@ -1795,7 +1757,7 @@ func canIncludeBindAndCheckDiagnostics(sourceFile *ast.SourceFile, options *core
 	}
 
 	isJs := sourceFile.ScriptKind == core.ScriptKindJS || sourceFile.ScriptKind == core.ScriptKindJSX
-	isCheckJs := isJs && isCheckJsEnabledForFile(sourceFile, options)
+	isCheckJs := isJs && ast.IsCheckJsEnabledForFile(sourceFile, options)
 	isPlainJs := isPlainJsFile(sourceFile, options.CheckJs)
 
 	// By default, only type-check .ts, .tsx, Deferred, plain JS, checked JS and External
@@ -1803,14 +1765,6 @@ func canIncludeBindAndCheckDiagnostics(sourceFile *ast.SourceFile, options *core
 	// - check JS: .js files with either // ts-check or checkJs: true
 	// - external: files that are added by plugins
 	return isPlainJs || isCheckJs || sourceFile.ScriptKind == core.ScriptKindDeferred
-}
-
-func isCheckJsEnabledForFile(sourceFile *ast.SourceFile, compilerOptions *core.CompilerOptions) bool {
-	// !!!
-	// if sourceFile.CheckJsDirective != nil {
-	// 	return sourceFile.CheckJsDirective.Enabled
-	// }
-	return compilerOptions.CheckJs == core.TSTrue
 }
 
 func isPlainJsFile(file *ast.SourceFile, checkJs core.Tristate) bool {
@@ -2136,4 +2090,19 @@ func symbolsToArray(symbols ast.SymbolTable) []*ast.Symbol {
 		}
 	}
 	return result
+}
+
+// See comment on `declareModuleMember` in `binder.go`.
+func getCombinedLocalAndExportSymbolFlags(symbol *ast.Symbol) ast.SymbolFlags {
+	if symbol.ExportSymbol != nil {
+		return symbol.Flags | symbol.ExportSymbol.Flags
+	}
+	return symbol.Flags
+}
+
+func SkipAlias(symbol *ast.Symbol, checker *Checker) *ast.Symbol {
+	if symbol.Flags&ast.SymbolFlagsAlias != 0 {
+		return checker.GetAliasedSymbol(symbol)
+	}
+	return symbol
 }
