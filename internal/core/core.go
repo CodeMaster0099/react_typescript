@@ -541,3 +541,12 @@ func CheckEachDefined[S any](s []*S, msg string) []*S {
 	}
 	return s
 }
+
+func StripQuotes(name string) string {
+	firstChar, _ := utf8.DecodeRuneInString(name)
+	lastChar, _ := utf8.DecodeLastRuneInString(name)
+	if firstChar == lastChar && (firstChar == '\'' || firstChar == '"' || firstChar == '`') {
+		return name[1 : len(name)-1]
+	}
+	return name
+}

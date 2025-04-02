@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/binder"
@@ -89,16 +90,16 @@ func hasDecorators(node *ast.Node) bool {
 	return ast.HasSyntacticModifier(node, ast.ModifierFlagsDecorator)
 }
 
-func getEffectiveModifierFlags(node *ast.Node) ast.ModifierFlags {
+func GetEffectiveModifierFlags(node *ast.Node) ast.ModifierFlags {
 	return node.ModifierFlags() // !!! Handle JSDoc
 }
 
 func getSelectedEffectiveModifierFlags(node *ast.Node, flags ast.ModifierFlags) ast.ModifierFlags {
-	return getEffectiveModifierFlags(node) & flags
+	return GetEffectiveModifierFlags(node) & flags
 }
 
 func hasEffectiveModifier(node *ast.Node, flags ast.ModifierFlags) bool {
-	return getEffectiveModifierFlags(node)&flags != 0
+	return GetEffectiveModifierFlags(node)&flags != 0
 }
 
 func hasEffectiveReadonlyModifier(node *ast.Node) bool {
@@ -453,26 +454,8 @@ func isRightSideOfQualifiedNameOrPropertyAccess(node *ast.Node) bool {
 	return false
 }
 
-func getSourceFileOfModule(module *ast.Symbol) *ast.SourceFile {
-	declaration := module.ValueDeclaration
-	if declaration == nil {
-		declaration = getNonAugmentationDeclaration(module)
-	}
-	return ast.GetSourceFileOfNode(declaration)
-}
-
-func getNonAugmentationDeclaration(symbol *ast.Symbol) *ast.Node {
-	return core.Find(symbol.Declarations, func(d *ast.Node) bool {
-		return !isExternalModuleAugmentation(d) && !ast.IsGlobalScopeAugmentation(d)
-	})
-}
-
-func isExternalModuleAugmentation(node *ast.Node) bool {
-	return ast.IsAmbientModule(node) && ast.IsModuleAugmentationExternal(node)
-}
-
 func isTopLevelInExternalModuleAugmentation(node *ast.Node) bool {
-	return node != nil && node.Parent != nil && ast.IsModuleBlock(node.Parent) && isExternalModuleAugmentation(node.Parent.Parent)
+	return node != nil && node.Parent != nil && ast.IsModuleBlock(node.Parent) && ast.IsExternalModuleAugmentation(node.Parent.Parent)
 }
 
 func isSyntacticDefault(node *ast.Node) bool {
@@ -2105,4 +2088,10 @@ func SkipAlias(symbol *ast.Symbol, checker *Checker) *ast.Symbol {
 		return checker.GetAliasedSymbol(symbol)
 	}
 	return symbol
+}
+
+// True if the symbol is for an external module, as opposed to a namespace.
+func IsExternalModuleSymbol(moduleSymbol *ast.Symbol) bool {
+	firstRune, _ := utf8.DecodeRuneInString(moduleSymbol.Name)
+	return moduleSymbol.Flags&ast.SymbolFlagsModule != 0 && firstRune == '"'
 }

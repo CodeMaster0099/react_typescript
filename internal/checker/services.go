@@ -238,3 +238,34 @@ func (c *Checker) getAugmentedPropertiesOfType(t *Type) []*ast.Symbol {
 func (c *Checker) IsUnion(t *Type) bool {
 	return t.flags&TypeFlagsUnion != 0
 }
+
+func (c *Checker) TryGetMemberInModuleExportsAndProperties(memberName string, moduleSymbol *ast.Symbol) *ast.Symbol {
+	symbol := c.TryGetMemberInModuleExports(memberName, moduleSymbol)
+	if symbol != nil {
+		return symbol
+	}
+
+	exportEquals := c.resolveExternalModuleSymbol(moduleSymbol, false /*dontResolveAlias*/)
+	if exportEquals == moduleSymbol {
+		return nil
+	}
+
+	t := c.getTypeOfSymbol(exportEquals)
+	if c.shouldTreatPropertiesOfExternalModuleAsExports(t) {
+		return c.getPropertyOfType(t, memberName)
+	}
+	return nil
+}
+
+func (c *Checker) TryGetMemberInModuleExports(memberName string, moduleSymbol *ast.Symbol) *ast.Symbol {
+	symbolTable := c.getExportsOfModule(moduleSymbol)
+	return symbolTable[memberName]
+}
+
+func (c *Checker) shouldTreatPropertiesOfExternalModuleAsExports(resolvedExternalModuleType *Type) bool {
+	return resolvedExternalModuleType.flags&TypeFlagsPrimitive == 0 ||
+		resolvedExternalModuleType.objectFlags&ObjectFlagsClass != 0 ||
+		// `isArrayOrTupleLikeType` is too expensive to use in this auto-imports hot path.
+		c.isArrayType(resolvedExternalModuleType) ||
+		isTupleType(resolvedExternalModuleType)
+}

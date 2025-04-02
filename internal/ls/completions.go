@@ -9,6 +9,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/compiler"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/lsp/lsproto"
+	"github.com/microsoft/typescript-go/internal/tspath"
 )
 
 func (l *LanguageService) ProvideCompletion(fileName string, position int, context *lsproto.CompletionContext) *lsproto.CompletionList {
@@ -66,6 +67,47 @@ var allCommitCharacters = []string{".", ",", ";"}
 
 // Commit characters valid at expression positions where we could be inside a parameter list.
 var noCommaCommitCharacters = []string{".", ";"}
+
+type sortText string
+
+const (
+	SortTextLocalDeclarationPriority         sortText = "10"
+	sortTextLocationPriority                 sortText = "11"
+	sortTextOptionalMember                   sortText = "12"
+	sortTextMemberDeclaredBySpreadAssignment sortText = "13"
+	sortTextSuggestedClassMembers            sortText = "14"
+	sortTextGlobalsOrKeywords                sortText = "15"
+	sortTextAutoImportSuggestions            sortText = "16"
+	sortTextClassMemberSnippets              sortText = "17"
+	sortTextJavascriptIdentifiers            sortText = "18"
+)
+
+// !!! sort text transformations
+
+type symbolOriginInfoKind int
+
+const (
+	symbolOriginInfoKindThisType symbolOriginInfoKind = 1 << iota
+	symbolOriginInfoKindSymbolMember
+	symbolOriginInfoKindExport
+	symbolOriginInfoKindPromise
+	symbolOriginInfoKindNullable
+	symbolOriginInfoKindResolvedExport
+	symbolOriginInfoKindTypeOnlyAlias
+	symbolOriginInfoKindObjectLiteralMethod
+	symbolOriginInfoKindIgnore
+	symbolOriginInfoKindComputedPropertyName
+
+	symbolOriginInfoKindSymbolMemberNoExport symbolOriginInfoKind = symbolOriginInfoKindSymbolMember
+	symbolOriginInfoKindSymbolMemberExport                        = symbolOriginInfoKindSymbolMember | symbolOriginInfoKindExport
+)
+
+type symbolOriginInfo struct {
+	kind              symbolOriginInfoKind
+	isDefaultExport   bool
+	isFromPackageJson bool
+	fileName          string
+}
 
 func (l *LanguageService) getCompletionsAtPosition(
 	program *compiler.Program,
@@ -261,9 +303,9 @@ func getCompletionData(program *compiler.Program, file *ast.SourceFile, position
 	completionKind := CompletionKindNone
 	hasUnresolvedAutoImports := false
 	// This also gets mutated in nested-functions after the return
-	var symbols []*ast.Symbol       // !!! symbol: this will not work
-	var symbolToOriginInfoMap []any // !!! symbol: refactor
-	var symbolToSortTextMap []any   // !!! symbol: refactor
+	var symbols []*ast.Symbol
+	var symbolToOriginInfoMap map[ast.SymbolId]symbolOriginInfo
+	var symbolToSortTextMap map[ast.SymbolId]sortText
 	var importSpecifierResolver any // !!!
 	seenPropertySymbols := make(map[ast.SymbolId]struct{})
 	isTypeOnlyLocation := insideJsDocTagTypeExpression || insideJsDocImportTag ||
@@ -274,11 +316,27 @@ func getCompletionData(program *compiler.Program, file *ast.SourceFile, position
 				isContextTokenTypeLocation(contextToken))
 	var getModuleSpecifierResolutionHost any // !!!
 
+	addSymbolOriginInfo := func(symbol *ast.Symbol, insertQuestionDot bool, insertAwait bool) {
+		symbolId := ast.GetSymbolId(symbol)
+		if insertAwait && core.AddToSeen(seenPropertySymbols, symbolId, struct{}{}) {
+			symbolToOriginInfoMap[symbolId] = symbolOriginInfo{kind: getNullableSymbolOriginInfoKind(symbolOriginInfoKindPromise, insertQuestionDot)}
+		} else if insertQuestionDot {
+			symbolToOriginInfoMap[symbolId] = symbolOriginInfo{kind: symbolOriginInfoKindNullable}
+		}
+	}
+
+	addSymbolSortInfo := func(symbol *ast.Symbol) {
+		symbolId := ast.GetSymbolId(symbol)
+		if isStaticProperty(symbol) {
+			symbolToSortTextMap[symbolId] = SortTextLocalDeclarationPriority
+		}
+	}
+
 	addPropertySymbol := func(symbol *ast.Symbol, insertAwait bool, insertQuestionDot bool) {
 		// For a computed property with an accessible name like `Symbol.iterator`,
 		// we'll add a completion for the *name* `Symbol` instead of for the property.
 		// If this is e.g. [Symbol.iterator], add a completion for `Symbol`.
-		computedPropertyName = core.FirstNonNil(symbol.Declarations, func(decl *ast.Node) *ast.Node {
+		computedPropertyName := core.FirstNonNil(symbol.Declarations, func(decl *ast.Node) *ast.Node {
 			name := ast.GetNameOfDeclaration(decl)
 			if name != nil && name.Kind == ast.KindComputedPropertyName {
 				return name
@@ -286,7 +344,74 @@ func getCompletionData(program *compiler.Program, file *ast.SourceFile, position
 			return nil
 		})
 
-		// !!! HERE
+		if computedPropertyName != nil {
+			leftMostName := getLeftMostName(computedPropertyName.Expression()) // The completion is for `Symbol`, not `iterator`.
+			var nameSymbol *ast.Symbol
+			if leftMostName != nil {
+				nameSymbol = typeChecker.GetSymbolAtLocation(leftMostName)
+			}
+			// If this is nested like for `namespace N { export const sym = Symbol(); }`, we'll add the completion for `N`.
+			var firstAccessibleSymbol *ast.Symbol
+			if nameSymbol != nil {
+				firstAccessibleSymbol = getFirstSymbolInChain(nameSymbol, contextToken, typeChecker)
+			}
+			var firstAccessibleSymbolId ast.SymbolId
+			if firstAccessibleSymbol != nil {
+				firstAccessibleSymbolId = ast.GetSymbolId(firstAccessibleSymbol)
+			}
+			if firstAccessibleSymbolId != 0 && core.AddToSeen(seenPropertySymbols, firstAccessibleSymbolId, struct{}{}) {
+				index := len(symbols)
+				symbols = append(symbols, firstAccessibleSymbol)
+				moduleSymbol := firstAccessibleSymbol.Parent
+				if moduleSymbol == nil ||
+					!checker.IsExternalModuleSymbol(moduleSymbol) ||
+					typeChecker.TryGetMemberInModuleExportsAndProperties(firstAccessibleSymbol.Name, moduleSymbol) != firstAccessibleSymbol {
+					symbolToOriginInfoMap[ast.GetSymbolId(symbol)] = symbolOriginInfo{kind: getNullableSymbolOriginInfoKind(symbolOriginInfoKindSymbolMemberNoExport, insertQuestionDot)}
+				} else {
+					var fileName string
+					if tspath.IsExternalModuleNameRelative(core.StripQuotes(moduleSymbol.Name)) {
+						fileName = ast.GetSourceFileOfModule(moduleSymbol).FileName()
+					}
+					if importSpecifierResolver == nil { // !!! verify if this is right, depending on the type of importSpecifierResolver
+						// !!!
+						// importSpecifierResolver ||= codefix.createImportSpecifierResolver(sourceFile, program, host, preferences))
+					}
+					// !!!
+					// const { moduleSpecifier } = importSpecifier.getModuleSpecifierForBestExportInfo(
+					// 	[{
+					// 		exportKind: ExportKind.Named,
+					// 		moduleFileName: fileName,
+					// 		isFromPackageJson: false,
+					// 		moduleSymbol,
+					// 		symbol: firstAccessibleSymbol,
+					// 		targetFlags: skipAlias(firstAccessibleSymbol, typeChecker).flags,
+					// 	}],
+					// 	position,
+					// 	isValidTypeOnlyAliasUseSite(location),
+					// ) || {};
+					// if (moduleSpecifier) {
+					// 	const origin: SymbolOriginInfoResolvedExport = {
+					// 		kind: getNullableSymbolOriginInfoKind(SymbolOriginInfoKind.SymbolMemberExport),
+					// 		moduleSymbol,
+					// 		isDefaultExport: false,
+					// 		symbolName: firstAccessibleSymbol.name,
+					// 		exportName: firstAccessibleSymbol.name,
+					// 		fileName,
+					// 		moduleSpecifier,
+					// 	};
+					// 	symbolToOriginInfoMap[index] = origin;
+					// }
+				}
+			} else if _, ok := seenPropertySymbols[firstAccessibleSymbolId]; firstAccessibleSymbolId == 0 || !ok {
+				symbols = append(symbols, symbol)
+				addSymbolOriginInfo(symbol, insertQuestionDot, insertAwait)
+				addSymbolSortInfo(symbol)
+			}
+		} else {
+			symbols = append(symbols, symbol)
+			addSymbolOriginInfo(symbol, insertQuestionDot, insertAwait)
+			addSymbolSortInfo(symbol)
+		}
 	}
 
 	addTypeProperties := func(t *checker.Type, insertAwait bool, insertQuestionDot bool) {
@@ -426,11 +551,14 @@ func getCompletionData(program *compiler.Program, file *ast.SourceFile, position
 	if isRightOfDot || isRightOfQuestionDot {
 		getTypeScriptMemberSymbols()
 	} else if isRightOfOpenTag {
-		// !!!
+		// !!! jsx completions
 	} else if isStartingCloseTag {
-		// !!!
+		// !!! jsx completions
 	} else {
-		// !!!
+		// For JavaScript or TypeScript, if we're not after a dot, then just try to get the
+		// global symbols in scope.  These results should be valid for either language as
+		// the set of symbols that can be referenced from this location.
+		// !!! global completions
 	}
 
 	// !!! adjustments
@@ -577,4 +705,50 @@ func getPropertiesForCompletion(t *checker.Type, typeChecker *checker.Checker) [
 	} else {
 		return core.CheckEachDefined(typeChecker.GetApparentProperties(t), "getApparentProperties() should all be defined.")
 	}
+}
+
+// Given 'a.b.c', returns 'a'.
+func getLeftMostName(e *ast.Expression) *ast.IdentifierNode {
+	if ast.IsIdentifier(e) {
+		return e
+	} else if ast.IsPropertyAccessExpression(e) {
+		return getLeftMostName(e.Expression())
+	} else {
+		return nil
+	}
+}
+
+func getFirstSymbolInChain(symbol *ast.Symbol, enclosingDeclaration *ast.Node, typeChecker *checker.Checker) *ast.Symbol {
+	chain := typeChecker.GetAccessibleSymbolChain(
+		symbol,
+		enclosingDeclaration,
+		ast.SymbolFlagsAll, /*meaning*/
+		false /*useOnlyExternalAliasing*/)
+	if len(chain) > 0 {
+		return chain[0]
+	}
+	if symbol.Parent != nil {
+		if isModuleSymbol(symbol.Parent) {
+			return symbol
+		}
+		return getFirstSymbolInChain(symbol.Parent, enclosingDeclaration, typeChecker)
+	}
+	return nil
+}
+
+func isModuleSymbol(symbol *ast.Symbol) bool {
+	return core.Some(symbol.Declarations, func(decl *ast.Declaration) bool { return decl.Kind == ast.KindSourceFile })
+}
+
+func getNullableSymbolOriginInfoKind(kind symbolOriginInfoKind, insertQuestionDot bool) symbolOriginInfoKind {
+	if insertQuestionDot {
+		kind |= symbolOriginInfoKindNullable
+	}
+	return kind
+}
+
+func isStaticProperty(symbol *ast.Symbol) bool {
+	return symbol.ValueDeclaration != nil &&
+		checker.GetEffectiveModifierFlags(symbol.ValueDeclaration)&ast.ModifierFlagsStatic != 0 &&
+		ast.IsClassLike(symbol.ValueDeclaration.Parent)
 }

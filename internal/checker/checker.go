@@ -2659,8 +2659,8 @@ func (c *Checker) checkAccessorDeclaration(node *ast.Node) {
 		setter := ast.GetDeclarationOfKind(symbol, ast.KindSetAccessor)
 		if getter != nil && setter != nil && c.nodeLinks.Get(getter).flags&NodeCheckFlagsTypeChecked == 0 {
 			c.nodeLinks.Get(getter).flags |= NodeCheckFlagsTypeChecked
-			getterFlags := getEffectiveModifierFlags(getter)
-			setterFlags := getEffectiveModifierFlags(setter)
+			getterFlags := GetEffectiveModifierFlags(getter)
+			setterFlags := GetEffectiveModifierFlags(setter)
 			if (getterFlags & ast.ModifierFlagsAbstract) != (setterFlags & ast.ModifierFlagsAbstract) {
 				c.error(getter.Name(), diagnostics.Accessors_must_both_be_abstract_or_non_abstract)
 				c.error(setter.Name(), diagnostics.Accessors_must_both_be_abstract_or_non_abstract)
@@ -4550,7 +4550,7 @@ func (c *Checker) checkPropertyInitialization(node *ast.Node) {
 	}
 	constructor := ast.FindConstructorDeclaration(node)
 	for _, member := range node.Members() {
-		if getEffectiveModifierFlags(member)&ast.ModifierFlagsAmbient != 0 {
+		if GetEffectiveModifierFlags(member)&ast.ModifierFlagsAmbient != 0 {
 			continue
 		}
 		if !ast.IsStatic(member) && c.isPropertyWithoutInitializer(member) {
@@ -4791,7 +4791,7 @@ func (c *Checker) checkModuleDeclaration(node *ast.Node) {
 		}
 	}
 	if isAmbientExternalModule {
-		if isExternalModuleAugmentation(node) {
+		if ast.IsExternalModuleAugmentation(node) {
 			// body of the augmentation should be checked for consistency only if augmentation was applied to its target (either global scope or module)
 			// otherwise we'll be swamped in cascading errors.
 			// We can detect if augmentation was applied using following rules:
@@ -10774,7 +10774,7 @@ func (c *Checker) getControlFlowContainer(node *ast.Node) *ast.Node {
 
 func (c *Checker) getFlowTypeOfProperty(reference *ast.Node, prop *ast.Symbol) *Type {
 	initialType := c.undefinedType
-	if prop != nil && prop.ValueDeclaration != nil && (!c.isAutoTypedProperty(prop) || getEffectiveModifierFlags(prop.ValueDeclaration)&ast.ModifierFlagsAmbient != 0) {
+	if prop != nil && prop.ValueDeclaration != nil && (!c.isAutoTypedProperty(prop) || GetEffectiveModifierFlags(prop.ValueDeclaration)&ast.ModifierFlagsAmbient != 0) {
 		initialType = c.getTypeOfPropertyInBaseClass(prop)
 	}
 	return c.getFlowTypeOfReferenceEx(reference, c.autoType, initialType, nil, nil)
@@ -13935,7 +13935,7 @@ func (c *Checker) isOnlyImportableAsDefault(usage *ast.Node, resolvedModule *ast
 			}
 			var targetFile *ast.SourceFile
 			if resolvedModule != nil {
-				targetFile = getSourceFileOfModule(resolvedModule)
+				targetFile = ast.GetSourceFileOfModule(resolvedModule)
 			}
 			return targetFile != nil && (ast.IsJsonSourceFile(targetFile) || tspath.GetDeclarationFileExtension(targetFile.FileName()) == ".d.json.ts")
 		}
@@ -29705,4 +29705,13 @@ func (c *Checker) GetEmitResolver(file *ast.SourceFile, skipDiagnostics bool) pr
 		c.checkSourceFile(file)
 	}
 	return c.emitResolver
+}
+
+// !!!
+func (c *Checker) GetAccessibleSymbolChain(
+	symbol *ast.Symbol,
+	enclosingDeclaration *ast.Node,
+	meaning ast.SymbolFlags,
+	useOnlyExternalAliasing bool) []*ast.Symbol {
+	return nil
 }

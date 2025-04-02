@@ -1411,7 +1411,7 @@ func (c *Checker) getTypeParameterModifiers(tp *Type) ast.ModifierFlags {
 	var flags ast.ModifierFlags
 	if tp.symbol != nil {
 		for _, d := range tp.symbol.Declarations {
-			flags |= getEffectiveModifierFlags(d)
+			flags |= GetEffectiveModifierFlags(d)
 		}
 	}
 	return flags & (ast.ModifierFlagsIn | ast.ModifierFlagsOut | ast.ModifierFlagsConst)
@@ -4435,8 +4435,8 @@ func (r *Relater) constructorVisibilitiesAreCompatible(sourceSignature *Signatur
 	if sourceSignature.declaration == nil || targetSignature.declaration == nil {
 		return true
 	}
-	sourceAccessibility := getEffectiveModifierFlags(sourceSignature.declaration) & ast.ModifierFlagsNonPublicAccessibilityModifier
-	targetAccessibility := getEffectiveModifierFlags(targetSignature.declaration) & ast.ModifierFlagsNonPublicAccessibilityModifier
+	sourceAccessibility := GetEffectiveModifierFlags(sourceSignature.declaration) & ast.ModifierFlagsNonPublicAccessibilityModifier
+	targetAccessibility := GetEffectiveModifierFlags(targetSignature.declaration) & ast.ModifierFlagsNonPublicAccessibilityModifier
 	// A public, protected and private signature is assignable to a private signature.
 	if targetAccessibility == ast.ModifierFlagsPrivate {
 		return true
