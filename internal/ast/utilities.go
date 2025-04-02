@@ -1825,6 +1825,8 @@ func IsPartOfTypeNode(node *Node) bool {
 		KindBooleanKeyword, KindSymbolKeyword, KindObjectKeyword, KindUndefinedKeyword, KindNullKeyword,
 		KindNeverKeyword:
 		return true
+	case KindVoidKeyword:
+		return node.Parent.Kind != KindVoidExpression
 	case KindExpressionWithTypeArguments:
 		return isPartOfTypeExpressionWithTypeArguments(node)
 	case KindTypeParameter:
@@ -2568,6 +2570,10 @@ func IsRequireCall(node *Node, requireStringLiteralLikeArgument bool) bool {
 		return false
 	}
 	return !requireStringLiteralLikeArgument || IsStringLiteralLike(call.Arguments.Nodes[0])
+}
+
+func IsUnterminatedLiteral(node *Node) bool {
+	return node.LiteralLikeData().TokenFlags&TokenFlagsUnterminated != 0
 }
 
 func IsCheckJsEnabledForFile(sourceFile *SourceFile, compilerOptions *core.CompilerOptions) bool {
