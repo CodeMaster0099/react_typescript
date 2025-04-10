@@ -70,21 +70,12 @@ func NewCompilerBaselineRunner(testType CompilerTestType, isSubmodule bool) *Com
 	}
 }
 
-func (r *CompilerBaselineRunner) EnumerateTestFiles() []string {
-	if len(r.testFiles) > 0 {
-		return r.testFiles
-	}
-	files, err := harnessutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true /*recursive*/)
-	if err != nil {
-		panic("Could not read compiler test files: " + err.Error())
-	}
-	r.testFiles = files
-	return files
-}
-
 func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
+	if r.testFiles != nil {
+		panic("RunTests called multiple times")
+	}
+
 	r.cleanUpLocal(t)
-	files := r.EnumerateTestFiles()
 	skippedTests := map[string]string{
 		"mappedTypeRecursiveInference.ts":         "Skipped until we have type printer with truncation limit.",
 		"jsFileCompilationWithoutJsExtensions.ts": "Skipped until we have proper allowJS support (and errors when not enabled.)",
@@ -101,7 +92,11 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 		"preserveValueImports_importsNotUsedAsValues.ts",
 		"importsNotUsedAsValues_error.ts",
 	}
-	for _, filename := range files {
+	for filename, err := range harnessutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true /*recursive*/) {
+		assert.NilError(t, err, "Could not enumerate test files")
+
+		r.testFiles = append(r.testFiles, filename)
+
 		if msg, ok := skippedTests[tspath.GetBaseFileName(filename)]; ok {
 			t.Run(tspath.GetBaseFileName(filename), func(t *testing.T) { t.Skip(msg) })
 			continue

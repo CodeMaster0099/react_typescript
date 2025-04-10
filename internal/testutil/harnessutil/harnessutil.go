@@ -3,6 +3,7 @@ package harnessutil
 import (
 	"fmt"
 	"io/fs"
+	"iter"
 	"maps"
 	"os"
 	"path/filepath"
@@ -789,40 +790,35 @@ func createProgram(host compiler.CompilerHost, options *core.CompilerOptions, ro
 	return program
 }
 
-func EnumerateFiles(folder string, testRegex *regexp.Regexp, recursive bool) ([]string, error) {
-	files, err := listFiles(folder, testRegex, recursive)
-	if err != nil {
-		return nil, err
-	}
-	return core.Map(files, tspath.NormalizeSlashes), nil
-}
-
-func listFiles(path string, spec *regexp.Regexp, recursive bool) ([]string, error) {
-	return listFilesWorker(spec, recursive, path)
-}
-
-func listFilesWorker(spec *regexp.Regexp, recursive bool, folder string) ([]string, error) {
-	folder = tspath.GetNormalizedAbsolutePath(folder, repo.TestDataPath)
-	entries, err := os.ReadDir(folder)
-	if err != nil {
-		return nil, err
-	}
-	var paths []string
-	for _, entry := range entries {
-		path := tspath.NormalizePath(filepath.Join(folder, entry.Name()))
-		if !entry.IsDir() {
-			if spec == nil || spec.MatchString(path) {
-				paths = append(paths, path)
+func EnumerateFiles(folder string, testRegex *regexp.Regexp, recursive bool) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		folder = tspath.GetNormalizedAbsolutePath(folder, repo.TestDataPath)
+		entries, err := os.ReadDir(folder)
+		if err != nil {
+			yield("", err)
+			return
+		}
+		for _, entry := range entries {
+			path := tspath.NormalizePath(filepath.Join(folder, entry.Name()))
+			if !entry.IsDir() {
+				if testRegex == nil || testRegex.MatchString(path) {
+					if !yield(path, nil) {
+						return
+					}
+				}
+			} else if recursive {
+				for subPath, err := range EnumerateFiles(path, testRegex, recursive) {
+					if err != nil {
+						yield("", err)
+						return
+					}
+					if !yield(subPath, nil) {
+						return
+					}
+				}
 			}
-		} else if recursive {
-			subPaths, err := listFilesWorker(spec, recursive, path)
-			if err != nil {
-				return nil, err
-			}
-			paths = append(paths, subPaths...)
 		}
 	}
-	return paths, nil
 }
 
 func getFileBasedTestConfigurationDescription(config TestConfiguration) string {

@@ -35,16 +35,17 @@ func runCompilerTests(t *testing.T, isSubmodule bool) {
 		NewCompilerBaselineRunner(TestTypeConformance, isSubmodule),
 	}
 
+	for _, runner := range runners {
+		runner.RunTests(t)
+	}
+
+
 	var seenTests core.Set[string]
 	for _, runner := range runners {
-		for _, test := range runner.EnumerateTestFiles() {
+		for _, test := range runner.testFiles {
 			test = tspath.GetBaseFileName(test)
 			assert.Assert(t, !seenTests.Has(test), "Duplicate test file: %s", test)
 			seenTests.Add(test)
 		}
-	}
-
-	for _, runner := range runners {
-		runner.RunTests(t)
 	}
 }

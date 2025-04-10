@@ -3,7 +3,6 @@ package runner
 import "testing"
 
 type Runner interface {
-	EnumerateTestFiles() []string
 	RunTests(t *testing.T)
 }
 
