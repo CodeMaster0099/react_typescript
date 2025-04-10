@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/microsoft/typescript-go/internal/checker"
@@ -92,6 +93,16 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 		"preserveValueImports_importsNotUsedAsValues.ts",
 		"importsNotUsedAsValues_error.ts",
 	}
+
+	type compilerFileBasedTestOrError struct {
+		filename string
+		test     *compilerFileBasedTest
+		err      error
+	}
+
+	tests := make(chan compilerFileBasedTestOrError)
+	var wg sync.WaitGroup
+
 	for filename, err := range harnessutil.EnumerateFiles(r.basePath, compilerBaselineRegex, true /*recursive*/) {
 		assert.NilError(t, err, "Could not enumerate test files")
 
@@ -104,7 +115,25 @@ func (r *CompilerBaselineRunner) RunTests(t *testing.T) {
 		if slices.Contains(deprecatedTests, tspath.GetBaseFileName(filename)) {
 			continue
 		}
-		r.runTest(t, filename)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			test, err := getCompilerFileBasedTest(filename)
+			tests <- compilerFileBasedTestOrError{filename, test, err}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(tests)
+	}()
+
+	for test := range tests {
+		if test.err != nil {
+			t.Fatalf("Failed to get test for %s: %v", test.filename, test.err)
+		}
+		r.runTest(t, test.filename, test.test)
 	}
 }
 
@@ -148,8 +177,7 @@ func getCompilerVaryByMap() map[string]struct{} {
 	return varyByMap
 }
 
-func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string) {
-	test := getCompilerFileBasedTest(t, filename)
+func (r *CompilerBaselineRunner) runTest(t *testing.T, filename string, test *compilerFileBasedTest) {
 	basename := tspath.GetBaseFileName(filename)
 	if len(test.configurations) > 0 {
 		for _, config := range test.configurations {
@@ -187,18 +215,21 @@ type compilerFileBasedTest struct {
 	configurations []*harnessutil.NamedTestConfiguration
 }
 
-func getCompilerFileBasedTest(t *testing.T, filename string) *compilerFileBasedTest {
+func getCompilerFileBasedTest(filename string) (*compilerFileBasedTest, error) {
 	content, ok := osvfs.FS().ReadFile(filename)
 	if !ok {
 		panic("Could not read test file: " + filename)
 	}
 	settings := extractCompilerSettings(content)
-	configurations := harnessutil.GetFileBasedTestConfigurations(t, settings, compilerVaryBy)
+	configurations, err := harnessutil.GetFileBasedTestConfigurations(settings, compilerVaryBy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get configurations for %s: %w", filename, err)
+	}
 	return &compilerFileBasedTest{
 		filename:       filename,
 		content:        content,
 		configurations: configurations,
-	}
+	}, nil
 }
 
 type compilerTest struct {

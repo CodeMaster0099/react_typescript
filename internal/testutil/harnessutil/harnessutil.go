@@ -1,6 +1,7 @@
 package harnessutil
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"iter"
@@ -29,6 +30,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/tspath"
 	"github.com/microsoft/typescript-go/internal/vfs"
 	"github.com/microsoft/typescript-go/internal/vfs/vfstest"
+	"gotest.tools/v3/assert"
 )
 
 // Posix-style path to additional test libraries
@@ -246,7 +248,8 @@ func setOptionsFromTestConfig(t *testing.T, testConfig TestConfiguration, compil
 
 		commandLineOption := getCommandLineOption(name)
 		if commandLineOption != nil {
-			parsedValue := getOptionValue(t, commandLineOption, value)
+			parsedValue, err := getOptionValue(commandLineOption, value)
+			assert.NilError(t, err)
 			errors := tsoptions.ParseCompilerOptions(commandLineOption.Name, parsedValue, compilerOptions)
 			if len(errors) > 0 {
 				t.Fatalf("Error parsing value '%s' for compiler option '%s'.", value, commandLineOption.Name)
@@ -255,7 +258,8 @@ func setOptionsFromTestConfig(t *testing.T, testConfig TestConfiguration, compil
 		}
 		harnessOption := getHarnessOption(name)
 		if harnessOption != nil {
-			parsedValue := getOptionValue(t, harnessOption, value)
+			parsedValue, err := getOptionValue(harnessOption, value)
+			assert.NilError(t, err)
 			parseHarnessOption(t, harnessOption.Name, parsedValue, harnessOptions)
 			continue
 		}
@@ -389,41 +393,41 @@ func parseHarnessOption(t *testing.T, key string, value any, options *HarnessOpt
 
 var deprecatedModuleResolution []string = []string{"node", "classic", "node10"}
 
-func getOptionValue(t *testing.T, option *tsoptions.CommandLineOption, value string) tsoptions.CompilerOptionsValue {
+func getOptionValue(option *tsoptions.CommandLineOption, value string) (tsoptions.CompilerOptionsValue, error) {
 	switch option.Kind {
 	case tsoptions.CommandLineOptionTypeString:
-		return value
+		return value, nil
 	case tsoptions.CommandLineOptionTypeNumber:
 		numVal, err := strconv.Atoi(value)
 		if err != nil {
-			t.Fatalf("Value for option '%s' must be a number, got: %v", option.Name, value)
+			return nil, fmt.Errorf("Value for option '%s' must be a number, got: %v", option.Name, value)
 		}
-		return numVal
+		return numVal, nil
 	case tsoptions.CommandLineOptionTypeBoolean:
 		switch strings.ToLower(value) {
 		case "true":
-			return true
+			return true, nil
 		case "false":
-			return false
+			return false, nil
 		default:
-			t.Fatalf("Value for option '%s' must be a boolean, got: %v", option.Name, value)
+			return nil, fmt.Errorf("Value for option '%s' must be a boolean, got: %v", option.Name, value)
 		}
 	case tsoptions.CommandLineOptionTypeEnum:
 		enumVal, ok := option.EnumMap().Get(strings.ToLower(value))
 		if !ok {
-			t.Fatalf("Value for option '%s' must be one of %s, got: %v", option.Name, strings.Join(slices.Collect(option.EnumMap().Keys()), ","), value)
+			return nil, fmt.Errorf("Value for option '%s' must be one of %s, got: %v", option.Name, strings.Join(slices.Collect(option.EnumMap().Keys()), ","), value)
 		}
-		return enumVal
+		return enumVal, nil
 	case tsoptions.CommandLineOptionTypeList, tsoptions.CommandLineOptionTypeListOrElement:
 		listVal, errors := tsoptions.ParseListTypeOption(option, value)
 		if len(errors) > 0 {
-			t.Fatalf("Unknown value '%s' for compiler option '%s'", value, option.Name)
+			return nil, fmt.Errorf("Error parsing value '%s' for compiler option '%s': %v", value, option.Name, errors)
 		}
-		return listVal
+		return listVal, nil
 	case tsoptions.CommandLineOptionTypeObject:
-		t.Fatalf("Object type options like '%s' are not supported", option.Name)
+		return nil, fmt.Errorf("Object type options like '%s' are not supported", option.Name)
 	}
-	return nil
+	return nil, nil
 }
 
 type cachedCompilerHost struct {
@@ -833,17 +837,20 @@ func getFileBasedTestConfigurationDescription(config TestConfiguration) string {
 	return output.String()
 }
 
-func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, varyByOptions map[string]struct{}) []*NamedTestConfiguration {
+func GetFileBasedTestConfigurations(settings map[string]string, varyByOptions map[string]struct{}) ([]*NamedTestConfiguration, error) {
 	var optionEntries [][]string // Each element slice has the option name as the first element, and the values as the rest
 	variationCount := 1
 	nonVaryingOptions := make(map[string]string)
 	for option, value := range settings {
 		if _, ok := varyByOptions[option]; ok {
-			entries := splitOptionValues(t, value, option)
+			entries, err := splitOptionValues(value, option)
+			if err != nil {
+				return nil, err
+			}
 			if len(entries) > 1 {
 				variationCount *= len(entries)
 				if variationCount > 25 {
-					t.Fatal("Provided test options exceeded the maximum number of variations")
+					return nil, errors.New("Provided test options exceeded the maximum number of variations")
 				}
 				optionEntries = append(optionEntries, append([]string{option}, entries...))
 			} else if len(entries) == 1 {
@@ -868,7 +875,7 @@ func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, va
 		// Only non-varying options
 		configurations = append(configurations, &NamedTestConfiguration{"", nonVaryingOptions})
 	}
-	return configurations
+	return configurations, nil
 }
 
 // Splits a string value into an array of strings, each corresponding to a unique value for the given option.
@@ -880,9 +887,9 @@ func GetFileBasedTestConfigurations(t *testing.T, settings map[string]string, va
 //	splitOptionValues("*, -true", "strict") => ["false"]
 //
 // ```
-func splitOptionValues(t *testing.T, value string, option string) []string {
+func splitOptionValues(value string, option string) ([]string, error) {
 	if len(value) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	star := false
@@ -903,7 +910,7 @@ func splitOptionValues(t *testing.T, value string, option string) []string {
 	}
 
 	if len(includes) == 0 && !star && len(excludes) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Dedupe the variations by their normalized values
@@ -911,7 +918,10 @@ func splitOptionValues(t *testing.T, value string, option string) []string {
 
 	// add (and deduplicate) all included entries
 	for _, include := range includes {
-		value := getValueOfOptionString(t, option, include)
+		value, err := getValueOfOptionString(option, include)
+		if err != nil {
+			return nil, err
+		}
 		if _, ok := variations[value]; !ok {
 			variations[value] = include
 		}
@@ -921,7 +931,10 @@ func splitOptionValues(t *testing.T, value string, option string) []string {
 	if star && len(allValues) > 0 {
 		// add all entries
 		for _, include := range allValues {
-			value := getValueOfOptionString(t, option, include)
+			value, err := getValueOfOptionString(option, include)
+			if err != nil {
+				return nil, err
+			}
 			if _, ok := variations[value]; !ok {
 				variations[value] = include
 			}
@@ -930,26 +943,29 @@ func splitOptionValues(t *testing.T, value string, option string) []string {
 
 	// remove all excluded entries
 	for _, exclude := range excludes {
-		value := getValueOfOptionString(t, option, exclude)
+		value, err := getValueOfOptionString(option, exclude)
+		if err != nil {
+			return nil, err
+		}
 		delete(variations, value)
 	}
 
 	if len(variations) == 0 {
 		panic(fmt.Sprintf("Variations in test option '@%s' resulted in an empty set.", option))
 	}
-	return slices.Collect(maps.Values(variations))
+	return slices.AppendSeq(make([]string, 0, len(variations)), maps.Values(variations)), nil
 }
 
-func getValueOfOptionString(t *testing.T, option string, value string) tsoptions.CompilerOptionsValue {
+func getValueOfOptionString(option string, value string) (tsoptions.CompilerOptionsValue, error) {
 	optionDecl := getCommandLineOption(option)
 	if optionDecl == nil {
-		t.Fatalf("Unknown option '%s'", option)
+		return nil, fmt.Errorf("Unknown option '%s'", option)
 	}
 	// TODO(gabritto): remove this when we deprecate the tests containing those option values
 	if optionDecl.Name == "moduleResolution" && slices.Contains(deprecatedModuleResolution, strings.ToLower(value)) {
-		return value
+		return value, nil
 	}
-	return getOptionValue(t, optionDecl, value)
+	return getOptionValue(optionDecl, value)
 }
 
 func getCommandLineOption(option string) *tsoptions.CommandLineOption {
